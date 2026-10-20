@@ -1,51 +1,71 @@
-# UI prototype — 2026-10-20
+# Pinned-note clients — local preview status
 
-## Implemented and checked
+The approved website is now the shared presentation for Windows and macOS.
+Current behavior and build/run commands are documented in the root README;
+platform acceptance cases are in `docs/native-testing.md`.
 
-- Static Next.js website, all six requested locale routes, localized metadata.
-- Original local SVG sample imagery; no third-party image/font requests.
-- Working rail demo: add image / text samples, copy real PNG / text, remove,
-  bounded fragment animation, eight-item first page, overflow, reset, empty state.
-- Keyboard navigation, deletion focus recovery, reduced-motion handling.
-- Mobile layouts verified at 390px across six languages.
-- Native .NET 10 WPF preview: fully hidden idle window, full-width single-row
-  edge reveal, delayed dismissal, tray, global reveal shortcut,
-  manual file import and one-shot clipboard paste, text/image copy, OLE file
-  drag source, local remove animation, locale picker.
-- Native self-test: six-locale rebuild, export round trip, collapse/expand,
-  eight-item limit and overflow, removal semantics, oversized text, empty state.
-- CI configuration for website build + browser tests and Windows compilation.
+## Implemented
 
-## Validation evidence
+- Offline shared React/CSS cards and the exact website appearance editor.
+- Paper/Card skins, pins, sizes, colors, embedded artwork and strict JSON checks.
+- Active-file and directory hot reload, including in-place writes and atomic
+  replacement; invalid edits retain the current style and a last-good recovery.
+- 500 ms physical top-edge dwell, 450 ms departure grace, entry/exit transitions,
+  keyboard opening and global capture shortcuts, native menu/tray commands.
+- Session-owned PNG/TXT exports, full native clipboard payloads, real capture
+  selectors, explicit clipboard paste, file import, text composer and drag source.
+- Continuous horizontally scrolling mixed notes with no eight/sixteen-item limit,
+  immediate layout removal, keyboard controls and bounded pixel feedback.
+- Display-assigned notes, monitor-aware placement and reduced-motion integration.
+- Cached thumbnails and incremental item/skin messages; full image files are not
+  resent on every UI update or kept in the Windows item model as full bitmaps.
+- Platform-separated sources and build scripts; CI builds macOS/Windows artifacts.
+- Newly saved system screenshot intake on Mac, new clipboard image intake on
+  both platforms, persistent menu/tray switches and own-copy suppression.
+- Mac Dock icon/reopen action, inactive-window hover highlighting and first-click
+  copying; screenshot files and the clipboard present at launch are ignored.
+- Right-click Settings with screenshot intake and two editable global shortcuts,
+  persistent preferences, OS conflict rollback, recording-time pause/resume and
+  selected-text capture (Mac Accessibility / Windows UI Automation or fresh Copy).
 
-- `npm run build`: static generation succeeds for six locale pages.
-- `npx playwright test`: 12 browser tests pass, including edge dwell, pointer
-  dismissal, non-activating reveal, keyboard language menu, PNG/text clipboard
-  payloads and denied-permission feedback.
-- Desktop build: zero warnings, zero errors.
-- Desktop `--smoke-test`: 19 checks pass, exit code 0.
-- Rendered evidence is in `artifacts/qa` and `artifacts/qa-v2`.
+## Verified on this Mac
 
-## Boundaries
+- Production website export and the original 51 browser checks pass. Seven checks now target
+  the offline native bundle, host commands, artwork/export and incremental state.
+- Six Swift core check groups pass with Command Line Tools, without XCTest.
+- The packaged, ad-hoc-signed Apple Silicon `.app` includes native checks for:
+  no pointer activation; native text and original-PNG writing to a named test
+  pasteboard; export survival after removal; 21 notes; actual in-place and atomic
+  filesystem reload; invalid-edit retention; offline WKWebView appearance editor.
+  Additional checks cover native hover/first-click copying, screenshot metadata
+  arrival after file creation, new clipboard-only images, duplicate suppression,
+  self-copy exclusion, intake disabling and preserving notes during a local update.
+  Settings checks cover actual WKWebView controls and native persistence, complete
+  selected-text payloads, and actual Carbon shortcut conflicts/registration rollback.
+- Packaged app resources and code signature checked. The packaged smoke test
+  caught a relative bundle-resource URL problem, which is fixed and rechecked.
+- Native rendered screenshots: `artifacts/qa/macos-packaged/macos-notes.png`
+  and `macos-appearance.png`; detailed results in `macos-smoke.txt`.
+- Windows skin checks pass on the Mac .NET SDK, including real FileSystemWatcher
+  changes and recovery of the last good skin after restart.
+- Windows x64 self-contained publish produces a PE GUI exe and complete runtime
+  directory. This is compilation evidence, not Windows GUI acceptance.
 
-The native preview uses WPF rendering, not the planned DirectComposition /
-Direct3D implementation. This does not replace ADR 0001. Screenshot listeners,
-complete capture suppression, independent multi-display overlays and performance gates
-remain outstanding. External application drag/drop compatibility and real
-screen-reader operation still need manual validation.
+## Still requires physical-machine acceptance
 
-Neither the website nor the native prototype is a signed public release. There
-is no live domain, installer, update channel, checksum publication or release
-history yet. The static site can be deployed after these release inputs exist.
+- User-selected screenshot capture permission/selection/cancellation on macOS.
+- Selected-text hotkeys in third-party editors/browsers, first-use Mac Accessibility
+  permission and unsupported selection providers; isolated tests never grant this
+  permission, read another app's selection or inject Copy into the user's apps.
+- Cross-application file drops in Finder/Explorer, chat and document applications.
+- Full keyboard/screen-reader operation, full-screen transitions, different
+  monitor arrangements/DPI, hotplug and sleep/wake.
+- Windows transparency/WebView2 Composition behavior and region selection.
+- Idle CPU/memory and high-refresh/p95 frame timing. The old 144 Hz/8.3 ms gate
+  has not been declared satisfied. WebView2 Composition can have different frame
+  timing from the standard control and must be measured on Windows.
 
-## Design review
-
-The frontend-design pass concentrates the pixel language in rail indicators,
-the small mark and removal fragments; content remains sharp. The actual browser
-review reduced hero whitespace so the rail is visible sooner. Reusable desktop
-and mobile screenshots are captured by the browser tests.
-
-The native preview now uses a 124-DIP row (previously 294), without a persistent
-counter, header or toolbar. Language lives in the tray; manual paste/sample
-operations live in the overflow menu. Normal launch starts empty and hidden.
-Final renderer finish and full native edge-gesture validation still remain.
+There is no public installer, Developer ID/notarized release, auto-start setting,
+update service, account or cloud store. Automatic screenshot/image intake can be
+disabled from the native menu; it never initiates screen recording or captures.
+Normal clients start empty and hidden; test samples are isolated from user data.

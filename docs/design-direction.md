@@ -1,3 +1,11 @@
+# Historical pixel-rail exploration
+
+Archived. The approved pinned-note direction is documented in
+`apps/website/DESIGN.md` and `docs/adr/0024-native-notes-parity.md`.
+The colors, composition and overflow behavior below are not the current contract.
+
+---
+
 # SnapSlot implementation direction
 
 The website introduces a local Windows capture inbox. Its primary job is to let

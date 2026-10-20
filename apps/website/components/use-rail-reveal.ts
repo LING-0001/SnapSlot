@@ -3,12 +3,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 /** Web-only pointer geometry. Never observes the OS pointer outside the page. */
-export function useRailReveal() {
-  const [expanded, setExpanded] = useState(false);
+export function useRailReveal(initialExpanded = false) {
+  const [expanded, setExpanded] = useState(initialExpanded);
   const desktop = useRef<HTMLDivElement>(null);
   const rail = useRef<HTMLDivElement>(null);
   const handle = useRef<HTMLButtonElement>(null);
-  const open = useRef(false);
+  const open = useRef(initialExpanded);
+  // Initial visibility showcases the cards; only an explicit action pins them.
   const pinned = useRef(false);
   const inside = useRef(false);
   const peekUntil = useRef(0);
@@ -44,6 +45,7 @@ export function useRailReveal() {
     setExpanded(true);
   }, [cancelHover, cancelDismiss]);
   const peek = useCallback(() => {
+    pinned.current = false;
     peekUntil.current = Date.now() + 2500;
     reveal();
     leave();
@@ -73,7 +75,7 @@ export function useRailReveal() {
         const crossed = across && previous && previous.x >= bounds.left && previous.x <= bounds.right
           && previous.y >= bounds.top && previous.y <= bounds.bottom && y < bounds.top;
         if (near || crossed) {
-          if (!hover.current) hover.current = setTimeout(() => reveal(), 80);
+          if (!hover.current) hover.current = setTimeout(() => reveal(), 500);
         } else if (!(hover.current && inside.current && previous && y < previous.y)) {
           cancelHover();
         }

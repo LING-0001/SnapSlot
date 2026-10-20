@@ -1,8 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
 import { edgeHints, localeNames, locales, type Locale, type Messages } from "@/lib/messages";
 import { useRailReveal } from "./use-rail-reveal";
+import { builtInSkins, isSameSkin, skinStyle, type Skin } from "@/lib/skin";
+import { siteCopy } from "@/lib/site-copy";
+import { SkinEditor, SkinPreview } from "./skin-editor";
+import { SampleArtwork } from "./sample-artwork";
+import { UsageGuide } from "./usage-guide";
 
 type Card = { id: number; kind: "image" | "text"; art: string; name: string };
 function Symbol({ kind, size = 20 }: { kind: string; size?: number }) {
@@ -14,17 +19,18 @@ function Symbol({ kind, size = 20 }: { kind: string; size?: number }) {
     copy: <><path d="M8 8h12v12H8zM4 16V4h12"/></>,
     reset: <><path d="M4 10a8 8 0 1 1 1 8M4 4v6h6"/></>,
     close: <path d="m6 6 12 12M6 18 18 6"/>,
+    check: <path d="m5 12 4 4L19 6"/>,
     shield: <><path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6z"/><path d="m8 12 3 3 5-6"/></>,
     chevron: <path d="m7 10 5 5 5-5"/>,
     windows: <><path d="M3 4h8v8H3zm10 0h8v8h-8zM3 14h8v8H3zm10 0h8v8h-8z" fill="currentColor" stroke="none"/></>,
+    palette: <><path d="M12 3a9 9 0 1 0 0 18h1a2 2 0 0 0 0-4h-.6a1.4 1.4 0 0 1 0-2.8H15a6 6 0 0 0 6-6c0-3.3-4-5.2-9-5.2Z"/><circle cx="7" cy="10" r=".8"/><circle cx="10" cy="7" r=".8"/><circle cx="15" cy="7" r=".8"/></>,
     globe: <><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18"/></>,
   };
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[kind]}</svg>;
 }
 function Brand({ small = false }: { small?: boolean }) {
-  return <span className={`brand ${small ? "small" : ""}`}><img src="/icon.svg" alt="" width="34" height="34" /><span>SnapSlot<span className="brand-period">.</span></span></span>;
+  return <span className={`brand ${small ? "small" : ""}`}><span className="brand-logo" aria-hidden="true"/><span>SnapSlot</span></span>;
 }
-function Lights() { return <span className="lights" aria-hidden="true"><i/><i/><i/><i/></span>; }
 
 function LanguagePicker({ locale, label }: { locale: Locale; label: string }) {
   const [open, setOpen] = useState(false);
@@ -57,47 +63,85 @@ function LanguagePicker({ locale, label }: { locale: Locale; label: string }) {
           if (e.key === "Home") { e.preventDefault(); move(0); }
           if (e.key === "End") { e.preventDefault(); move(locales.length - 1); }
           if (e.key === " ") { e.preventDefault(); e.currentTarget.click(); }
-        }}><span>{localeNames[l]}</span><span aria-hidden="true">{l === locale ? "✓" : ""}</span></a>)}
+        }}><span>{localeNames[l]}</span><span aria-hidden="true">{l === locale ? <span className="selected-mark" aria-hidden="true"/> : null}</span></a>)}
     </div>}
   </div>;
 }
 
-function RailDemo({ m, locale }: { m: Messages; locale: Locale }) {
+function RailDemo({ m, locale, skin, onCustomize, children }: { m: Messages; locale: Locale; skin: Skin; onCustomize: () => void; children: ReactNode }) {
+  const labels = siteCopy[locale];
   const seed = (): Card[] => [
     { id: 1, kind: "image", art: "/mountains.svg", name: m.sampleImage },
     { id: 2, kind: "text", art: "", name: m.sampleText },
     { id: 3, kind: "image", art: "/studio.svg", name: m.samplePhoto },
   ];
   const [cards, setCards] = useState<Card[]>(seed);
-  const { expanded, desktop, rail, handle, reveal, collapse, peek, pin, unpin } = useRailReveal();
-  const [overflow, setOverflow] = useState(false);
-  const [deleting, setDeleting] = useState<number[]>([]);
+  const { expanded, desktop, rail, handle, reveal, collapse, peek, pin, unpin } = useRailReveal(true);
+  const [removals, setRemovals] = useState<{ id: number; x: number; y: number; width: number; height: number }[]>([]);
   const [status, setStatus] = useState("");
   const [arrival, setArrival] = useState<number | null>(null);
   const nextId = useRef(4);
   const timers = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
   const copyButtons = useRef<Map<number, HTMLButtonElement>>(new Map());
-  const pageCards = overflow ? cards.slice(8) : cards.slice(0, 8);
+  const rowRef = useRef<HTMLDivElement>(null);
+  const positions = useRef<Map<string, number> | null>(null);
+  const motion = useRef<Animation[]>([]);
+  const focusAfterRemoval = useRef<{ id?: number } | null>(null);
 
-  useEffect(() => () => { timers.current.forEach(clearTimeout); }, []);
-  useEffect(() => { if (cards.length <= 8) setOverflow(false); }, [cards.length]);
+  useLayoutEffect(() => {
+    const previous = positions.current;
+    positions.current = null;
+    motion.current.forEach((animation) => animation.cancel());
+    motion.current = [];
+    if (previous && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      rowRef.current?.querySelectorAll<HTMLElement>("[data-card]").forEach((element) => {
+        const before = previous.get(element.dataset.card!);
+        const delta = before === undefined ? 0 : before - element.getBoundingClientRect().left;
+        if (Math.abs(delta) > .5) motion.current.push(element.animate([
+          { transform: `translateX(${delta}px)` }, { transform: "translateX(0)" },
+        ], { duration: 180, easing: "cubic-bezier(.22,1,.36,1)" }));
+      });
+    }
+    if (focusAfterRemoval.current) {
+      const next = focusAfterRemoval.current.id;
+      (next === undefined ? handle.current : copyButtons.current.get(next) || handle.current)?.focus({ preventScroll: true });
+      focusAfterRemoval.current = null;
+    }
+  }, [cards, handle]);
+
+  useEffect(() => () => { timers.current.forEach(clearTimeout); motion.current.forEach((animation) => animation.cancel()); }, []);
+  useEffect(() => {
+    const row = rowRef.current;
+    if (!row) return;
+    // Keep trackpad/touch scrolling native. A plain mouse wheel moves the row
+    // only while it has room in that direction; at either end the page scrolls.
+    const wheel = (event: WheelEvent) => {
+      if (event.ctrlKey || event.shiftKey || Math.abs(event.deltaX) >= Math.abs(event.deltaY)) return;
+      const delta = event.deltaY * (event.deltaMode === 1 ? 20 : event.deltaMode === 2 ? row.clientWidth : 1);
+      const maximum = row.scrollWidth - row.clientWidth;
+      if ((delta > 0 && row.scrollLeft < maximum - 1) || (delta < 0 && row.scrollLeft > 1)) {
+        event.preventDefault();
+        row.scrollLeft += delta;
+      }
+    };
+    row.addEventListener("wheel", wheel, { passive: false });
+    return () => row.removeEventListener("wheel", wheel);
+  }, []);
   useEffect(() => {
     if (!expanded || !arrival) return;
     const row = rail.current?.querySelector<HTMLDivElement>(".slot-row");
     const card = row?.querySelector<HTMLElement>(`[data-card="${arrival}"]`);
     if (row && card) row.scrollLeft = Math.max(0, card.offsetLeft - row.clientWidth + card.offsetWidth + 24);
-  }, [expanded, overflow, arrival, rail]);
+  }, [expanded, arrival, rail]);
   function later(fn: () => void, ms: number) {
     const timer = setTimeout(() => { timers.current.delete(timer); fn(); }, ms);
     timers.current.add(timer);
   }
   function add(kind: "image" | "text") {
-    if (cards.length >= 16) { setStatus(m.limit); return; }
     const id = nextId.current++;
     const card: Card = { id, kind, art: id % 2 ? "/studio.svg" : "/mountains.svg", name: kind === "text" ? m.sampleText : m.sampleImage };
     setCards((old) => [...old, card]);
     setArrival(id);
-    setOverflow(cards.length >= 8);
     setStatus("");
     peek();
     later(() => setArrival((current) => current === id ? null : current), 2500);
@@ -105,7 +149,9 @@ function RailDemo({ m, locale }: { m: Messages; locale: Locale }) {
   function reset() {
     timers.current.forEach(clearTimeout); timers.current.clear();
     collapse();
-    setCards(seed()); nextId.current = 4; setDeleting([]); setOverflow(false); setArrival(null); setStatus("");
+    positions.current = null; focusAfterRemoval.current = null;
+    setCards(seed()); nextId.current = 4; setRemovals([]); setArrival(null); setStatus("");
+    if (rowRef.current) rowRef.current.scrollLeft = 0;
   }
   async function copy(card: Card) {
     try {
@@ -131,73 +177,81 @@ function RailDemo({ m, locale }: { m: Messages; locale: Locale }) {
     } catch { setStatus(m.copyFailed); }
   }
   function remove(card: Card) {
-    if (deleting.includes(card.id)) return;
+    if (!cards.some((item) => item.id === card.id)) return;
     const active = document.activeElement;
     const focusWasInCard = active?.closest(`[data-card="${card.id}"]`) != null;
-    const neighbor = pageCards.find((c) => c.id !== card.id && !deleting.includes(c.id));
-    setDeleting((old) => [...old, card.id]);
-    later(() => {
-      setCards((old) => old.filter((c) => c.id !== card.id));
-      setDeleting((old) => old.filter((id) => id !== card.id));
-      setStatus(m.removed);
-      if (focusWasInCard) {
-        const target = neighbor && copyButtons.current.get(neighbor.id);
-        (target || handle.current)?.focus();
-      }
-    }, window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 50 : 560);
+    const position = cards.findIndex((item) => item.id === card.id);
+    const neighbor = cards[position + 1] || cards[position - 1];
+    positions.current = new Map(Array.from(rowRef.current?.querySelectorAll<HTMLElement>("[data-card]") || [])
+      .map((element) => [element.dataset.card!, element.getBoundingClientRect().left]));
+    if (focusWasInCard) focusAfterRemoval.current = { id: neighbor?.id };
+    const element = rowRef.current?.querySelector<HTMLElement>(`[data-card="${card.id}"]`);
+    if (element && rowRef.current && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      const bounds = element.getBoundingClientRect(), rowBounds = rowRef.current.getBoundingClientRect();
+      setRemovals((old) => [...old, { id: card.id, x: bounds.left - rowBounds.left + rowRef.current!.scrollLeft, y: bounds.top - rowBounds.top, width: bounds.width, height: bounds.height }]);
+      later(() => setRemovals((old) => old.filter((item) => item.id !== card.id)), 180);
+    }
+    setCards((old) => old.filter((c) => c.id !== card.id));
+    setStatus(m.removed);
   }
   function key(event: KeyboardEvent, card: Card, index: number) {
     if (event.key === "Delete") { event.preventDefault(); remove(card); }
     if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
       event.preventDefault();
       const delta = event.key === "ArrowRight" ? 1 : -1;
-      const next = pageCards[(index + delta + pageCards.length) % pageCards.length];
+      const next = cards[(index + delta + cards.length) % cards.length];
       copyButtons.current.get(next.id)?.focus();
     }
   }
   return <>
-    <div className="demo-meta"><span>{edgeHints[locale]}</span><span className="demo-version">SNAPSLOT</span></div>
-    <div ref={desktop} className="desktop" onKeyDown={(e) => { if (e.key === "Escape") { e.preventDefault(); collapse(true); } }}>
-      <div className="wallpaper"><div className="wallpaper-sun"/><div className="wallpaper-hill back"/><div className="wallpaper-hill front"/></div>
-      <div className="desktop-note" aria-hidden="true"><span className="note-pin"/><span className="tiny-caps">{m.sample} / SNAPSLOT</span><strong>{m.desktopTitle}</strong><span>{m.desktopText}</span><div className="note-rule"/><Lights/></div>
-      <div ref={rail} className={`rail ${expanded ? "expanded" : "collapsed"}`}
+    <div className="demo-meta"><span>{labels.demo}</span><span>{labels.hint}</span></div>
+    <div ref={desktop} style={skinStyle(skin)} className="desktop" onKeyDown={(e) => { if (e.key === "Escape") { e.preventDefault(); collapse(true); } }}>
+      <p className="desktop-instruction">{edgeHints[locale]}</p>
+      <div ref={rail} data-ui="notes-demo" className={`rail ${expanded ? "expanded" : "collapsed"}`}
         onKeyDown={pin}
         onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) unpin(); }}>
-        <div id="rail-items" className="rail-drawer" hidden={!expanded}>
+        <div id="rail-items" className="rail-drawer" inert={!expanded} aria-hidden={!expanded}>
           <button className="rail-dismiss" onClick={() => collapse(true)} aria-label={m.collapse}><Symbol kind="chevron" size={16}/></button>
-          <div className="slot-row" role="group" aria-label={m.demoLabel}>
-            {pageCards.map((card, index) => <div key={card.id} data-card={card.id} className={`capture-card ${card.kind} ${arrival === card.id ? "just-added" : ""} ${deleting.includes(card.id) ? "dissolving" : ""}`}>
-              <div className="card-anchor" aria-hidden="true"/>
+          <div ref={rowRef} className="slot-row" role="group" aria-label={m.demoLabel}>
+            {cards.map((card, index) => <div key={card.id} data-card={card.id} className={`capture-card ${card.kind} ${arrival === card.id ? "just-added" : ""}`}>
+              <span className="card-pin" aria-hidden="true"><i/><b/></span>
               <button className="card-copy" ref={(el) => { if (el) copyButtons.current.set(card.id, el); else copyButtons.current.delete(card.id); }}
-                onKeyDown={(e) => key(e, card, index)} onClick={() => copy(card)} disabled={deleting.includes(card.id)} aria-label={`${m.copy}: ${card.name}`}>
-                {card.kind === "image" ? <img src={card.art} alt={card.name} draggable={false}/> :
-                  <div className="text-preview"><span className="text-tag">Aa</span><strong>{m.noteTitle}</strong>{m.noteLines.map((line) => <p key={line}>{line}</p>)}</div>}
+                onKeyDown={(e) => key(e, card, index)} onClick={() => copy(card)} aria-label={`${m.copy}: ${card.name}`}>
+                {card.kind === "image" ? <SampleArtwork src={card.art} label={card.name}/> :
+                  <div className="text-preview"><strong>{m.noteTitle}</strong>{m.noteLines.map((line) => <p key={line}>{line}</p>)}</div>}
                 <span className="copy-overlay"><Symbol kind="copy" size={16}/>{m.copy}</span>
               </button>
               <div className="card-caption"><span>{card.name}</span><span className="card-type">{card.kind === "text" ? "TXT" : "PNG"}</span></div>
-              <button className="card-remove" onClick={() => remove(card)} disabled={deleting.includes(card.id)} aria-label={`${m.remove}: ${card.name}`}><Symbol kind="close" size={12}/></button>
-              {deleting.includes(card.id) && <div className="fragments" aria-hidden="true">{Array.from({ length: 24 }, (_, i) =>
-                <i key={i} style={{ "--x": `${(i % 6) * 18}%`, "--y": `${Math.floor(i / 6) * 24}%`, "--delay": `${(i % 5) * 13}ms`, "--fragment": ["#eabd42", "#a7c8ae", "#f6f4ed", "#6e96ad"][i % 4] } as CSSProperties}/>)}</div>}
+              <button className="card-remove" onClick={() => remove(card)} aria-label={`${m.remove}: ${card.name}`}><Symbol kind="close" size={12}/></button>
             </div>)}
+            {removals.map((item) => <div key={item.id} className="fragments" aria-hidden="true" style={{ left: item.x, top: item.y, width: item.width, height: item.height }}>{Array.from({ length: 12 }, (_, i) =>
+              <i key={i} style={{ "--x": `${(i % 4) * 28}%`, "--y": `${Math.floor(i / 4) * 34}%`, "--fragment": ["#eabd42", "#a7c8ae", "#f6f4ed", "#6e96ad"][i % 4] } as CSSProperties}/>)}</div>)}
             {cards.length === 0 && <button className="empty-slot" onClick={() => add("image")}><Symbol kind="camera" size={28}/><span>{m.empty}</span></button>}
-            {cards.length > 8 && <button className="overflow-slot" onClick={() => setOverflow(!overflow)}><span>{overflow ? "←" : `+${cards.length - 8}`}</span>{overflow ? m.less : m.more}</button>}
           </div>
         </div>
       </div>
-      <div className="desktop-corner" aria-hidden="true"><span className="pixel-cross"/><span>{m.local}<br/>{m.noAccount}</span></div>
-      <div className="taskbar" aria-hidden="true"><span className="taskbar-app"><Symbol kind="windows" size={18}/></span><span className="taskbar-folder"/><span className="taskbar-browser"/><img src="/icon.svg" width="23" height="23" alt=""/><span className="taskbar-clock">10:24</span></div>
-    </div>
-    <div className="demo-controls">
-      <div className="capture-actions"><button className="button capture-button" onClick={() => add("image")}><Symbol kind="camera"/>{m.addImage}<span className="keycap" aria-hidden="true">+</span></button><button className="button text-button" onClick={() => add("text")}><Symbol kind="text"/>{m.addText}</button></div>
+      {children}
+      <div className="desktop-footer">
+    <div className="demo-controls" data-ui="demo-toolbar">
+      <div className="capture-actions"><button className="button capture-button" aria-label={m.addImage} title={m.addImage} onClick={() => add("image")}><Symbol kind="camera"/><span className="control-label">{m.addImage}</span></button><button className="button text-button" aria-label={m.addText} title={m.addText} onClick={() => add("text")}><Symbol kind="text"/><span className="control-label">{m.addText}</span></button></div>
       <div className="demo-utilities">
-        <button ref={handle} className="reveal-button" aria-expanded={expanded} aria-controls="rail-items"
-          onClick={() => expanded ? collapse() : reveal(true)}>{expanded ? m.collapse : m.expand}<Symbol kind="chevron" size={14}/></button>
-        <button className="reset-button" onClick={reset}><Symbol kind="reset" size={16}/>{m.reset}</button>
+        <button ref={handle} className="reveal-button" aria-expanded={expanded} aria-controls="rail-items" aria-label={expanded ? m.collapse : m.expand} title={expanded ? m.collapse : m.expand}
+          onClick={() => expanded ? collapse() : reveal(true)}><span className="control-label toggle-labels" aria-hidden="true"><span className={expanded ? "inactive" : ""}>{m.expand}</span><span className={expanded ? "" : "inactive"}>{m.collapse}</span></span><Symbol kind="chevron" size={16}/></button>
+        <button className="reset-button" aria-label={m.reset} title={m.reset} onClick={reset}><Symbol kind="reset" size={18}/><span className="control-label">{m.reset}</span></button>
+        <button className="appearance-trigger" aria-haspopup="dialog" aria-label={labels.customize} title={labels.customize} onClick={onCustomize}><Symbol kind="palette" size={18}/><span className="control-label">{labels.nav[1]}</span></button>
       </div>
     </div>
     <div className="demo-feedback">
       <p role="status" aria-live="polite" aria-atomic="true">{status || m.demoNote}</p>
       <p className="sr-only">{m.keyboard}</p>
+    </div>
+    <div className="desktop-dock" data-ui="desktop-dock">
+      <span className="dock-app dock-files" aria-hidden="true"><svg viewBox="0 0 48 48"><path d="M7 12h13l4 5h17v23H7z" fill="#fff" opacity=".45"/><path d="M6 21h36l-4 20H10z" fill="#fff"/></svg></span>
+      <span className="dock-app dock-browser" aria-hidden="true"><svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="16" fill="#fff"/><circle cx="24" cy="24" r="12" fill="#8ed3fa"/><path d="m30 14-3 14-10 7 4-14z" fill="#1764c0"/><path d="m30 14-9 7 6 7z" fill="#ed6a5b"/></svg></span>
+      <button className="dock-app dock-snapslot" aria-label="SnapSlot" title="SnapSlot" onClick={() => reveal(true)}><span className="app-symbol" aria-hidden="true"/><span className="dock-tooltip">SnapSlot</span><i aria-hidden="true"/></button>
+      <span className="dock-app dock-notes" aria-hidden="true"><svg viewBox="0 0 48 48"><rect x="8" y="7" width="32" height="35" rx="5" fill="#fff"/><path d="M8 12a5 5 0 0 1 5-5h22a5 5 0 0 1 5 5v6H8z" fill="#ffd56b"/><path d="M15 25h18M15 31h18M15 37h12" stroke="#bccada" strokeWidth="2"/></svg></span>
+    </div>
+      </div>
     </div>
   </>;
 }
@@ -220,34 +274,46 @@ function BackToTop({ label }: { label: string }) {
 }
 
 export function Home({ locale, m }: { locale: Locale; m: Messages }) {
+  const copy = siteCopy[locale];
+  const [skin, setSkin] = useState<Skin>(builtInSkins[0]);
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [usageOpen, setUsageOpen] = useState(false);
   return <>
-    <header className="site-header" id="top" tabIndex={-1}>
-      <a className="home-link" href={`/${locale}/`} aria-label="SnapSlot"><Brand/>{m.name && <span className="chinese-name">{m.name}</span>}</a>
-      <nav aria-label={m.nav.join(" / ")}><a href="#playground">{m.nav[0]}</a><a href="#how">{m.nav[1]}</a><a href="#download">{m.nav[2]}</a></nav>
+    <a className="skip-link" href="#main">{copy.skip}</a>
+    <header className="site-header page-width" id="top" tabIndex={-1}>
+      <a className="home-link" href={`/${locale}/`} aria-label="SnapSlot"><Brand/>{locale.startsWith("zh") && <span className="chinese-name">{locale === "zh-Hans" ? "快照贴" : "快照貼"}</span>}</a>
+      <nav aria-label={[copy.usageNav, ...copy.nav.slice(1)].join(" / ")}><button className="usage-nav" aria-haspopup="dialog" onClick={() => setUsageOpen(true)}>{copy.usageNav}</button><a href="#skins">{copy.nav[1]}</a><a href="#about">{copy.nav[2]}</a></nav>
       <LanguagePicker locale={locale} label={m.language}/>
     </header>
-    <main>
+    <main id="main">
       <section className="hero">
-        <div className="hero-eyebrow"><Lights/><span>{m.eyebrow}</span></div>
-        <h1>{m.headline[0]}<br/><span>{m.headline[1]}</span><span className="headline-pixel" aria-hidden="true"/></h1>
-        <p className="hero-intro">{m.intro}</p>
-        <div className="hero-actions"><a href="#playground" className="button primary">{m.try}<Symbol kind="arrow" size={18}/></a><a href="#download" className="button secondary"><Symbol kind="windows" size={17}/>{m.download}</a></div>
-        <div className="hero-facts"><span>{m.platform}</span><span>{m.local}</span><span>{m.noAccount}</span></div>
+        <div className="scene-wallpaper" aria-hidden="true"/>
+        <div className="playground" id="playground"><RailDemo m={m} locale={locale} skin={skin} onCustomize={() => setEditorOpen(true)}><div className="hero-copy">
+          <h1>{copy.headline.join(" ")}</h1>
+          <div className="hero-description">
+            <p className="hero-intro">{copy.intro}</p>
+            <button className="usage-trigger" aria-haspopup="dialog" onClick={() => setUsageOpen(true)}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.5"/><path d="m10 8 6 4-6 4z" fill="currentColor"/></svg>{copy.usage}</button>
+          </div>
+        </div></RailDemo></div>
       </section>
-      <section className="playground page-width" id="playground" aria-label={m.try}><RailDemo m={m} locale={locale}/></section>
-      <section className="features page-width" id="how">
-        <div className="section-heading"><span className="section-mark" aria-hidden="true">⌑</span><h2>{m.featureHeading}</h2></div>
-        <div className="feature-grid">{m.features.map((feature, i) => <article key={feature.title}>
-          <div className={`feature-illustration illustration-${i}`} aria-hidden="true">
-            {i === 0 ? <div className="mini-rail"><Lights/><div className="mini-card"/></div> : i === 1 ? <div className="mini-pair"><span className="mini-picture">◒</span><span className="mini-text">Aa<span>━━<br/>━━━━</span></span></div> : <div className="mini-dissolve"><span/>{Array.from({ length: 8 }, (_, j) => <i key={j}/>)}</div>}
-          </div><h3>{feature.title}</h3><p>{feature.body}</p></article>)}</div>
+      <SkinEditor locale={locale} m={m} skin={skin} onChange={setSkin} open={editorOpen} onClose={() => setEditorOpen(false)}/>
+      <UsageGuide locale={locale} m={m} open={usageOpen} onClose={() => setUsageOpen(false)}/>
+      <section className="appearance-section page-width" id="skins">
+        <div className="appearance-heading"><h2 data-reveal>{copy.skinTitle.join(" ")}</h2><div><p data-reveal>{copy.skinIntro}</p><button className="customize-link" aria-haspopup="dialog" onClick={() => setEditorOpen(true)}>{copy.customize}<Symbol kind="arrow" size={18}/></button></div></div>
+        <div className="theme-options" data-ui="skin-selector" role="group" aria-label={copy.preview}>
+          {builtInSkins.map((preset, index) => <button key={preset.name} className={`theme-option ${isSameSkin(skin, preset) ? "selected" : ""}`} aria-label={index ? copy.card : copy.paper} aria-pressed={isSameSkin(skin, preset)} onClick={() => setSkin(preset)}>
+            <span className="theme-caption"><span className="theme-name">{index ? copy.card : copy.paper}<small>{index ? copy.cardDetail : copy.paperDetail}</small></span><span className="theme-choice"><Symbol kind="check" size={14}/><span>{copy.selected}</span></span></span>
+            <SkinPreview m={m} skin={preset} label={index ? copy.card : copy.paper}/>
+          </button>)}
+        </div>
       </section>
-      <section className="workflow page-width"><h2>{m.workflow}</h2><div className="steps">{m.steps.map((step, i) => <article key={step.title}><span className="step-number">0{i + 1}</span><div><h3>{step.title}</h3><p>{step.body}</p></div></article>)}</div></section>
-      <section className="privacy page-width"><div className="privacy-emblem" aria-hidden="true"><Symbol kind="shield" size={56}/><span className="privacy-pixel"/></div><div><h2>{m.privacyTitle}</h2><p>{m.privacyBody}</p><div className="privacy-tags">{m.privacyTags.map((tag) => <span key={tag}><i/>{tag}</span>)}</div></div></section>
-      <section className="release page-width" id="download"><div className="release-logo"><img src="/icon.svg" alt="" width="86" height="86"/></div><span className="release-label">{m.releaseLabel}</span><h2>{m.releaseTitle}</h2><p>{m.releaseBody}</p><span className="release-pending"><Symbol kind="windows" size={18}/>{m.releaseStatus}<span className="pending-dot"/></span><small>{m.releaseMeta}</small></section>
-      <section className="faq page-width"><h2>{m.faqTitle}</h2><div>{m.faq.map((item) => <details key={item.q}><summary>{item.q}<span>+</span></summary><p>{item.a}</p></details>)}</div></section>
+      <section className="privacy" id="privacy">
+        <div className="page-width privacy-content"><h2 data-reveal>{copy.privacy}</h2><p data-reveal>{copy.privacyBody}</p></div>
+      </section>
+      <section className="faq page-width" id="about"><h2 data-reveal>{copy.faq}</h2><div>{copy.questions.map(([q, a]) => <details name="faq" key={q} data-reveal><summary>{q}<span aria-hidden="true" className="faq-toggle"/></summary><p>{a}</p></details>)}</div></section>
+      <section className="release page-width" id="download"><div><h2 data-reveal>{copy.release}</h2><p data-reveal>{copy.releaseBody}</p></div><div className="release-actions"><a className="source-link" href="https://github.com/LING-0001/SnapSlot" target="_blank" rel="noreferrer">{copy.source}</a></div></section>
     </main>
-    <footer className="site-footer page-width"><div><Brand small/><p>{m.footer}</p></div><div className="footer-right"><Lights/><span>© {new Date().getFullYear()} SnapSlot</span></div></footer>
+    <footer className="site-footer page-width"><p>{copy.footer}</p><a href="#privacy">{m.privacyTitle}</a><span>© {new Date().getFullYear()} SnapSlot</span></footer>
     <BackToTop label={m.top}/>
   </>;
 }

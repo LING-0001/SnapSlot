@@ -13,7 +13,7 @@ public partial class App : Application
     {
         base.OnStartup(e);
         bool smoke = e.Args.Length > 1 && e.Args[0] == "--smoke-test";
-        instance = new Mutex(true, smoke ? @"Local\SnapSlot.SmokeTest" : @"Local\SnapSlot.UIPrototype", out bool first);
+        instance = new Mutex(true, smoke ? @"Local\SnapSlot.SmokeTest" : @"Local\SnapSlot", out bool first);
         if (!first) { Shutdown(); return; }
         var root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SnapSlot", smoke ? "SmokeSessions" : "Sessions");
         Directory.CreateDirectory(root);

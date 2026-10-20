@@ -9,7 +9,7 @@ export default defineConfig({
     baseURL: "http://127.0.0.1:3000",
     viewport: { width: 1280, height: 900 },
     launchOptions: process.platform === "win32"
-      ? { executablePath: "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe" } : {},
+      ? { executablePath: "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe" } : process.platform === "darwin" ? { channel: "chrome" } : {},
     trace: "retain-on-failure",
   },
   webServer: {

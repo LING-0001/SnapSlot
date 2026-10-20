@@ -1,93 +1,110 @@
-# Ubiquitous Language
+# Current product contract
 
-## Temporary Screenshot Inbox
+The user-approved blue/white pinned-note website is the visual and interaction
+source of truth for Windows and macOS. Later user decisions supersede the older
+Pixel Rail/clothesline prototype documents; historical ADRs remain as history.
 
-A local-only, ephemeral collection of newly captured screenshots that stays accessible from a top-edge Pixel Rail and is intended for rapid transfer into another application. It is not a permanent screenshot library or cloud-sync service.
+## Temporary notes
 
-## Visual Quality Baseline
+A local, session-only inbox for screenshots and plain text. It is a transfer
+surface, not a permanent library. Normal startup is empty and fully hidden.
+Exit removes only session-owned temporary exports. Original imported files are
+never deleted. Export files survive card removal until application exit so
+external drag targets can finish reading them. Text is limited to 64 KB UTF-8.
+There is no eight-item page, +N overflow stack or sixteen-item cap.
 
-The supported desktop scenario against which interaction smoothness is judged: Windows 10 version 1809 or later on x64, with two 4K displays at 144 Hz.
+## Pinned-note appearance
 
-## Display-Local Pixel Rail
+Independent paper cards with small flat blue pushpins, white rounded frames and
+subtle shadows; no rope or permanent rail background. The initial Paper preset
+and optional Card preset share the website's version 1 data-only JSON format.
+Card geometry, colors, artwork, pin and button appearance are configurable.
+The appearance editor is the same component on all three surfaces.
 
-The screen-specific projection of the temporary screenshot inbox. Each display has its own Pixel Rail and exposes only captures assigned to that display; it is not a duplicated view of captures from other displays.
+## Reveal and motion
 
-## Clipboard Image Intake
+Idle overlays have no visible or input-intercepting window. Physical screen-edge
+contact must last 500 ms before pointer reveal. Moving away starts a 450 ms grace
+period; returning cancels dismissal. Keyboard use, dragging and open dialogs keep
+the surface available. Explicit opening is immediate. Arrivals peek for 2500 ms.
+Full-screen foreground windows and held buttons suppress automatic edge reveal.
 
-An optional feature that places images copied by other applications into the temporary screenshot inbox. It is distinct from screenshot capture and is disabled by default because it can receive non-screenshot images.
+The row fades and moves 12 logical pixels: 360 ms decelerating entry/240 ms fade,
+240 ms accelerating exit/200 ms fade. Exit disables interaction immediately and
+hides the native window after animation. Reduced-motion preferences disable
+movement. Remaining cards reflow immediately, with a 180 ms positional transition.
+The local pixel dissolve is bounded and does not delay layout removal.
 
-## Ephemeral Session
+## Native gestures and operating systems
 
-The lifetime of the temporary screenshot inbox from application start until normal exit. Inbox items do not return after a restart. Files created by the application for this session are temporary; externally created screenshot files remain owned by their originating location.
+Click copies the original image/native PNG or full plain text. Holding for at
+least 160 ms and moving exports a PNG/TXT file copy; the item remains in the inbox.
+Explicit removal affects only the temporary note. Arrow keys navigate, Enter
+copies, Delete removes and Escape collapses. A global Ctrl+Alt+Space shortcut
+(Control+Option+Space on Mac) supports keyboard opening.
 
-## Idle Rail
+Screenshots may be requested through the UI or global shortcut. The Windows
+native selector captures the chosen region; macOS invokes its system selector.
+Following the user's Mac testing feedback, new screenshot files on macOS and new
+clipboard images on both platforms are collected automatically by default, with
+a persistent menu/tray toggle. macOS watches the system screenshot destination
+and live Spotlight screenshot metadata; originals are retained. Clipboard intake
+ignores existing launch content, plain text and the client's own copy writes.
+This receives user-created screenshots; it does not capture the screen on a timer.
 
-A completely hidden capture surface, with no visible track, count, state lights, or click-intercepting window at rest. Moving upward to the physical top edge and dwelling for approximately 220 milliseconds reveals a full-width single row. Moving away dismisses it after approximately 450 milliseconds. A global shortcut supports keyboard access. It is unavailable while full-screen, presentation, or mouse-capture states are active.
+Mac clients show both a real Dock icon and a menu-bar icon. Dock clicks open the
+notes. Native mouse coordinates supply hover highlighting even while another app
+is active; hovering never copies, and the first click copies without an activation
+click. The 500 ms screen-edge dwell remains unchanged.
 
-## Card Gesture Contract
+The menu-bar/tray context menu opens a compact Settings window separate from
+Appearance. It has a default-on external screenshot/image intake switch and
+recorders for screenshot and selected-text shortcuts (Control+Option/Alt+S/T by
+default). Settings are persisted atomically in application-data preferences.json.
+Duplicate bindings, the fixed open-notes shortcut and ordinary Copy are rejected.
+OS registration failures retain prior bindings/settings. Shortcuts pause while
+editing settings and resume when its window loses focus or closes.
 
-The MVP's fixed interaction rules for an inbox item: click copies its native payload, an external drag exports a copy while retaining the item, and the explicit remove control only removes the item from the inbox using the Pixel Dissolve animation.
+The text shortcut receives the selection the user has made, including Select All,
+then pins and copies the full text. It never imports stale clipboard text on an
+empty selection. Mac requests Accessibility only when this action is invoked,
+reads AX selected text, and falls back to a fresh normal Copy in unsupported
+editors. Windows reads UI Automation TextPattern or a fresh Ctrl+C copy. Copy
+fallbacks verify foreground identity, modifier release and a new clipboard write.
 
-## Pixel Dissolve
+## Shared presentation, platform hosts
 
-The removal feedback for a Pixel Rail item. The card briefly locks to the rail grid, breaks into a small local burst of square pixels, and is drawn into the nearest rail sink before disappearing. It communicates removal from the ephemeral inbox only; it never implies deletion of the original screenshot file. With reduced motion enabled, it is a short fade rather than particle movement.
+`apps/native-ui` bundles only offline React/CSS note and appearance views. It
+reuses the website styles, skin parser, presets and six locales. macOS uses
+AppKit/WKWebView; Windows uses WPF/WebView2 Composition. Platform APIs handle
+edge events, shortcuts, screen geometry, capture, clipboard and file dragging.
+No Next.js server, Electron or Node runtime is needed by an installed client.
+Messages carry item IDs, validated skin data and a fixed command vocabulary;
+file paths and process execution are resolved only by the native host.
 
-## Overflow Stack
+Cards are scoped to the display selected when they are added. A single overlay
+moves between displays and renders that display's inbox. Multimonitor/DPI/hotplug
+behavior remains subject to native verification, especially on Windows.
 
-A compact `+N` card on a Display-Local Pixel Rail that represents session items beyond the eight fully visible cards. Opening it exposes only the additional items from the current Ephemeral Session; it is not a persistent history view.
+## Skin lifetime and hot reload
 
-## Capture Suppression
+Each platform stores `active.json` plus two bundled examples in its application
+support skin directory. Directory and active-file changes are debounced for
+250 ms. Both in-place writes and atomic file replacement are supported. Invalid
+edits preserve the current valid skin; `last-good.json` survives restart.
+Optional artwork embeds PNG/JPEG/WebP data, with the same field and 2 MB JSON
+limits as the website. No remote URLs, scripts, HTML or arbitrary CSS are accepted.
 
-A state active during full-screen, presentation, or mouse-capture activity. The application neither reveals a Display-Local Pixel Rail nor receives new items during this state, and it does not backfill items after the state ends.
+## Brand and locales
 
-## Visual Language
+SnapSlot / 快照贴 (快照貼 in Traditional Chinese). Six locales: en, zh-Hans,
+zh-Hant, ja, ko, es. User content is never translated. Code is MIT licensed;
+brand assets remain subject to BRANDING.md. There is no published installer,
+update channel, signed/notarized public release or website deployment.
 
-The product's visual system: Windows Fluent conventions for conventional UI, with an original, low-key pixel-game inventory rail for capture presentation. The full-width overlay is a compact single row (124 logical pixels high in the current native preview); import and secondary actions are icon controls, while language and exit live in the tray menu. No persistent item counter, title bar, toolbar, or status row occupies the capture surface. The rail uses a restrained cream/charcoal base and small red, cobalt, gold, and green state accents.
+## Validation boundaries
 
-## Motion Contract
-
-The product's animation rule: the Pixel Rail slides between idle and expanded states with short, eased transitions; conventional UI uses short Fluent transitions. When Windows requests reduced motion, movement is replaced by simple fades and static placement.
-
-## Theme Policy
-
-The visual theme follows the Windows light or dark preference by default and may be explicitly overridden in settings. The Pixel Rail retains its restrained arcade accents in either theme, while card highlights and shadows adapt for contrast.
-
-## Plain Text Intake
-
-An optional, disabled-by-default feature that receives clipboard plain text as a Text Card in the temporary screenshot inbox. It is distinct from OCR: it does not derive text from a screenshot.
-
-## Text Card
-
-An inbox item whose payload is plain text. A click copies text in the native clipboard text format; an external drag exports a `.txt` copy while retaining the item.
-
-## Text Card Preview
-
-The compact visual representation of a Text Card on an expanded Pixel Rail: at most three lines or 180 characters. The full payload remains available to copy and export. Plain-text clipboard payloads larger than 64 KB are not received.
-
-## Mixed Timeline
-
-The single chronological ordering of Image Cards and Text Cards on a Display-Local Pixel Rail. Text Cards use a compact form and an explicit text type marker; there is no separate text lane.
-
-## Accessible Pixel Rail
-
-The keyboard- and assistive-technology representation of a Display-Local Pixel Rail. It can be opened with a global shortcut; its items support arrow-key navigation, Enter to copy, Delete to remove, and Escape to collapse, while exposing type, summary, and action names through Windows UI Automation.
-
-## UI Quality Gate
-
-The release criterion for the Visual Quality Baseline: with eight visible cards and an Overflow Stack, rail expansion, entry, hover, and drag interactions have a p95 render frame time of at most 8.3 milliseconds. While idle, average process CPU use is below 0.3% without clipboard polling. Reduced-motion mode runs no continuous animation.
-
-## Visual Compatibility Policy
-
-Windows 10 version 1809+ on x64 is the installation range. The full dynamic experience is guaranteed only on devices that pass the UI Quality Gate; a device that does not pass may use a clearly identified static compatibility mode rather than a visually degraded substitute design.
-
-## Brand Identity
-
-The product is named SnapSlot, with the Chinese name 快照槽. Its code is MIT-licensed; its names, icon, and website visual identity are retained brand assets. Its visual direction is an original Pixel Rail: hidden at rest, revealing a shallow full-width row of screenshot and text cards with restrained red, cobalt, gold, and green accents. It deliberately avoids ropes, clothespins, pegboards, and recognisable game IP.
-
-## Release Locales
-
-The first public release supports English (`en`), Simplified Chinese (`zh-Hans`), Traditional Chinese (`zh-Hant`), Japanese (`ja`), Korean (`ko`), and Spanish (`es`) in both the Windows client and the website. The product name remains SnapSlot in every locale; 快照槽 is the Chinese display name. User-created capture content is never translated.
-
-## Product Website
-
-The official SnapSlot website is a first-class product surface, not a static afterthought. It presents the Pixel Rail visual language, provides an interactive web demonstration of idle, capture, expansion, and Pixel Dissolve states, explains local-first privacy and accessibility, and distributes Windows releases with version notes and SHA-256 checksums in every Release Locale. It does not receive or store a visitor's screenshots.
+A compile, browser test, native smoke test and physical machine acceptance are
+separate evidence. This Mac can compile/test AppKit and cross-compile Windows;
+it cannot confirm Windows transparency, real target-app drops or high-refresh
+performance. No 144 Hz/8.3 ms or idle CPU guarantee is claimed without measurement.

@@ -19,3 +19,6 @@ playwright-report/
 *.p12
 *.pem
 *.key
+.build/
+.DS_Store
+.taste-skill/

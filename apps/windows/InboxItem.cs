@@ -9,8 +9,16 @@ internal sealed class InboxItem
 {
     public Guid Id { get; } = Guid.NewGuid();
     public string Title { get; }
+    public string Display { get; set; } = "";
+    public string? Preview { get; set; }
     public string? Text { get; }
-    public BitmapSource? Image { get; }
+    public BitmapSource? Image {
+        get {
+            if (Text is not null) return null;
+            var image = new BitmapImage();image.BeginInit();image.CacheOption=BitmapCacheOption.OnLoad;
+            image.UriSource=new Uri(ExportPath);image.EndInit();image.Freeze();return image;
+        }
+    }
     public string ExportPath { get; }
     public bool IsRemoving { get; set; }
     public InboxItem(string title, string text)
@@ -22,7 +30,7 @@ internal sealed class InboxItem
     }
     public InboxItem(string title, BitmapSource image)
     {
-        Title = title; Image = image;
+        Title = title;
         if (image.CanFreeze) image.Freeze();
         ExportPath = Path.Combine(App.SessionDirectory, $"{Id:N}.png");
         var encoder = new PngBitmapEncoder();

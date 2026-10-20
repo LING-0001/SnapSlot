@@ -12,8 +12,10 @@ internal sealed class EdgeWatcher : IDisposable
     private readonly HookProc callback;
     private IntPtr hook;
     private bool atEdge;
+    public static Screen TargetScreen { get; private set; } = Screen.PrimaryScreen!;
     private int previousY = int.MaxValue;
     public event Action? Entered;
+    public event Action? Moved;
     public event Action? Left;
     public EdgeWatcher()
     {
@@ -24,7 +26,7 @@ internal sealed class EdgeWatcher : IDisposable
     public static bool IsAtEdge()
     {
         GetCursorPos(out var point);
-        var bounds = Screen.PrimaryScreen!.Bounds;
+        var bounds = TargetScreen.Bounds;
         return point.X >= bounds.Left && point.X < bounds.Right && point.Y >= bounds.Top && point.Y <= bounds.Top + 1;
     }
     public static bool CanReveal(IntPtr ownWindow)
@@ -35,7 +37,7 @@ internal sealed class EdgeWatcher : IDisposable
         var name = new StringBuilder(256); GetClassName(foreground, name, name.Capacity);
         if (name.ToString() is "Progman" or "WorkerW" or "Shell_TrayWnd") return true;
         if (!GetWindowRect(foreground, out var rect)) return true;
-        var screen = Screen.PrimaryScreen!.Bounds;
+        var screen = TargetScreen.Bounds;
         return !(rect.Left <= screen.Left && rect.Top <= screen.Top && rect.Right >= screen.Right && rect.Bottom >= screen.Bottom);
     }
     private IntPtr OnMouse(int code, IntPtr message, IntPtr data)
@@ -43,10 +45,14 @@ internal sealed class EdgeWatcher : IDisposable
         if (code >= 0 && message.ToInt32() == 0x0200)
         {
             var point = Marshal.PtrToStructure<MouseData>(data).Point;
-            var screen = Screen.PrimaryScreen!.Bounds;
+            var target=Screen.FromPoint(new System.Drawing.Point(point.X,point.Y));
+            if(target.DeviceName!=TargetScreen.DeviceName){if(atEdge)Left?.Invoke();atEdge=false;previousY=int.MaxValue;}
+            TargetScreen=target;
+            var screen = target.Bounds;
             bool now = point.X >= screen.Left && point.X < screen.Right && point.Y >= screen.Top && point.Y <= screen.Top + 1;
             if (now && !atEdge && point.Y <= previousY) Entered?.Invoke();
             if (!now && atEdge) Left?.Invoke();
+            Moved?.Invoke();
             previousY = point.Y;
             atEdge = now;
         }

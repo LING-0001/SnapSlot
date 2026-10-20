@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>CFBundleName</key><string>SnapSlot</string>
+<key>CFBundleDisplayName</key><string>SnapSlot</string>
+<key>CFBundleIdentifier</key><string>app.snapslot.desktop</string>
+<key>CFBundleExecutable</key><string>SnapSlot</string>
+<key>CFBundlePackageType</key><string>APPL</string>
+<key>CFBundleShortVersionString</key><string>0.1.2</string>
+<key>CFBundleVersion</key><string>3</string>
+<key>CFBundleIconFile</key><string>AppIcon</string>
+<key>LSMinimumSystemVersion</key><string>13.0</string>
+<key>LSUIElement</key><false/>
+<key>NSHighResolutionCapable</key><true/>
+<key>NSScreenCaptureUsageDescription</key><string>SnapSlot only captures the region you select when you choose Take a screenshot.</string>
+<key>NSDesktopFolderUsageDescription</key><string>SnapSlot receives new screenshots saved to your Desktop and keeps the original files unchanged.</string>
+<key>NSDocumentsFolderUsageDescription</key><string>SnapSlot receives new screenshots when you choose Documents as their save location.</string>
+<key>NSDownloadsFolderUsageDescription</key><string>SnapSlot receives new screenshots when you choose Downloads as their save location.</string>
+</dict></plist>

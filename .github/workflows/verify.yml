@@ -20,21 +20,40 @@ jobs:
           cache-dependency-path: apps/website/package-lock.json
       - run: npm ci
       - run: npm run build
+      - run: npm run build:native
       - run: npx playwright install --with-deps chromium
       - run: npx playwright test
       - uses: actions/upload-artifact@v4
         with:
           name: website-static-preview
           path: apps/website/out
-  desktop:
+  windows:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
-      - run: dotnet build apps/desktop/SnapSlot.Desktop.csproj -c Release
+      - run: npm ci --prefix apps/website
+      - run: ./scripts/build-windows.ps1
+        shell: pwsh
       - uses: actions/upload-artifact@v4
         with:
-          name: windows-ui-prototype
-          path: apps/desktop/bin/Release/net10.0-windows
+          name: SnapSlot-Windows-x64
+          path: artifacts/windows/SnapSlot-win-x64.zip
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci --prefix apps/website
+      - run: ./scripts/build-macos.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SnapSlot-macOS
+          path: artifacts/macos/SnapSlot-macOS.zip
