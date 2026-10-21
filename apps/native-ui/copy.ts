@@ -8,6 +8,10 @@ const values = {
   tooLarge: ["Text limit: 64 KB.", "文字最多 64 KB。", "文字最多 64 KB。", "テキスト上限: 64 KB。", "텍스트 한도: 64 KB.", "Límite de texto: 64 KB."],
   skinError: ["Skin unchanged: ", "外观保持不变：", "外觀保持不變：", "スキンは変更されません：", "스킨 유지: ", "Tema sin cambios: "],
   skinHint: ["Edit active.json in this folder to apply changes live.", "编辑文件夹中的 active.json，保存后自动应用。", "編輯資料夾中的 active.json，儲存後自動套用。", "active.json を保存すると自動で反映されます。", "active.json을 저장하면 자동 적용됩니다.", "Edita active.json: se aplica al guardar."],
+  autoHide: ["Hides when you leave", "移开后收起", "移開後收起", "離れると閉じる", "떠나면 접기", "Se oculta al alejarte"],
+  pinned: ["Kept open", "已固定显示", "已固定顯示", "固定表示中", "열어 둠", "Se mantiene abierto"],
+  pin: ["Pin notes", "固定便签", "固定便箋", "メモを固定", "메모 고정", "Fijar notas"],
+  unpin: ["Unpin notes", "取消固定", "取消固定", "固定を解除", "고정 해제", "Dejar de fijar"],
 } as const;
 const locales = ["en", "zh-Hans", "zh-Hant", "ja", "ko", "es"];
 export function nativeCopy(locale: Locale) {

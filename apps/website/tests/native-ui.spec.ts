@@ -9,16 +9,17 @@ async function host(page:Page,mode='rail'){
   await page.addInitScript(({skin})=>{
     const bridge=window as typeof window & {nativeCommands:Record<string,unknown>[];nativeState:Record<string,unknown>;nativePreferences:Record<string,unknown>;preferenceError?:string;snapslotReceive?:(value:unknown)=>void;chrome?:{webview:unknown}};
     bridge.nativeCommands=[];
-    bridge.nativeState={type:'state',items:Array.from({length:21},(_,i)=>({id:'item-'+i,kind:'text',title:'Note '+i,text:'Full payload '+i+'\nKeep useful things close.'})),skin:JSON.stringify(skin),locale:'zh-Hans',expanded:true,reducedMotion:false};
+    bridge.nativeState={type:'state',items:Array.from({length:21},(_,i)=>({id:'item-'+i,kind:'text',title:'Note '+i,text:'Full payload '+i+'\nKeep useful things close.'})),skin:JSON.stringify(skin),locale:'zh-Hans',expanded:true,pinned:false,reducedMotion:false};
     bridge.nativePreferences={collectScreenshots:true,captureShortcut:{key:'KeyS',control:true,alt:true,shift:false,meta:false},textShortcut:{key:'KeyT',control:true,alt:true,shift:false,meta:false}};
     const chrome=(window as unknown as {chrome:Record<string,unknown>}).chrome||{};
     chrome.webview={addEventListener:()=>{},postMessage:(command:Record<string,unknown>)=>{
       bridge.nativeCommands.push(command);
-      if(command.type==='ready'){bridge.snapslotReceive?.(bridge.nativeState);if(location.search.includes('preferences'))bridge.snapslotReceive?.({type:'preferences',value:bridge.nativePreferences,platform:'macos'});}
+      if(command.type==='ready'){bridge.snapslotReceive?.(bridge.nativeState);if(location.search.includes('preferences')||location.search.includes('tray'))bridge.snapslotReceive?.({type:'preferences',value:bridge.nativePreferences,platform:'macos'});}
       if(command.type==='savePreferences'){
-        if(bridge.preferenceError)bridge.snapslotReceive?.({type:'error',message:bridge.preferenceError});
+        if(bridge.preferenceError)bridge.snapslotReceive?.({type:'shortcutError',field:'captureShortcut',message:bridge.preferenceError});
         else{bridge.nativePreferences=command.value as Record<string,unknown>;bridge.snapslotReceive?.({type:'preferences',value:bridge.nativePreferences,platform:'macos'});}
       }
+      if(command.type==='pin'||command.type==='unpin'){bridge.nativeState={...bridge.nativeState,pinned:command.type==='pin'};bridge.snapslotReceive?.(bridge.nativeState);}
       if(command.type==='remove'){
         bridge.nativeState.items=(bridge.nativeState.items as {id:string}[]).filter(item=>item.id!==command.id);
         bridge.snapslotReceive?.(bridge.nativeState);
@@ -40,7 +41,8 @@ test('offline native row keeps 21 notes and sends copy, remove and drag to the h
   expect(await page.evaluate(()=>(window as unknown as {nativeCommands:unknown[]}).nativeCommands)).toContainEqual({type:'drag',id:'item-20'});
   await last.press('Delete');await expect(page.locator('.capture-card')).toHaveCount(20);
   expect(network).toEqual([]);
-  await expect(page.locator('.native-tool')).toHaveCount(6);
+  await expect(page.locator('.native-tool')).toHaveCount(1);
+  const pin=page.locator('.native-pin-toggle');await expect(pin).toHaveAttribute('aria-pressed','false');await pin.click();await expect(pin).toHaveAttribute('aria-pressed','true');
 });
 test('native appearance uses the shared editor, keeps image controls visible and exports through the OS',async({page})=>{
   await page.setViewportSize({width:1080,height:790});await host(page,'settings');
@@ -60,6 +62,16 @@ test('native text composer sends full text only on explicit save',async({page})=
   await page.getByRole('textbox').fill('完整文字\nSecond line');
   await page.getByRole('button',{name:'贴上文字',exact:true}).click();
   expect(await page.evaluate(()=>(window as unknown as {nativeCommands:unknown[]}).nativeCommands)).toContainEqual({type:'saveText',text:'完整文字\nSecond line'});
+});
+
+test('native tray menu uses the prototype menu hierarchy and sends its host actions',async({page})=>{
+  await page.setViewportSize({width:320,height:420});await host(page,'tray');
+  const menu=page.locator('.native-tray-menu');await expect(menu).toBeVisible();await expect(menu).toHaveCSS('border-radius','12px');
+  await expect(page.getByRole('menuitem',{name:'截取屏幕'})).toContainText('⌃⌥S');
+  await page.getByRole('menuitemcheckbox',{name:'自动收取剪贴板图片'}).click();
+  expect(await page.evaluate(()=>(window as unknown as {nativeCommands:{type:string;value?:{collectScreenshots?:boolean}}[]}).nativeCommands)).toContainEqual({type:'savePreferences',value:{collectScreenshots:false,captureShortcut:{key:'KeyS',control:true,alt:true,shift:false,meta:false},textShortcut:{key:'KeyT',control:true,alt:true,shift:false,meta:false}}});
+  await page.getByRole('menuitem',{name:'设置'}).click();await page.getByRole('menuitem',{name:'退出 SnapSlot'}).click();
+  expect(await page.evaluate(()=>(window as unknown as {nativeCommands:{type:string}[]}).nativeCommands.map(command=>command.type))).toEqual(expect.arrayContaining(['openPreferences','quit']));
 });
 
 test('native hover selects before clicking, including an inactive host window',async({page})=>{
@@ -99,30 +111,29 @@ test('incremental native states retain existing image previews and text payloads
   await expect(page.locator('.card-copy').first()).toBeFocused();
 });
 
-test('native settings record two shortcuts, toggle screenshot intake and save through the host',async({page})=>{
-  await page.setViewportSize({width:600,height:580});await host(page,'preferences');
+test('native settings use the compact prototype layout and save changes through the host immediately',async({page})=>{
+  await page.setViewportSize({width:700,height:740});await host(page,'preferences');
   await expect(page.getByRole('heading',{name:'设置',exact:true})).toBeVisible();
-  const intake=page.getByRole('switch');await expect(intake).toBeChecked();
-  const capture=page.getByRole('button',{name:'截一张图',exact:true}),text=page.getByRole('button',{name:'收取选中文字',exact:true}),save=page.getByRole('button',{name:'保存更改',exact:true});
-  await expect(save).toBeInViewport({ratio:1});await expect(save).toBeDisabled();
+  const fixed=page.getByRole('switch',{name:'固定便签栏'}),intake=page.getByRole('switch',{name:'自动收取剪贴板图片'});await expect(fixed).not.toBeChecked();await expect(intake).toBeChecked();
+  await fixed.check();await expect(fixed).toBeChecked();
+  const capture=page.getByRole('button',{name:'截取屏幕',exact:true}),text=page.getByRole('button',{name:'收取选中文字',exact:true});
   await intake.uncheck();await capture.click();await capture.press('Control+Alt+Shift+P');
-  await text.click();await text.press('Control+Alt+Shift+P');await save.click();
-  await expect(page.getByRole('alert')).toContainText('两个快捷键不能相同');
-  expect(await page.evaluate(()=>(window as unknown as {nativeCommands:{type:string}[]}).nativeCommands.filter(value=>value.type==='savePreferences'))).toHaveLength(0);
-  await text.click();await text.press('Control+Alt+Y');await save.click();
-  await expect(page.getByRole('status')).toHaveText('已保存');await expect(save).toBeDisabled();
+  await text.click();await text.press('Control+Alt+Shift+P');
+  await expect(page.locator('.shortcut-adjusted')).toContainText('已自动改为');
   const value=await page.evaluate(()=>(window as unknown as {nativePreferences:Record<string,unknown>}).nativePreferences);
-  expect(value).toEqual({collectScreenshots:false,captureShortcut:{key:'KeyP',control:true,alt:true,shift:true,meta:false},textShortcut:{key:'KeyY',control:true,alt:true,shift:false,meta:false}});
-  await page.getByRole('button',{name:'恢复默认'}).click();await expect(intake).toBeChecked();await save.click();await expect(capture).toHaveText('⌃⌥S');await expect(text).toHaveText('⌃⌥T');
+  expect(value).toEqual({collectScreenshots:false,captureShortcut:{key:'KeyP',control:true,alt:true,shift:true,meta:false},textShortcut:{key:'KeyT',control:true,alt:true,shift:true,meta:false}});
+  await page.getByRole('button',{name:'外观',exact:true}).click();await expect(page.locator('.preferences-appearance-editor')).toBeVisible();
   await capture.click();await capture.press('Escape');
   expect(await page.evaluate(()=>(window as unknown as {nativeCommands:{type:string}[]}).nativeCommands.filter(value=>value.type==='close'))).toHaveLength(0);
 });
 
-test('a rejected native shortcut save retains the draft and allows another attempt',async({page})=>{
-  await page.setViewportSize({width:600,height:580});await host(page,'preferences');
+test('a rejected native shortcut save retains the draft and allows an immediate retry',async({page})=>{
+  await page.setViewportSize({width:700,height:740});await host(page,'preferences');
   await page.evaluate(()=>{(window as unknown as {preferenceError:string}).preferenceError='快捷键已被占用，请换一个组合。';});
-  await page.getByRole('switch').uncheck();await page.getByRole('button',{name:'保存更改'}).click();
-  await expect(page.getByRole('alert')).toContainText('快捷键已被占用');
-  await expect(page.getByRole('button',{name:'保存更改'})).toBeEnabled();
+  await page.getByRole('switch',{name:'自动收取剪贴板图片'}).uncheck();
+  await expect(page.locator('.shortcut-error').first()).toContainText('快捷键已被占用');
   expect(await page.evaluate(()=>(window as unknown as {nativePreferences:{collectScreenshots:boolean}}).nativePreferences.collectScreenshots)).toBe(true);
+  await page.evaluate(()=>{delete (window as unknown as {preferenceError?:string}).preferenceError;});
+  const capture=page.getByRole('button',{name:'截取屏幕',exact:true});await capture.click();await capture.press('Control+Alt+Shift+P');
+  await expect.poll(()=>page.evaluate(()=>(window as unknown as {nativePreferences:{collectScreenshots:boolean}}).nativePreferences.collectScreenshots)).toBe(false);
 });

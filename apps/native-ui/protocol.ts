@@ -2,14 +2,16 @@ export type NativeItem = { id: string; kind: "image" | "text"; title: string; te
 export type Shortcut = { key: string; control: boolean; alt: boolean; shift: boolean; meta: boolean };
 export type AppPreferences = { collectScreenshots: boolean; captureShortcut: Shortcut; textShortcut: Shortcut };
 export type HostMessage =
-  | { type: "state"; items: NativeItem[]; skin?: string | null; locale: string; expanded: boolean; reducedMotion: boolean; focus?: boolean }
+  | { type: "state"; items: NativeItem[]; skin?: string | null; locale: string; expanded: boolean; reducedMotion: boolean; focus?: boolean; pinned?: boolean }
   | { type: "error"; message: string }
+  | { type: "shortcutError"; field: "captureShortcut" | "textShortcut"; message: string }
+  | { type: "shortcutAdjusted"; message: string }
   | { type: "copied"; id: string }
   | { type: "pointer"; x: number | null; y: number | null }
   | { type: "preferences"; value: AppPreferences; platform: "macos" | "windows" }
   | { type: "skin"; source: string };
 export type Command =
-  | { type: "ready" | "collapse" | "pin" | "capture" | "paste" | "addImages" | "newText" | "appearance" | "close" | "openSkinFolder" }
+  | { type: "ready" | "collapse" | "toggleRail" | "pin" | "unpin" | "capture" | "paste" | "addImages" | "newText" | "appearance" | "openPreferences" | "quit" | "close" | "openSkinFolder" }
   | { type: "copy" | "remove" | "drag"; id: string }
   | { type: "saveText"; text: string }
   | { type: "savePreferences"; value: AppPreferences }

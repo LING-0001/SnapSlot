@@ -28,7 +28,7 @@ try
     File.WriteAllText(store.ActivePath,"{}");await invalidSignal.Task.WaitAsync(TimeSpan.FromSeconds(5));Check(store.Height==136,"Invalid watched edits retain the valid skin");
     using var reopened=new SkinStore(root,uiRoot);Check(reopened.Height==136,"Restart recovers the persisted last good skin while active.json is invalid");
     string settingsPath=Path.Combine(root,"preferences.json");var preferences=new PreferencesStore(settingsPath);
-    Check(preferences.Value.CollectScreenshots&&preferences.Value.CaptureShortcut==new Shortcut("KeyS"),"Screenshot intake defaults on with separate screenshot/text shortcuts");
+    Check(preferences.Value.CollectScreenshots&&preferences.Value.CaptureShortcut==new Shortcut("KeyS",Control:true,Alt:false,Shift:true),"Screenshot intake defaults on with separate screenshot/text shortcuts");
     var changed=preferences.Value with{CollectScreenshots=false,TextShortcut=new("KeyC",Shift:true)};preferences.Save(changed);
     Check(new PreferencesStore(settingsPath).Value==changed,"Native preferences survive restart");
     Reject(()=>preferences.Save(changed with{CaptureShortcut=changed.TextShortcut}));
@@ -37,5 +37,15 @@ try
     Reject(()=>preferences.Save(changed with{TextShortcut=new("KeyC",true,false)}));
     Check(new PreferencesStore(settingsPath).Value==changed,"Duplicate, reserved and modifier-free bindings do not overwrite settings");
     Reject(()=>System.Text.Json.JsonSerializer.Deserialize<AppPreferences>("{}",PreferencesStore.Json));
+    Check(!EdgeWatcher.ShouldSuppressReveal(0,0,1920,1080,0,0,1920,1080,true),"Maximized foreground windows do not suppress top-edge reveal");
+    Check(EdgeWatcher.ShouldSuppressReveal(0,0,1920,1080,0,0,1920,1080,false),"Borderless full-screen foreground windows suppress top-edge reveal");
+    Check(!EdgeWatcher.IsPointerWithinRail(100,185,0,0,1920,184),"Pointer below the visible rail starts dismissal");
+    Check(EdgeWatcher.IsAtTopEdge(-120,0,-120,0,900),"Top-edge detection supports a monitor with a negative origin");
+    Check(!EdgeWatcher.IsAtTopEdge(900,0,-120,0,900),"Top-edge detection excludes the adjacent monitor boundary");
+    var dwell=new EdgeDwell();var start=DateTime.UnixEpoch;
+    Check(!dwell.Update(true,true,start),"Top-edge dwell does not reveal immediately");
+    Check(!dwell.Update(true,true,start.AddMilliseconds(499)),"Top-edge dwell waits the full 500 ms");
+    Check(dwell.Update(true,true,start.AddMilliseconds(500)),"Top-edge dwell reveals after 500 ms");
+    Check(!dwell.Update(false,true,start.AddMilliseconds(550))&&!dwell.Update(true,true,start.AddMilliseconds(600)),"Leaving the edge resets the dwell timer");
 }
 finally{Directory.Delete(root,true);}

@@ -10,7 +10,7 @@ await build({entryPoints:[path.join(root,'apps/native-ui/index.tsx')],outdir:out
 api.onLoad({filter:/globals\.css$/},async args=>({contents:(await readFile(args.path,'utf8')).replace('@import "tailwindcss";','').replaceAll("url('/","url('../public/"),loader:'css',resolveDir:path.dirname(args.path)}));
 api.onLoad({filter:/sample-artwork\.tsx$|skin-editor\.tsx$/},async args=>({contents:(await readFile(args.path,'utf8')).replaceAll('"/mountains.svg"','"assets/mountains.svg"'),loader:'tsx',resolveDir:path.dirname(args.path)}));
 }}]});
-for(const name of ['mountains.svg','studio.svg'])await copyFile(path.join(website,'public',name),path.join(output,'assets',name));
+for(const name of ['mountains.svg','studio.svg','icon.svg'])await copyFile(path.join(website,'public',name),path.join(output,'assets',name));
 for(const name of ['notes.json','cards.json'])await copyFile(path.join(website,'public/skins',name),path.join(output,'skins',name));
 await copyFile(path.join(root,'apps/native-ui/menus.json'),path.join(output,'menus.json'));
 await writeFile(path.join(output,'index.html'),'<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'self\'; style-src \'self\' \'unsafe-inline\'; img-src \'self\' data: blob:; font-src \'self\'; connect-src \'none\'; object-src \'none\'; base-uri \'none\'"><title>SnapSlot</title><link rel="stylesheet" href="desktop.css"></head><body><div id="root"></div><script src="desktop.js"></script></body></html>');

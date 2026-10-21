@@ -1,4 +1,4 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework><Nullable>enable</Nullable><EnableDefaultCompileItems>false</EnableDefaultCompileItems></PropertyGroup>
-  <ItemGroup><Compile Include="../SkinStore.cs"/><Compile Include="../AppPreferences.cs"/><Compile Include="Program.cs"/></ItemGroup>
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0-windows</TargetFramework><UseWindowsForms>true</UseWindowsForms><Nullable>enable</Nullable><EnableDefaultCompileItems>false</EnableDefaultCompileItems></PropertyGroup>
+  <ItemGroup><Compile Include="../SkinStore.cs"/><Compile Include="../AppPreferences.cs"/><Compile Include="../EdgeWatcher.cs"/><Compile Include="Program.cs"/></ItemGroup>
 </Project>

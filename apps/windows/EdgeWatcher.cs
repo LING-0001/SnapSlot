@@ -5,6 +5,19 @@ using System.Windows.Forms;
 
 namespace SnapSlot;
 
+internal sealed class EdgeDwell
+{
+    private DateTime? started;
+    internal bool Update(bool atEdge, bool canReveal, DateTime now)
+    {
+        if (!atEdge || !canReveal) { started=null; return false; }
+        started??=now;
+        if (now-started.Value<TimeSpan.FromMilliseconds(500)) return false;
+        started=null;return true;
+    }
+    internal void Reset()=>started=null;
+}
+
 // Passive mouse observation: never intercept or modify another application's input.
 // This lets the rail HWND be completely hidden rather than cover a clickable top strip.
 internal sealed class EdgeWatcher : IDisposable
@@ -26,9 +39,12 @@ internal sealed class EdgeWatcher : IDisposable
     public static bool IsAtEdge()
     {
         GetCursorPos(out var point);
+        TargetScreen=Screen.FromPoint(new System.Drawing.Point(point.X,point.Y));
         var bounds = TargetScreen.Bounds;
-        return point.X >= bounds.Left && point.X < bounds.Right && point.Y >= bounds.Top && point.Y <= bounds.Top + 1;
+        return IsAtTopEdge(point.X,point.Y,bounds.Left,bounds.Top,bounds.Right);
     }
+    internal static bool IsAtTopEdge(int x,int y,int left,int top,int right)
+        => x>=left&&x<right&&y>=top&&y<=top+1;
     public static bool CanReveal(IntPtr ownWindow)
     {
         if ((GetAsyncKeyState(1) & 0x8000) != 0 || (GetAsyncKeyState(2) & 0x8000) != 0 || (GetAsyncKeyState(4) & 0x8000) != 0) return false;
@@ -38,8 +54,12 @@ internal sealed class EdgeWatcher : IDisposable
         if (name.ToString() is "Progman" or "WorkerW" or "Shell_TrayWnd") return true;
         if (!GetWindowRect(foreground, out var rect)) return true;
         var screen = TargetScreen.Bounds;
-        return !(rect.Left <= screen.Left && rect.Top <= screen.Top && rect.Right >= screen.Right && rect.Bottom >= screen.Bottom);
+        return !ShouldSuppressReveal(rect.Left, rect.Top, rect.Right, rect.Bottom, screen.Left, screen.Top, screen.Right, screen.Bottom, IsZoomed(foreground));
     }
+    internal static bool ShouldSuppressReveal(int left, int top, int right, int bottom, int screenLeft, int screenTop, int screenRight, int screenBottom, bool isMaximized)
+        => !isMaximized && left <= screenLeft && top <= screenTop && right >= screenRight && bottom >= screenBottom;
+    internal static bool IsPointerWithinRail(int x, int y, int left, int top, int width, int physicalHeight)
+        => x >= left && x < left + width && y >= top && y < top + physicalHeight;
     private IntPtr OnMouse(int code, IntPtr message, IntPtr data)
     {
         if (code >= 0 && message.ToInt32() == 0x0200)
@@ -49,7 +69,7 @@ internal sealed class EdgeWatcher : IDisposable
             if(target.DeviceName!=TargetScreen.DeviceName){if(atEdge)Left?.Invoke();atEdge=false;previousY=int.MaxValue;}
             TargetScreen=target;
             var screen = target.Bounds;
-            bool now = point.X >= screen.Left && point.X < screen.Right && point.Y >= screen.Top && point.Y <= screen.Top + 1;
+            bool now = IsAtTopEdge(point.X,point.Y,screen.Left,screen.Top,screen.Right);
             if (now && !atEdge && point.Y <= previousY) Entered?.Invoke();
             if (!now && atEdge) Left?.Invoke();
             Moved?.Invoke();
@@ -70,6 +90,7 @@ internal sealed class EdgeWatcher : IDisposable
     [DllImport("user32.dll")] private static extern bool GetCursorPos(out Point point);
     [DllImport("user32.dll")] private static extern short GetAsyncKeyState(int key);
     [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
+    [DllImport("user32.dll")] private static extern bool IsZoomed(IntPtr window);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetClassName(IntPtr window, StringBuilder name, int count);
     [DllImport("user32.dll")] private static extern bool GetWindowRect(IntPtr window, out Rect rect);
 }

@@ -21,7 +21,7 @@ internal sealed record Shortcut(string Key,bool Control=true,bool Alt=true,bool 
 }
 internal sealed record AppPreferences(bool CollectScreenshots,Shortcut CaptureShortcut,Shortcut TextShortcut)
 {
-    public static AppPreferences Default=>new(true,new("KeyS"),new("KeyT"));
+    public static AppPreferences Default=>new(true,new("KeyS",Control:true,Alt:false,Shift:true),new("KeyT"));
     public void Validate()
     {
         if(CaptureShortcut is null||TextShortcut is null)throw new ArgumentException("Both shortcuts are required.");

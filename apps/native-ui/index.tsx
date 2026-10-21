@@ -6,7 +6,7 @@ import { builtInSkins, parseSkin, skinStyle, type Skin } from "../website/lib/sk
 import { SkinEditor } from "../website/components/skin-editor";
 import { nativeCopy } from "./copy";
 import { send, type AppPreferences, type HostMessage, type NativeItem } from "./protocol";
-import { PreferencesPanel } from "./preferences";
+import { PreferencesPanel, defaultPreferences, shortcutLabel } from "./preferences";
 import "../website/app/globals.css";
 import "./native.css";
 
@@ -20,20 +20,39 @@ function Icon({ kind }: { kind: string }) {
     paste: <><path d="M8 5H5v16h14V5h-3"/><rect x="8" y="2" width="8" height="5" rx="1"/><path d="M9 12h6m-6 4h6"/></>,
     close: <path d="m6 6 12 12M6 18 18 6"/>,
     collapse: <path d="m6 15 6-6 6 6"/>,
+    pin: <><path d="M8 4h8l-1 6 3 3H6l3-3-1-6Z"/><path d="M12 13v7"/></>,
+    gear: <><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.02 2.02-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.04 1.56V20h-2.86v-.08A1.7 1.7 0 0 0 10.9 18.36a1.7 1.7 0 0 0-1.88.34l-.06.06-2.02-2.02.06-.06A1.7 1.7 0 0 0 7.34 14.8 1.7 1.7 0 0 0 5.78 13.76H5.7v-2.86h.08a1.7 1.7 0 0 0 1.56-1.04A1.7 1.7 0 0 0 7 7.98l-.06-.06L8.96 5.9l.06.06a1.7 1.7 0 0 0 1.88.34 1.7 1.7 0 0 0 1.04-1.56V4.7h2.86v.08a1.7 1.7 0 0 0 1.04 1.56 1.7 1.7 0 0 0 1.88-.34l.06-.06 2.02 2.02-.06.06a1.7 1.7 0 0 0-.34 1.88 1.7 1.7 0 0 0 1.56 1.04h.08v2.86H21a1.7 1.7 0 0 0-1.6 1.16Z"/></>,
+    chevron: <path d="m7 10 5 5 5-5"/>,
   };
   return <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[kind] || paths.copy}</svg>;
+}
+function TrayMenu({ locale, platform, pinned, preferences }: { locale: Locale; platform: "macos" | "windows"; pinned: boolean; preferences: AppPreferences | null }) {
+  const zh=locale==="zh-Hans", labels=zh?{shot:"截取屏幕",open:"展开便签",pin:"固定便签",unpin:"取消固定",collect:"自动收取剪贴板图片",settings:"设置",quit:"退出 SnapSlot",name:"快照贴"}:{shot:"Take a screenshot",open:"Open notes",pin:"Pin notes",unpin:"Unpin notes",collect:"Automatically collect clipboard images",settings:"Settings",quit:"Quit SnapSlot",name:"SnapSlot"};
+  const value=preferences||defaultPreferences,mac=platform==="macos";
+  return <main className="native-tray-menu" role="menu" aria-label="SnapSlot">
+    <header className="native-tray-header"><img className="native-tray-logo" src="assets/icon.svg" alt=""/><strong>SnapSlot</strong><small>{labels.name}</small></header>
+    <button type="button" role="menuitem" className="native-tray-row" onClick={()=>send({type:"capture"})}><span><Icon kind="capture"/>{labels.shot}</span><kbd>{shortcutLabel(value.captureShortcut,mac)}</kbd></button>
+    <button type="button" role="menuitem" className="native-tray-row" onClick={()=>send({type:"toggleRail"})}><span>{labels.open}</span><kbd>{shortcutLabel({key:"Space",control:true,alt:true,shift:false,meta:false},mac)}</kbd></button>
+    <button type="button" role="menuitem" className="native-tray-row" onClick={()=>send({type:pinned?"unpin":"pin"})}><span>{pinned?labels.unpin:labels.pin}</span><Icon kind="pin"/></button>
+    <button type="button" role="menuitemcheckbox" aria-checked={value.collectScreenshots} className="native-tray-row" onClick={()=>send({type:"savePreferences",value:{...value,collectScreenshots:!value.collectScreenshots}})}><span>{labels.collect}</span><i className={`native-tray-check${value.collectScreenshots?" checked":""}`} aria-hidden="true"/></button>
+    <hr/>
+    <button type="button" role="menuitem" className="native-tray-row" onClick={()=>send({type:"openPreferences"})}><span><Icon kind="gear"/>{labels.settings}</span><Icon kind="chevron"/></button>
+    <hr/>
+    <button type="button" role="menuitem" className="native-tray-row native-tray-quit" onClick={()=>send({type:"quit"})}>{labels.quit}</button>
+  </main>;
 }
 function App() {
   const [locale, setLocale] = useState<Locale>("en");
   const [items, setItems] = useState<NativeItem[]>([]);
   const [skin, setSkin] = useState<Skin>(builtInSkins[0]);
   const [expanded, setExpanded] = useState(false);
+  const [pinned, setPinned] = useState(false);
   const [focusRequest, setFocusRequest] = useState(0);
   const [notice, setNotice] = useState("");
   const [copied, setCopied] = useState("");
   const [text, setText] = useState("");
   const [removals, setRemovals] = useState<{id:string;x:number;y:number}[]>([]);
-  const [preferences,setPreferences]=useState<AppPreferences|null>(null),[platform,setPlatform]=useState<"macos"|"windows">("macos"),[preferencesRevision,setPreferencesRevision]=useState(0);
+  const [preferences,setPreferences]=useState<AppPreferences|null>(null),[platform,setPlatform]=useState<"macos"|"windows">("macos"),[preferencesRevision,setPreferencesRevision]=useState(0),[shortcutError,setShortcutError]=useState<{field:"captureShortcut"|"textShortcut";message:string}|null>(null);
   const mode = new URLSearchParams(location.search).get("mode") || "rail";
   const row = useRef<HTMLDivElement>(null);
   const focusNext = useRef(false);
@@ -58,20 +77,22 @@ function App() {
           const known=new Map(old.map(item=>[item.id,item]));
           const next=message.items.map(item=>({...item,text:item.text??known.get(item.id)?.text,preview:item.preview??known.get(item.id)?.preview}));
           return old.length===next.length && old.every((item,index)=>item.id===next[index].id&&item.text===next[index].text&&item.preview===next[index].preview&&item.title===next[index].title) ? old : next;
-        }); setExpanded(message.expanded);
+        }); setExpanded(message.expanded);setPinned(!!message.pinned);
         if (locales.includes(message.locale as Locale)) setLocale(message.locale as Locale);
         document.documentElement.classList.toggle("reduce-motion",message.reducedMotion);
         focusNext.current = !!message.focus;
         if(message.focus)setFocusRequest(value=>value+1);
         try { if(typeof message.skin === "string")setSkin(parseSkin(message.skin)); setNotice(""); } catch (error) { setNotice(String(error)); }
       } else if(message.type === "preferences") {
-        setPreferences(old=>JSON.stringify(old)===JSON.stringify(message.value)?old:message.value);setPlatform(message.platform);setPreferencesRevision(value=>value+1);setNotice("");
+        setPreferences(old=>JSON.stringify(old)===JSON.stringify(message.value)?old:message.value);setPlatform(message.platform);setPreferencesRevision(value=>value+1);setShortcutError(null);setNotice("");
       } else if (message.type === "pointer") {
         hostPointer.current=message.x!==null&&message.y!==null?{x:message.x,y:message.y}:null;updateHover();
       } else if (message.type === "skin") {
         try { const next=parseSkin(message.source);setSkin(next);setNotice("");send({type:"applySkin",source:JSON.stringify(next)}); }
         catch(error) { setNotice(String(error)); }
-      } else if(message.type === "error") {setNotice(message.message);setPreferencesRevision(value=>value+1);}
+      } else if(message.type === "shortcutError") {setShortcutError({field:message.field,message:message.message});}
+      else if(message.type === "shortcutAdjusted") {setShortcutError(null);setNotice(message.message);}
+      else if(message.type === "error") {setNotice(message.message);setPreferencesRevision(value=>value+1);}
       else if(message.type === "copied") { setCopied(message.id);later(()=>setCopied(""),1400); }
     }
     window.snapslotReceive=receive;
@@ -112,7 +133,8 @@ function App() {
       else document.querySelector<HTMLButtonElement>(".native-tool")?.focus();
     },0);
   }
-  if(mode === "preferences")return <PreferencesPanel value={preferences} platform={platform} locale={locale} revision={preferencesRevision} notice={notice} onSave={value=>{setNotice("");send({type:"savePreferences",value});}} onClose={()=>send({type:"close"})}/>;
+  if(mode === "preferences")return <PreferencesPanel value={preferences} platform={platform} locale={locale} revision={preferencesRevision} notice={notice} pinned={pinned} skin={skin} shortcutError={shortcutError} onSave={value=>{setNotice("");setShortcutError(null);send({type:"savePreferences",value});}} onPinnedChange={value=>send({type:value?"pin":"unpin"})} onSkinChange={applySkin} onClose={()=>send({type:"close"})}/>;
+  if(mode === "tray")return <TrayMenu locale={locale} platform={platform} pinned={pinned} preferences={preferences}/>;
   if(mode === "settings") return <main className="native-settings">
     <SkinEditor locale={locale} m={m} skin={skin} onChange={applySkin} open onClose={()=>send({type:"close"})} onExport={()=>send({type:"exportSkin",source:JSON.stringify(skin)})} footer={<div className="native-folder"><button onClick={()=>send({type:"openSkinFolder"})}>{labels.folder}</button><span>{labels.skinHint}</span></div>}/>
     {notice && <p className="native-notice" role="status">{labels.skinError}{notice}</p>}
@@ -122,7 +144,7 @@ function App() {
     if(event.key==="Enter"&&(event.metaKey||event.ctrlKey)) {event.preventDefault();if(text.trim()&&new TextEncoder().encode(text).length<=65536)send({type:"saveText",text});}
   }}/><div className="native-text-actions"><button onClick={()=>send({type:"close"})}>{labels.cancel}</button><button className="primary button" disabled={!text.trim()||new TextEncoder().encode(text).length>65536} onClick={()=>send({type:"saveText",text})}>{labels.save}</button></div>{new TextEncoder().encode(text).length>65536 && <p role="alert">{labels.tooLarge}</p>}</main>;
   return <main className="native-root" style={skinStyle(skin)} onKeyDown={event=>{
-    if(event.key==="Escape"){event.preventDefault();send({type:"collapse"});}else send({type:"pin"});
+    if(event.key==="Escape"){event.preventDefault();send({type:"collapse"});}
   }}>
     <div className={`rail ${expanded?"expanded":"collapsed"}`} data-ui="native-notes">
       <div className="rail-drawer" inert={!expanded} aria-hidden={!expanded}>
@@ -142,8 +164,10 @@ function App() {
           {removals.map(item=><div key={item.id} className="fragments" aria-hidden="true" style={{left:item.x,top:item.y}}>{Array.from({length:12},(_,i)=><i key={i} style={{"--x":`${i%4*28}px`,"--y":`${Math.floor(i/4)*24}px`,"--fragment":["#eabd42","#a7c8ae","#f6f4ed","#6e96ad"][i%4]} as React.CSSProperties}/>)}</div>)}
           {!items.length&&<button className="empty-slot" onClick={()=>send({type:"capture"})}><Icon kind="capture"/><span>{m.empty}</span></button>}
         </div>
-        <div className="native-tools" data-ui="native-toolbar">
-          {([["capture",m.addImage],["newText",m.addText],["paste",labels.paste],["addImages",labels.importImages],["appearance",copy.customize],["collapse",m.collapse]] as const).map(([type,label])=><button className="native-tool" key={type} title={label} aria-label={label} onClick={()=>send({type})}><Icon kind={{capture:"capture",newText:"text",paste:"paste",addImages:"image",appearance:"skin",collapse:"collapse"}[type]}/></button>)}
+        <div className={`native-status${pinned?" is-pinned":""}`} data-ui="native-toolbar" role="status" aria-live="polite">
+          <button className="native-pin-toggle" aria-label={pinned?labels.unpin:labels.pin} aria-pressed={pinned} title={pinned?labels.unpin:labels.pin} onClick={()=>send({type:pinned?"unpin":"pin"})}><Icon kind="pin"/></button>
+          <span className="native-status-label">{pinned?labels.pinned:labels.autoHide}</span>
+          <button className="native-tool" title={m.collapse} aria-label={m.collapse} onClick={()=>send({type:"collapse"})}><Icon kind="collapse"/></button>
         </div>
       </div>
     </div>

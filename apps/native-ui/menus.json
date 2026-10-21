@@ -10,7 +10,7 @@
     "Language": "Language",
     "Quit SnapSlot": "Quit SnapSlot",
     "Screenshot": "Screenshot",
-    "Automatically collect screenshots and images": "Automatically collect screenshots and images",
+    "Automatically collect screenshots and images": "Automatically collect clipboard images",
     "Edit": "Edit",
     "Undo": "Undo",
     "Cut": "Cut",
@@ -18,7 +18,11 @@
     "Paste": "Paste",
     "Select All": "Select All",
     "Settings": "Settings",
-    "Pin selected text": "Pin selected text"
+    "Pin selected text": "Pin selected text",
+    "Pin": "Pin",
+    "Unpin": "Unpin",
+    "On": "On",
+    "Off": "Off"
   },
   "zh-Hans": {
     "Open notes": "展开便签",
@@ -31,7 +35,7 @@
     "Language": "语言",
     "Quit SnapSlot": "退出快照贴",
     "Screenshot": "截图",
-    "Automatically collect screenshots and images": "自动收取截图和剪贴板图片",
+    "Automatically collect screenshots and images": "自动收取剪贴板图片",
     "Edit": "编辑",
     "Undo": "撤销",
     "Cut": "剪切",
@@ -39,7 +43,11 @@
     "Paste": "粘贴",
     "Select All": "全选",
     "Settings": "设置",
-    "Pin selected text": "收取选中文字"
+    "Pin selected text": "收取选中文字",
+    "Pin": "固定",
+    "Unpin": "取消固定",
+    "On": "开启",
+    "Off": "关闭"
   },
   "zh-Hant": {
     "Open notes": "展開便箋",
@@ -52,7 +60,7 @@
     "Language": "語言",
     "Quit SnapSlot": "結束快照貼",
     "Screenshot": "螢幕截圖",
-    "Automatically collect screenshots and images": "自動收取截圖和剪貼簿圖片",
+    "Automatically collect screenshots and images": "自動收取剪貼簿圖片",
     "Edit": "編輯",
     "Undo": "還原",
     "Cut": "剪下",
@@ -60,7 +68,11 @@
     "Paste": "貼上",
     "Select All": "全選",
     "Settings": "設定",
-    "Pin selected text": "收取選取文字"
+    "Pin selected text": "收取選取文字",
+    "Pin": "固定",
+    "Unpin": "取消固定",
+    "On": "開啟",
+    "Off": "關閉"
   },
   "ja": {
     "Open notes": "メモを開く",
@@ -81,7 +93,11 @@
     "Paste": "ペースト",
     "Select All": "すべてを選択",
     "Settings": "設定",
-    "Pin selected text": "選択したテキストを留める"
+    "Pin selected text": "選択したテキストを留める",
+    "Pin": "固定",
+    "Unpin": "固定を解除",
+    "On": "オン",
+    "Off": "オフ"
   },
   "ko": {
     "Open notes": "메모 펼치기",
@@ -102,7 +118,11 @@
     "Paste": "붙여넣기",
     "Select All": "모두 선택",
     "Settings": "설정",
-    "Pin selected text": "선택한 텍스트 붙이기"
+    "Pin selected text": "선택한 텍스트 붙이기",
+    "Pin": "고정",
+    "Unpin": "고정 해제",
+    "On": "켜기",
+    "Off": "끄기"
   },
   "es": {
     "Open notes": "Abrir notas",
@@ -123,6 +143,10 @@
     "Paste": "Pegar",
     "Select All": "Seleccionar todo",
     "Settings": "Ajustes",
-    "Pin selected text": "Fijar texto seleccionado"
+    "Pin selected text": "Fijar texto seleccionado",
+    "Pin": "Fijar",
+    "Unpin": "Dejar de fijar",
+    "On": "Activar",
+    "Off": "Desactivar"
   }
 }
