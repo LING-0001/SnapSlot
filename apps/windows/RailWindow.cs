@@ -19,7 +19,6 @@ using Microsoft.Web.WebView2.Core;
 using WebView = Microsoft.Web.WebView2.Wpf.WebView2CompositionControl;
 using Forms=System.Windows.Forms;
 using Drawing=System.Drawing;
-using Drawing2D=System.Drawing.Drawing2D;
 
 namespace SnapSlot;
 
@@ -379,7 +378,7 @@ public sealed class RailWindow : Window
     private void SetupTray()
     {
         tray??=new Forms.NotifyIcon{Text="SnapSlot"};
-        if(icon is null){using var bitmap=new Drawing.Bitmap(32,32);using(var graphics=Drawing.Graphics.FromImage(bitmap)){graphics.SmoothingMode=Drawing2D.SmoothingMode.AntiAlias;graphics.Clear(Drawing.Color.Transparent);using var blue=new Drawing.SolidBrush(Drawing.Color.FromArgb(18,99,215));using var white=new Drawing.SolidBrush(Drawing.Color.White);using var pin=new Drawing.SolidBrush(Drawing.Color.FromArgb(169,216,255));using var cap=new Drawing.SolidBrush(Drawing.Color.FromArgb(229,243,255));using var basePath=RoundedRectangle(0,0,32,32,8);using var paper=RoundedRectangle(7,10,18,16,3.5f);using var capPath=RoundedRectangle(12.5f,5.5f,7,2,0.2f);using var stem=new Drawing.Pen(Drawing.Color.FromArgb(18,69,154),2);graphics.FillPath(blue,basePath);graphics.FillPath(white,paper);stem.StartCap=stem.EndCap=Drawing2D.LineCap.Round;graphics.DrawLine(stem,16,5.5f,16,15);graphics.FillPolygon(pin,new[]{new Drawing.PointF(12.5f,5.5f),new Drawing.PointF(19.5f,5.5f),new Drawing.PointF(19.5f,9),new Drawing.PointF(18,11),new Drawing.PointF(20.5f,13.5f),new Drawing.PointF(11.5f,13.5f),new Drawing.PointF(14,11),new Drawing.PointF(12.5f,9)});graphics.FillPath(cap,capPath);}var handle=bitmap.GetHicon();using var borrowed=Drawing.Icon.FromHandle(handle);icon=(Drawing.Icon)borrowed.Clone();DestroyIcon(handle);tray.Icon=icon;tray.DoubleClick+=(_,_)=>Reveal(true);}
+        if(icon is null){var small=Forms.SystemInformation.SmallIconSize;var file=Path.Combine(AppContext.BaseDirectory,"SnapSlot.ico");using var fallback=File.Exists(file)||Environment.ProcessPath is not string exe?null:Drawing.Icon.ExtractAssociatedIcon(exe);icon=File.Exists(file)?new Drawing.Icon(file,small):fallback is null?(Drawing.Icon)Drawing.SystemIcons.Application.Clone():new Drawing.Icon(fallback,small);tray.Icon=icon;tray.DoubleClick+=(_,_)=>Reveal(true);}
         tray.ContextMenuStrip?.Dispose();
         var menu=new Forms.ContextMenuStrip{ShowImageMargin=false,ShowCheckMargin=false,Font=new Drawing.Font("Microsoft YaHei UI",10f)};
         void Entry(string title,Action action)=>menu.Items.Add(title,null,(_,_)=>Dispatcher.Invoke(()=>Safe(action)));
@@ -412,11 +411,6 @@ public sealed class RailWindow : Window
         edgeProbe.Tick+=(_,_)=>{if(expanded||busy||settings is not null){edgeDwell.Reset();return;}if(edgeDwell.Update(EdgeWatcher.IsAtEdge(),EdgeWatcher.CanReveal(source.Handle),DateTime.UtcNow))Reveal(false);};edgeProbe.Start();
         SystemParameters.StaticPropertyChanged+=ParametersChanged;
     }
-    private static Drawing2D.GraphicsPath RoundedRectangle(float x,float y,float width,float height,float radius)
-    {
-        var path=new Drawing2D.GraphicsPath();var diameter=radius*2;
-        path.AddArc(x,y,diameter,diameter,180,90);path.AddArc(x+width-diameter,y,diameter,diameter,270,90);path.AddArc(x+width-diameter,y+height-diameter,diameter,diameter,0,90);path.AddArc(x,y+height-diameter,diameter,diameter,90,90);path.CloseFigure();return path;
-    }
     private void ParametersChanged(object? sender,System.ComponentModel.PropertyChangedEventArgs e){if(e.PropertyName==nameof(SystemParameters.ClientAreaAnimation))State();}
     private IntPtr WndProc(IntPtr hwnd,int message,IntPtr wParam,IntPtr lParam,ref bool handled)
     {
@@ -448,7 +442,6 @@ public sealed class RailWindow : Window
     [DllImport("user32.dll")]private static extern uint GetClipboardSequenceNumber();
     [DllImport("user32.dll")]private static extern bool RegisterHotKey(IntPtr window,int id,uint modifiers,uint key);
     [DllImport("user32.dll")]private static extern bool UnregisterHotKey(IntPtr window,int id);
-    [DllImport("user32.dll")]private static extern bool DestroyIcon(IntPtr icon);
     [DllImport("user32.dll")]private static extern bool SetWindowPos(IntPtr window,IntPtr after,int x,int y,int width,int height,uint flags);
     [DllImport("user32.dll")]private static extern int GetWindowLong(IntPtr window,int index);
     [DllImport("user32.dll")]private static extern int SetWindowLong(IntPtr window,int index,int value);

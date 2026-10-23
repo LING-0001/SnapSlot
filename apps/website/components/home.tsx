@@ -1,319 +1,703 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
-import { edgeHints, localeNames, locales, type Locale, type Messages } from "@/lib/messages";
-import { useRailReveal } from "./use-rail-reveal";
-import { builtInSkins, isSameSkin, skinStyle, type Skin } from "@/lib/skin";
-import { siteCopy } from "@/lib/site-copy";
-import { SkinEditor, SkinPreview } from "./skin-editor";
-import { SampleArtwork } from "./sample-artwork";
-import { UsageGuide } from "./usage-guide";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { locales, localeNames, type Locale } from "@/lib/messages";
+import { fill, homeCopy } from "@/lib/home-copy";
+import s from "./home.module.css";
 
-type Card = { id: number; kind: "image" | "text"; art: string; name: string };
-function Symbol({ kind, size = 20 }: { kind: string; size?: number }) {
-  const paths: Record<string, React.ReactNode> = {
-    arrow: <path d="M5 12h14m-6-6 6 6-6 6" />,
-    up: <path d="M12 19V5m-6 6 6-6 6 6" />,
-    camera: <><path d="M4 7h4l2-3h4l2 3h4v13H4z"/><circle cx="12" cy="13" r="4"/></>,
-    text: <><path d="M5 5h14M12 5v15M8 20h8M5 5v3m14-3v3"/></>,
-    copy: <><path d="M8 8h12v12H8zM4 16V4h12"/></>,
-    reset: <><path d="M4 10a8 8 0 1 1 1 8M4 4v6h6"/></>,
-    close: <path d="m6 6 12 12M6 18 18 6"/>,
-    check: <path d="m5 12 4 4L19 6"/>,
-    shield: <><path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6z"/><path d="m8 12 3 3 5-6"/></>,
-    chevron: <path d="m7 10 5 5 5-5"/>,
-    windows: <><path d="M3 4h8v8H3zm10 0h8v8h-8zM3 14h8v8H3zm10 0h8v8h-8z" fill="currentColor" stroke="none"/></>,
-    palette: <><path d="M12 3a9 9 0 1 0 0 18h1a2 2 0 0 0 0-4h-.6a1.4 1.4 0 0 1 0-2.8H15a6 6 0 0 0 6-6c0-3.3-4-5.2-9-5.2Z"/><circle cx="7" cy="10" r=".8"/><circle cx="10" cy="7" r=".8"/><circle cx="15" cy="7" r=".8"/></>,
-    globe: <><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18"/></>,
+type Note =
+  | { id: string; kind: "image"; src: string; label: string; fresh?: boolean }
+  | { id: string; kind: "text"; text: string; fresh?: boolean };
+type DocItem = { id: string; kind: "image"; src: string } | { id: string; kind: "text"; text: string };
+type Skin = "glass" | "paper" | "graphite";
+type Os = "win" | "mac";
+type Box = { x: number; y: number; w: number; h: number };
+
+const CAPACITY = 30;
+const DWELL_MS = 500;
+const GRACE_MS = 450;
+const PEEK_MS = 2500;
+const DRAG_TYPE = "application/x-snapslot-note";
+const GITHUB = "https://github.com/LING-0001/SnapSlot";
+const RELEASES = `${GITHUB}/releases`;
+const EMAIL = "e1347605313@gmail.com";
+const ART = ["/mountains.svg", "/studio.svg"];
+const SKINS: Skin[] = ["glass", "paper", "graphite"];
+// Guided steps, in order: reveal from the edge, collect an image, use a note, open the menu.
+const STEPS = ["edge", "file", "drag", "tray"] as const;
+
+const uid = () => Math.random().toString(36).slice(2, 9);
+
+/** The app mark as a CSS image, so extensions that annotate <img> tags cannot break hydration. */
+function Mark({ size }: { size: number }) {
+  return <span className={s.mark} style={{ width: size, height: size }} aria-hidden="true"/>;
+}
+
+function Keys({ keys }: { keys: string[] }) {
+  return <span className={s.keys}>{keys.map((k) => <kbd key={k}>{k}</kbd>)}</span>;
+}
+
+function Toggle({ on, onChange, label }: { on: boolean; onChange: () => void; label: string }) {
+  return <button role="switch" aria-checked={on} aria-label={label} className={`${s.toggle} ${on ? s.toggleOn : ""}`} onClick={onChange}><span/></button>;
+}
+
+function GitHubMark({ size = 16 }: { size?: number }) {
+  return <svg viewBox="0 0 16 16" width={size} height={size} aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>;
+}
+
+function Glyphs() {
+  return <span className={s.glyphs} aria-hidden="true">
+    <svg viewBox="0 0 16 16" width="14" height="14"><path d="M8 12.5a1 1 0 1 0 0-2 1 1 0 0 0 0 2Zm-2.6-2.7a3.7 3.7 0 0 1 5.2 0l.9-.9a5 5 0 0 0-7 0l.9.9ZM3.5 7.9a6.4 6.4 0 0 1 9 0l.9-.9a7.7 7.7 0 0 0-10.8 0l.9.9Z" fill="currentColor"/></svg>
+    <svg viewBox="0 0 16 16" width="14" height="14"><path d="M2 6h2.5L8 3v10L4.5 10H2Z" fill="currentColor"/><path d="M10.5 5.5a3.5 3.5 0 0 1 0 5M12 4a5.5 5.5 0 0 1 0 8" stroke="currentColor" fill="none" strokeWidth="1.2" strokeLinecap="round"/></svg>
+  </span>;
+}
+
+async function copyNote(note: Note) {
+  if (note.kind === "text") return navigator.clipboard.writeText(note.text);
+  const img = new Image();
+  img.src = note.src;
+  await img.decode();
+  const canvas = document.createElement("canvas");
+  canvas.width = img.naturalWidth || 800;
+  canvas.height = img.naturalHeight || 520;
+  canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height);
+  const blob = await new Promise<Blob>((ok, fail) => canvas.toBlob((b) => (b ? ok(b) : fail()), "image/png"));
+  return navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+}
+
+export function Home({ locale }: { locale: Locale }) {
+  const t = homeCopy[locale];
+  const [appLocale, setAppLocale] = useState<Locale>(locale);
+  const a = homeCopy[appLocale];
+  const [notes, setNotes] = useState<Note[]>(() => [
+    { id: "s1", kind: "image", src: ART[0], label: t.stage.fileLabels[0] },
+    { id: "s2", kind: "text", text: t.stage.sampleText },
+    { id: "s3", kind: "image", src: ART[1], label: t.stage.fileLabels[1] },
+  ]);
+  const [focus, setFocus] = useState(1);
+  const [os, setOs] = useState<Os>("win");
+  const [pinned, setPinned] = useState(false);
+  const [intake, setIntake] = useState(true);
+  const [hover, setHover] = useState(false);
+  const [arming, setArming] = useState(false);
+  const [peek, setPeek] = useState(false);
+  const [narrow, setNarrow] = useState(false);
+  const [touch, setTouch] = useState(false);
+  const [skin, setSkin] = useState<Skin>("glass");
+  const [copied, setCopied] = useState<string | null>(null);
+  const [chip, setChip] = useState<{ x: number; y: number } | null>(null);
+  const [island, setIsland] = useState<Note | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [menu, setMenu] = useState(false);
+  const [settings, setSettings] = useState(false);
+  const [stageVisible, setStageVisible] = useState(true);
+  const [doc, setDoc] = useState<DocItem[]>([]);
+  const [docOver, setDocOver] = useState(false);
+  const [clock, setClock] = useState("");
+  const [step, setStep] = useState(0);
+  const [coachBox, setCoachBox] = useState<Box | null>(null);
+  const [coachShift, setCoachShift] = useState(0);
+  const coachRef = useRef<HTMLDivElement>(null);
+  const [langOpen, setLangOpen] = useState(false);
+  const stageRef = useRef<HTMLDivElement>(null);
+  const dialRef = useRef<HTMLDivElement>(null);
+  const docRef = useRef<HTMLDivElement>(null);
+  const timers = useRef<Record<string, number>>({});
+  const wheel = useRef(0);
+  const stageSeen = useRef(true);
+  const intakeRef = useRef(intake);
+  intakeRef.current = intake;
+
+  const later = (key: string, ms: number, fn: () => void) => {
+    window.clearTimeout(timers.current[key]);
+    timers.current[key] = window.setTimeout(fn, ms);
   };
-  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[kind]}</svg>;
-}
-function Brand({ small = false }: { small?: boolean }) {
-  return <span className={`brand ${small ? "small" : ""}`}><span className="brand-logo" aria-hidden="true"/><span>SnapSlot</span></span>;
-}
+  const cancel = (key: string) => window.clearTimeout(timers.current[key]);
+  const tell = useCallback((message: string) => { setNotice(message); later("notice", 2200, () => setNotice(null)); }, []);
 
-function LanguagePicker({ locale, label }: { locale: Locale; label: string }) {
-  const [open, setOpen] = useState(false);
-  const root = useRef<HTMLDivElement>(null);
-  const trigger = useRef<HTMLButtonElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const outside = (e: PointerEvent) => { if (!root.current?.contains(e.target as Node)) setOpen(false); };
-    document.addEventListener("pointerdown", outside);
-    return () => document.removeEventListener("pointerdown", outside);
-  }, [open]);
-  function move(index: number) {
-    root.current?.querySelectorAll<HTMLAnchorElement>('[role="menuitemradio"]')[index]?.focus();
-  }
-  useEffect(() => { if (open) move(locales.indexOf(locale)); }, [open, locale]);
-  return <div className="language-picker" ref={root}
-    onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setOpen(false); }}
-    onKeyDown={(e) => {
-      if (e.key === "Escape") { e.stopPropagation(); setOpen(false); trigger.current?.focus(); }
-    }}>
-    <button ref={trigger} className="language-trigger" aria-label={label} aria-haspopup="menu" aria-expanded={open} aria-controls="language-menu"
-      onClick={() => setOpen(!open)} onKeyDown={(e) => { if (e.key === "ArrowDown") { e.preventDefault(); setOpen(true); } }}>
-      <Symbol kind="globe" size={16}/><span>{localeNames[locale]}</span><Symbol kind="chevron" size={12}/>
-    </button>
-    {open && <div className="language-menu" id="language-menu" role="menu" aria-label={label}>
-      {locales.map((l, index) => <a key={l} href={`/${l}/`} lang={l} role="menuitemradio" aria-checked={l === locale}
-        onClick={(e) => { if (l === locale) { e.preventDefault(); setOpen(false); trigger.current?.focus(); } }}
-        onKeyDown={(e) => {
-          if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); move((index + (e.key === "ArrowDown" ? 1 : -1) + locales.length) % locales.length); }
-          if (e.key === "Home") { e.preventDefault(); move(0); }
-          if (e.key === "End") { e.preventDefault(); move(locales.length - 1); }
-          if (e.key === " ") { e.preventDefault(); e.currentTarget.click(); }
-        }}><span>{localeNames[l]}</span><span aria-hidden="true">{l === locale ? <span className="selected-mark" aria-hidden="true"/> : null}</span></a>)}
-    </div>}
-  </div>;
-}
+  const coach = STEPS[step] as (typeof STEPS)[number] | undefined;
+  // While the drag step is showing, keep the notes down so there is something to drag.
+  const open = pinned || hover || peek || coach === "drag";
+  const reach = narrow ? 1.6 : 3.2;
+  const mac = os === "mac";
+  const mod = mac ? ["⌃", "⌥"] : ["Ctrl", "Alt"];
+  const edgePx = mac ? 26 : 14;
+  const otherOs = mac ? "win" : "mac";
 
-function RailDemo({ m, locale, skin, onCustomize, children }: { m: Messages; locale: Locale; skin: Skin; onCustomize: () => void; children: ReactNode }) {
-  const labels = siteCopy[locale];
-  const seed = (): Card[] => [
-    { id: 1, kind: "image", art: "/mountains.svg", name: m.sampleImage },
-    { id: 2, kind: "text", art: "", name: m.sampleText },
-    { id: 3, kind: "image", art: "/studio.svg", name: m.samplePhoto },
-  ];
-  const [cards, setCards] = useState<Card[]>(seed);
-  const { expanded, desktop, rail, handle, reveal, collapse, peek, pin, unpin } = useRailReveal(true);
-  const [removals, setRemovals] = useState<{ id: number; x: number; y: number; width: number; height: number }[]>([]);
-  const [status, setStatus] = useState("");
-  const [arrival, setArrival] = useState<number | null>(null);
-  const nextId = useRef(4);
-  const timers = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
-  const copyButtons = useRef<Map<number, HTMLButtonElement>>(new Map());
-  const rowRef = useRef<HTMLDivElement>(null);
-  const positions = useRef<Map<string, number> | null>(null);
-  const motion = useRef<Animation[]>([]);
-  const focusAfterRemoval = useRef<{ id?: number } | null>(null);
+  const reached = useCallback((name: (typeof STEPS)[number]) => setStep((n) => (STEPS[n] === name ? n + 1 : n)), []);
 
-  useLayoutEffect(() => {
-    const previous = positions.current;
-    positions.current = null;
-    motion.current.forEach((animation) => animation.cancel());
-    motion.current = [];
-    if (previous && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      rowRef.current?.querySelectorAll<HTMLElement>("[data-card]").forEach((element) => {
-        const before = previous.get(element.dataset.card!);
-        const delta = before === undefined ? 0 : before - element.getBoundingClientRect().left;
-        if (Math.abs(delta) > .5) motion.current.push(element.animate([
-          { transform: `translateX(${delta}px)` }, { transform: "translateX(0)" },
-        ], { duration: 180, easing: "cubic-bezier(.22,1,.36,1)" }));
-      });
+  const turn = (by: number) => setNotes((list) => { setFocus((f) => Math.min(Math.max(f + by, 0), list.length - 1)); return list; });
+  const close = () => { setHover(false); setPeek(false); timers.current.leaving = 0; };
+
+  const add = useCallback((note: Note) => {
+    setNotes((list) => {
+      const next = [...list, note].slice(-CAPACITY);
+      setFocus(next.length - 1);
+      return next;
+    });
+    setPeek(true);
+    later("peek", PEEK_MS, () => setPeek(false));
+    later("fresh", 1400, () => setNotes((list) => list.map((n) => (n.fresh ? { ...n, fresh: false } : n))));
+    if (!stageSeen.current) {
+      setIsland(note);
+      later("island", 2600, () => setIsland(null));
     }
-    if (focusAfterRemoval.current) {
-      const next = focusAfterRemoval.current.id;
-      (next === undefined ? handle.current : copyButtons.current.get(next) || handle.current)?.focus({ preventScroll: true });
-      focusAfterRemoval.current = null;
-    }
-  }, [cards, handle]);
+  }, []);
 
-  useEffect(() => () => { timers.current.forEach(clearTimeout); motion.current.forEach((animation) => animation.cancel()); }, []);
+  const pinSelection = useCallback(() => {
+    const selection = window.getSelection();
+    const text = selection?.toString().trim() ?? "";
+    if (!text || stageRef.current?.contains(selection!.anchorNode)) return;
+    add({ id: uid(), kind: "text", text: text.slice(0, 2000), fresh: true });
+    navigator.clipboard?.writeText(text).catch(() => {});
+    selection?.removeAllRanges();
+    setChip(null);
+  }, [add]);
+
+  // Clicking a desktop file stands in for copying an image in another app.
+  const copyFile = (from: HTMLElement, index: number) => {
+    if (!intake) return tell(a.notice.notPinned);
+    const id = uid();
+    const src = ART[index];
+    add({ id, kind: "image", src, label: t.stage.fileLabels[index], fresh: true });
+    reached("file");
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const start = from.getBoundingClientRect();
+    const ghost = document.createElement("div");
+    ghost.className = s.ghost;
+    Object.assign(ghost.style, { left: `${start.left}px`, top: `${start.top}px`, width: `${start.width}px`, height: `${start.height}px`, backgroundImage: `url("${src}")` });
+    document.body.append(ghost);
+    window.setTimeout(() => {
+      const target = document.querySelector(`[data-note="${id}"]`)?.getBoundingClientRect();
+      const tx = target ? target.left - start.left : 0;
+      const ty = target ? target.top - start.top : -start.top;
+      const scale = target ? target.width / start.width : 1;
+      ghost.animate(
+        [{ transform: "none", opacity: 1 }, { transform: `translate(${tx}px, ${ty}px) scale(${scale})`, opacity: 0 }],
+        { duration: 620, easing: "cubic-bezier(.5,0,.2,1)", fill: "forwards" },
+      ).finished.then(() => ghost.remove());
+    }, 80);
+  };
+
   useEffect(() => {
-    const row = rowRef.current;
-    if (!row) return;
-    // Keep trackpad/touch scrolling native. A plain mouse wheel moves the row
-    // only while it has room in that direction; at either end the page scrolls.
-    const wheel = (event: WheelEvent) => {
-      if (event.ctrlKey || event.shiftKey || Math.abs(event.deltaX) >= Math.abs(event.deltaY)) return;
-      const delta = event.deltaY * (event.deltaMode === 1 ? 20 : event.deltaMode === 2 ? row.clientWidth : 1);
-      const maximum = row.scrollWidth - row.clientWidth;
-      if ((delta > 0 && row.scrollLeft < maximum - 1) || (delta < 0 && row.scrollLeft > 1)) {
-        event.preventDefault();
-        row.scrollLeft += delta;
+    if (/Mac|iPhone|iPad/.test(navigator.platform)) setOs("mac");
+    const tick = () => setClock(new Date().toLocaleTimeString(appLocale, { hour: "2-digit", minute: "2-digit", hour12: false }));
+    tick();
+    const clockTimer = window.setInterval(tick, 15000);
+    const media = matchMedia("(max-width: 760px)");
+    const coarse = matchMedia("(hover: none)");
+    const sync = () => { setNarrow(media.matches); setTouch(coarse.matches); };
+    sync();
+    media.addEventListener("change", sync);
+    coarse.addEventListener("change", sync);
+
+    const seen = new IntersectionObserver(([entry]) => { stageSeen.current = entry.isIntersecting; setStageVisible(entry.isIntersecting); }, { threshold: 0.25 });
+    seen.observe(stageRef.current!);
+
+    const reveal = new IntersectionObserver((entries) => entries.forEach((e) => {
+      if (e.isIntersecting) { e.target.setAttribute("data-shown", ""); reveal.unobserve(e.target); }
+    }), { threshold: 0.15 });
+    document.querySelectorAll("[data-reveal]").forEach((el) => reveal.observe(el));
+
+    return () => {
+      window.clearInterval(clockTimer);
+      media.removeEventListener("change", sync);
+      coarse.removeEventListener("change", sync);
+      seen.disconnect();
+      reveal.disconnect();
+    };
+  }, [appLocale]);
+
+  // Opening the notes by any route completes the first step.
+  useEffect(() => { if (hover || pinned) reached("edge"); }, [hover, pinned, reached]);
+
+  // Wheel and swipe turn the fan one note at a time.
+  useEffect(() => {
+    const dial = dialRef.current!;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      wheel.current += Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+      if (Math.abs(wheel.current) < 40) return;
+      const by = Math.sign(wheel.current);
+      wheel.current = 0;
+      turn(by);
+    };
+    let startX = 0;
+    const onTouchStart = (e: TouchEvent) => { startX = e.touches[0].clientX; };
+    const onTouchEnd = (e: TouchEvent) => {
+      const dx = e.changedTouches[0].clientX - startX;
+      if (Math.abs(dx) >= 30) turn(-Math.sign(dx) * Math.max(1, Math.round(Math.abs(dx) / 80)));
+    };
+    dial.addEventListener("wheel", onWheel, { passive: false });
+    dial.addEventListener("touchstart", onTouchStart, { passive: true });
+    dial.addEventListener("touchend", onTouchEnd);
+    return () => {
+      dial.removeEventListener("wheel", onWheel);
+      dial.removeEventListener("touchstart", onTouchStart);
+      dial.removeEventListener("touchend", onTouchEnd);
+    };
+  }, []);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { setMenu(false); setSettings(false); setLangOpen(false); }
+      if (!(e.ctrlKey && e.altKey)) return;
+      if (e.code === "KeyT") { e.preventDefault(); pinSelection(); }
+      if (e.code === "Space") {
+        e.preventDefault();
+        setHover(true);
+        requestAnimationFrame(() => dialRef.current?.querySelector<HTMLElement>("[data-focus='true']")?.focus());
       }
     };
-    row.addEventListener("wheel", wheel, { passive: false });
-    return () => row.removeEventListener("wheel", wheel);
-  }, []);
-  useEffect(() => {
-    if (!expanded || !arrival) return;
-    const row = rail.current?.querySelector<HTMLDivElement>(".slot-row");
-    const card = row?.querySelector<HTMLElement>(`[data-card="${arrival}"]`);
-    if (row && card) row.scrollLeft = Math.max(0, card.offsetLeft - row.clientWidth + card.offsetWidth + 24);
-  }, [expanded, arrival, rail]);
-  function later(fn: () => void, ms: number) {
-    const timer = setTimeout(() => { timers.current.delete(timer); fn(); }, ms);
-    timers.current.add(timer);
-  }
-  function add(kind: "image" | "text") {
-    const id = nextId.current++;
-    const card: Card = { id, kind, art: id % 2 ? "/studio.svg" : "/mountains.svg", name: kind === "text" ? m.sampleText : m.sampleImage };
-    setCards((old) => [...old, card]);
-    setArrival(id);
-    setStatus("");
-    peek();
-    later(() => setArrival((current) => current === id ? null : current), 2500);
-  }
-  function reset() {
-    timers.current.forEach(clearTimeout); timers.current.clear();
-    collapse();
-    positions.current = null; focusAfterRemoval.current = null;
-    setCards(seed()); nextId.current = 4; setRemovals([]); setArrival(null); setStatus("");
-    if (rowRef.current) rowRef.current.scrollLeft = 0;
-  }
-  async function copy(card: Card) {
-    try {
-      if (card.kind === "text") await navigator.clipboard.writeText(m.textContent);
-      else {
-        // Start the clipboard operation during the user gesture. PNG is interoperable
-        // with native apps; copying a URL would violate the image-card contract.
-        const png = new Promise<Blob>((resolve, reject) => {
-          const img = new Image();
-          img.onload = () => {
-            const canvas = document.createElement("canvas");
-            canvas.width = img.naturalWidth; canvas.height = img.naturalHeight;
-            const ctx = canvas.getContext("2d");
-            if (!ctx) { reject(new Error("Canvas unavailable")); return; }
-            ctx.drawImage(img, 0, 0);
-            canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("PNG unavailable")), "image/png");
-          };
-          img.onerror = reject; img.src = card.art;
-        });
-        await navigator.clipboard.write([new ClipboardItem({ "image/png": png })]);
-      }
-      setStatus(m.copied);
-    } catch { setStatus(m.copyFailed); }
-  }
-  function remove(card: Card) {
-    if (!cards.some((item) => item.id === card.id)) return;
-    const active = document.activeElement;
-    const focusWasInCard = active?.closest(`[data-card="${card.id}"]`) != null;
-    const position = cards.findIndex((item) => item.id === card.id);
-    const neighbor = cards[position + 1] || cards[position - 1];
-    positions.current = new Map(Array.from(rowRef.current?.querySelectorAll<HTMLElement>("[data-card]") || [])
-      .map((element) => [element.dataset.card!, element.getBoundingClientRect().left]));
-    if (focusWasInCard) focusAfterRemoval.current = { id: neighbor?.id };
-    const element = rowRef.current?.querySelector<HTMLElement>(`[data-card="${card.id}"]`);
-    if (element && rowRef.current && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      const bounds = element.getBoundingClientRect(), rowBounds = rowRef.current.getBoundingClientRect();
-      setRemovals((old) => [...old, { id: card.id, x: bounds.left - rowBounds.left + rowRef.current!.scrollLeft, y: bounds.top - rowBounds.top, width: bounds.width, height: bounds.height }]);
-      later(() => setRemovals((old) => old.filter((item) => item.id !== card.id)), 180);
-    }
-    setCards((old) => old.filter((c) => c.id !== card.id));
-    setStatus(m.removed);
-  }
-  function key(event: KeyboardEvent, card: Card, index: number) {
-    if (event.key === "Delete") { event.preventDefault(); remove(card); }
-    if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
-      event.preventDefault();
-      const delta = event.key === "ArrowRight" ? 1 : -1;
-      const next = cards[(index + delta + cards.length) % cards.length];
-      copyButtons.current.get(next.id)?.focus();
-    }
-  }
-  return <>
-    <div className="demo-meta"><span>{labels.demo}</span><span>{labels.hint}</span></div>
-    <div ref={desktop} style={skinStyle(skin)} className="desktop" onKeyDown={(e) => { if (e.key === "Escape") { e.preventDefault(); collapse(true); } }}>
-      <p className="desktop-instruction">{edgeHints[locale]}</p>
-      <div ref={rail} data-ui="notes-demo" className={`rail ${expanded ? "expanded" : "collapsed"}`}
-        onKeyDown={pin}
-        onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) unpin(); }}>
-        <div id="rail-items" className="rail-drawer" inert={!expanded} aria-hidden={!expanded}>
-          <button className="rail-dismiss" onClick={() => collapse(true)} aria-label={m.collapse}><Symbol kind="chevron" size={16}/></button>
-          <div ref={rowRef} className="slot-row" role="group" aria-label={m.demoLabel}>
-            {cards.map((card, index) => <div key={card.id} data-card={card.id} className={`capture-card ${card.kind} ${arrival === card.id ? "just-added" : ""}`}>
-              <span className="card-pin" aria-hidden="true"><i/><b/></span>
-              <button className="card-copy" ref={(el) => { if (el) copyButtons.current.set(card.id, el); else copyButtons.current.delete(card.id); }}
-                onKeyDown={(e) => key(e, card, index)} onClick={() => copy(card)} aria-label={`${m.copy}: ${card.name}`}>
-                {card.kind === "image" ? <SampleArtwork src={card.art} label={card.name}/> :
-                  <div className="text-preview"><strong>{m.noteTitle}</strong>{m.noteLines.map((line) => <p key={line}>{line}</p>)}</div>}
-                <span className="copy-overlay"><Symbol kind="copy" size={16}/>{m.copy}</span>
-              </button>
-              <div className="card-caption"><span>{card.name}</span><span className="card-type">{card.kind === "text" ? "TXT" : "PNG"}</span></div>
-              <button className="card-remove" onClick={() => remove(card)} aria-label={`${m.remove}: ${card.name}`}><Symbol kind="close" size={12}/></button>
-            </div>)}
-            {removals.map((item) => <div key={item.id} className="fragments" aria-hidden="true" style={{ left: item.x, top: item.y, width: item.width, height: item.height }}>{Array.from({ length: 12 }, (_, i) =>
-              <i key={i} style={{ "--x": `${(i % 4) * 28}%`, "--y": `${Math.floor(i / 4) * 34}%`, "--fragment": ["#eabd42", "#a7c8ae", "#f6f4ed", "#6e96ad"][i % 4] } as CSSProperties}/>)}</div>)}
-            {cards.length === 0 && <button className="empty-slot" onClick={() => add("image")}><Symbol kind="camera" size={28}/><span>{m.empty}</span></button>}
-          </div>
-        </div>
-      </div>
-      {children}
-      <div className="desktop-footer">
-    <div className="demo-controls" data-ui="demo-toolbar">
-      <div className="capture-actions"><button className="button capture-button" aria-label={m.addImage} title={m.addImage} onClick={() => add("image")}><Symbol kind="camera"/><span className="control-label">{m.addImage}</span></button><button className="button text-button" aria-label={m.addText} title={m.addText} onClick={() => add("text")}><Symbol kind="text"/><span className="control-label">{m.addText}</span></button></div>
-      <div className="demo-utilities">
-        <button ref={handle} className="reveal-button" aria-expanded={expanded} aria-controls="rail-items" aria-label={expanded ? m.collapse : m.expand} title={expanded ? m.collapse : m.expand}
-          onClick={() => expanded ? collapse() : reveal(true)}><span className="control-label toggle-labels" aria-hidden="true"><span className={expanded ? "inactive" : ""}>{m.expand}</span><span className={expanded ? "" : "inactive"}>{m.collapse}</span></span><Symbol kind="chevron" size={16}/></button>
-        <button className="reset-button" aria-label={m.reset} title={m.reset} onClick={reset}><Symbol kind="reset" size={18}/><span className="control-label">{m.reset}</span></button>
-        <button className="appearance-trigger" aria-haspopup="dialog" aria-label={labels.customize} title={labels.customize} onClick={onCustomize}><Symbol kind="palette" size={18}/><span className="control-label">{labels.nav[1]}</span></button>
-      </div>
-    </div>
-    <div className="demo-feedback">
-      <p role="status" aria-live="polite" aria-atomic="true">{status || m.demoNote}</p>
-      <p className="sr-only">{m.keyboard}</p>
-    </div>
-    <div className="desktop-dock" data-ui="desktop-dock">
-      <span className="dock-app dock-files" aria-hidden="true"><svg viewBox="0 0 48 48"><path d="M7 12h13l4 5h17v23H7z" fill="#fff" opacity=".45"/><path d="M6 21h36l-4 20H10z" fill="#fff"/></svg></span>
-      <span className="dock-app dock-browser" aria-hidden="true"><svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="16" fill="#fff"/><circle cx="24" cy="24" r="12" fill="#8ed3fa"/><path d="m30 14-3 14-10 7 4-14z" fill="#1764c0"/><path d="m30 14-9 7 6 7z" fill="#ed6a5b"/></svg></span>
-      <button className="dock-app dock-snapslot" aria-label="SnapSlot" title="SnapSlot" onClick={() => reveal(true)}><span className="app-symbol" aria-hidden="true"/><span className="dock-tooltip">SnapSlot</span><i aria-hidden="true"/></button>
-      <span className="dock-app dock-notes" aria-hidden="true"><svg viewBox="0 0 48 48"><rect x="8" y="7" width="32" height="35" rx="5" fill="#fff"/><path d="M8 12a5 5 0 0 1 5-5h22a5 5 0 0 1 5 5v6H8z" fill="#ffd56b"/><path d="M15 25h18M15 31h18M15 37h12" stroke="#bccada" strokeWidth="2"/></svg></span>
-    </div>
-      </div>
-    </div>
-  </>;
-}
-
-function BackToTop({ label }: { label: string }) {
-  const [visible, setVisible] = useState(false);
-  useEffect(() => {
-    const update = () => setVisible(window.scrollY > window.innerHeight);
-    update();
-    window.addEventListener("scroll", update, { passive: true });
-    window.addEventListener("resize", update);
-    return () => { window.removeEventListener("scroll", update); window.removeEventListener("resize", update); };
-  }, []);
-  return <a className="back-to-top" href="#top" aria-label={label} title={label} hidden={!visible}
-    onClick={(e) => {
+    const onPaste = (e: ClipboardEvent) => {
+      const file = [...(e.clipboardData?.files ?? [])].find((f) => f.type.startsWith("image/"));
+      if (!file || !intakeRef.current) return;
       e.preventDefault();
-      document.getElementById("top")?.focus({ preventScroll: true });
-      window.scrollTo({ top: 0, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth" });
-    }}><Symbol kind="up" size={22}/></a>;
-}
+      const reader = new FileReader();
+      reader.onload = () => add({ id: uid(), kind: "image", src: String(reader.result), label: t.stage.pasted, fresh: true });
+      reader.readAsDataURL(file);
+    };
+    const onSelection = () => {
+      const selection = window.getSelection();
+      if (!selection || selection.isCollapsed || !selection.toString().trim() || stageRef.current?.contains(selection.anchorNode)) return setChip(null);
+      const rect = selection.getRangeAt(0).getBoundingClientRect();
+      setChip({ x: Math.min(Math.max(rect.left + rect.width / 2, 110), innerWidth - 110), y: rect.bottom + 10 });
+    };
+    const hideChip = () => setChip(null);
+    addEventListener("keydown", onKey);
+    addEventListener("paste", onPaste);
+    document.addEventListener("selectionchange", onSelection);
+    addEventListener("scroll", hideChip, { passive: true });
+    return () => {
+      removeEventListener("keydown", onKey);
+      removeEventListener("paste", onPaste);
+      document.removeEventListener("selectionchange", onSelection);
+      removeEventListener("scroll", hideChip);
+    };
+  }, [add, pinSelection, t]);
 
-export function Home({ locale, m }: { locale: Locale; m: Messages }) {
-  const copy = siteCopy[locale];
-  const [skin, setSkin] = useState<Skin>(builtInSkins[0]);
-  const [editorOpen, setEditorOpen] = useState(false);
-  const [usageOpen, setUsageOpen] = useState(false);
-  return <>
-    <a className="skip-link" href="#main">{copy.skip}</a>
-    <header className="site-header page-width" id="top" tabIndex={-1}>
-      <a className="home-link" href={`/${locale}/`} aria-label="SnapSlot"><Brand/>{locale.startsWith("zh") && <span className="chinese-name">{locale === "zh-Hans" ? "快照贴" : "快照貼"}</span>}</a>
-      <nav aria-label={[copy.usageNav, ...copy.nav.slice(1)].join(" / ")}><button className="usage-nav" aria-haspopup="dialog" onClick={() => setUsageOpen(true)}>{copy.usageNav}</button><a href="#skins">{copy.nav[1]}</a><a href="#about">{copy.nav[2]}</a></nav>
-      <LanguagePicker locale={locale} label={m.language}/>
-    </header>
-    <main id="main">
-      <section className="hero">
-        <div className="scene-wallpaper" aria-hidden="true"/>
-        <div className="playground" id="playground"><RailDemo m={m} locale={locale} skin={skin} onCustomize={() => setEditorOpen(true)}><div className="hero-copy">
-          <h1>{copy.headline.join(" ")}</h1>
-          <div className="hero-description">
-            <p className="hero-intro">{copy.intro}</p>
-            <button className="usage-trigger" aria-haspopup="dialog" onClick={() => setUsageOpen(true)}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.5"/><path d="m10 8 6 4-6 4z" fill="currentColor"/></svg>{copy.usage}</button>
+  // Close menus on any outside press.
+  useEffect(() => {
+    if (!menu && !langOpen) return;
+    const onDown = (e: PointerEvent) => {
+      const target = e.target as Element;
+      if (!target.closest(`.${s.trayMenu}, [data-coach="tray"]`)) setMenu(false);
+      if (!target.closest(`.${s.lang}`)) setLangOpen(false);
+    };
+    addEventListener("pointerdown", onDown, true);
+    return () => removeEventListener("pointerdown", onDown, true);
+  }, [menu, langOpen]);
+
+  // The coach bubble follows whatever the current step points at.
+  useLayoutEffect(() => {
+    if (!coach) { setCoachBox(null); return; }
+    const measure = () => {
+      const stage = stageRef.current!.getBoundingClientRect();
+      const target = coach === "drag" && touch
+        ? dialRef.current!.querySelector<HTMLElement>("[data-focus='true']")
+        : stageRef.current!.querySelector<HTMLElement>(`[data-coach="${coach}"]`);
+      if (!target) return setCoachBox(null);
+      const r = target.getBoundingClientRect();
+      setCoachBox({ x: r.left - stage.left, y: r.top - stage.top, w: r.width, h: r.height });
+    };
+    measure();
+    const late = window.setTimeout(measure, 600);
+    addEventListener("resize", measure);
+    return () => { window.clearTimeout(late); removeEventListener("resize", measure); };
+  }, [coach, os, narrow, touch, open, focus, notes.length]);
+
+  useLayoutEffect(() => {
+    const bubble = coachRef.current, stage = stageRef.current;
+    if (!bubble || !stage) return;
+    // Measure the unshifted bubble: its centre is the target's centre, so the shift is absolute.
+    const width = bubble.offsetWidth, r = stage.getBoundingClientRect(), pad = 12;
+    const centre = parseFloat(bubble.style.left);
+    if (Number.isNaN(centre)) return setCoachShift(0);
+    const left = centre - width / 2, right = centre + width / 2;
+    setCoachShift(right > r.width - pad ? r.width - pad - right : left < pad ? pad - left : 0);
+  }, [coachBox, step, appLocale, narrow]);
+
+  // The screen's top edge (Windows) or menu bar (Mac): rest the pointer there for 500 ms.
+  const onStageMove = (e: React.MouseEvent) => {
+    const y = e.clientY - stageRef.current!.getBoundingClientRect().top;
+    const dialBottom = dialRef.current!.offsetTop + dialRef.current!.offsetHeight;
+    if (y <= edgePx) {
+      cancel("leave");
+      timers.current.leaving = 0;
+      if (!open && !timers.current.armed) {
+        timers.current.armed = 1;
+        setArming(true);
+        later("dwell", DWELL_MS, () => { setArming(false); setHover(true); timers.current.armed = 0; });
+      }
+      return;
+    }
+    if (timers.current.armed) { timers.current.armed = 0; cancel("dwell"); setArming(false); }
+    if (!open || pinned || settings || menu || coach === "drag") return;
+    if (y > dialBottom) {
+      if (!timers.current.leaving) { timers.current.leaving = 1; later("leave", GRACE_MS, close); }
+    } else if (timers.current.leaving) { timers.current.leaving = 0; cancel("leave"); }
+  };
+  const onStageLeave = () => {
+    if (timers.current.armed) { timers.current.armed = 0; cancel("dwell"); setArming(false); }
+    if (open && !pinned && coach !== "drag") later("leave", GRACE_MS, close);
+  };
+  // Touch has no hover: tapping the top strip opens, tapping bare desktop closes.
+  const onStageTap = (e: React.PointerEvent) => {
+    if (e.pointerType !== "touch") return;
+    const y = e.clientY - stageRef.current!.getBoundingClientRect().top;
+    if (y <= 40) setHover(true);
+    else if (open && !pinned && coach !== "drag" && !(e.target as Element).closest(`.${s.dial}, .${s.taskbar}, .${s.menubar}, .${s.dock}, .${s.doc}, .${s.files}, .${s.window}, .${s.trayMenu}`)) close();
+  };
+
+  const copy = async (note: Note, index: number) => {
+    setFocus(index);
+    if (touch) reached("drag");
+    try {
+      await copyNote(note);
+      setCopied(note.id);
+      later("copied", 1400, () => setCopied(null));
+    } catch { /* the browser refused clipboard access; the card simply stays as is */ }
+  };
+  const remove = (id: string) => setNotes((list) => {
+    const next = list.filter((n) => n.id !== id);
+    setFocus((f) => Math.min(f, Math.max(next.length - 1, 0)));
+    return next;
+  });
+
+  const onCardKey = (e: React.KeyboardEvent<HTMLElement>, note: Note, index: number) => {
+    const go = (i: number) => {
+      setFocus(i);
+      requestAnimationFrame(() => dialRef.current?.querySelector<HTMLElement>(`[data-index="${i}"]`)?.focus());
+    };
+    if (e.key === "ArrowRight" && index < notes.length - 1) go(index + 1);
+    else if (e.key === "ArrowLeft" && index > 0) go(index - 1);
+    else if (e.key === "Delete" || e.key === "Backspace") { remove(note.id); go(Math.max(index - 1, 0)); }
+    else if (e.key === "Escape") { close(); e.currentTarget.blur(); }
+    else return;
+    e.preventDefault();
+  };
+
+  const toDoc = (item: DocItem) => {
+    setDoc((list) => [...list, item].slice(-8));
+    reached("drag");
+    requestAnimationFrame(() => docRef.current?.querySelector(`.${s.docBody}`)?.scrollTo({ top: 9999, behavior: "smooth" }));
+  };
+  const onDocPaste = (e: React.ClipboardEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const file = [...e.clipboardData.files].find((f) => f.type.startsWith("image/"));
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = () => toDoc({ id: uid(), kind: "image", src: String(reader.result) });
+      reader.readAsDataURL(file);
+      return;
+    }
+    const text = e.clipboardData.getData("text/plain");
+    if (text) toDoc({ id: uid(), kind: "text", text });
+  };
+  const onDocDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDocOver(false);
+    const note = notes.find((n) => n.id === e.dataTransfer.getData(DRAG_TYPE));
+    if (note) toDoc(note.kind === "image" ? { id: uid(), kind: "image", src: note.src } : { id: uid(), kind: "text", text: note.text });
+    else if (e.dataTransfer.getData("text/plain")) toDoc({ id: uid(), kind: "text", text: e.dataTransfer.getData("text/plain") });
+  };
+
+  // Pinning shows the notes; unpinning lets them go.
+  const togglePinned = () => {
+    if (pinned) { setPinned(false); close(); }
+    else { setPinned(true); setHover(true); }
+  };
+  const toggleIntake = () => {
+    setIntake((v) => !v);
+    tell(intake ? a.notice.intakeOff : a.notice.intakeOn);
+  };
+  const openMenu = () => { setMenu(true); reached("tray"); };
+  const openSettings = () => { setMenu(false); setSettings(true); };
+  // Windows: left click shows or hides the notes, right click opens the menu. Mac: any click opens the menu.
+  const onTrayClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    if (mac || (e.nativeEvent as PointerEvent).pointerType === "touch") return menu ? setMenu(false) : openMenu();
+    setMenu(false);
+    if (open && !pinned) close(); else setHover(true);
+  };
+
+  const trayButton = <button
+    data-coach="tray"
+    className={`${s.trayIcon} ${!intake ? s.trayOff : ""} ${menu ? s.trayIconOn : ""}`}
+    onClick={onTrayClick}
+    onContextMenu={(e) => { e.preventDefault(); openMenu(); }}
+    aria-haspopup="menu"
+    aria-expanded={menu}
+    aria-label={mac ? a.menu.trayMac : a.menu.trayWin}
+  >
+    {mac
+      ? <svg viewBox="0 0 18 16" width="17" height="15" aria-hidden="true"><rect x="1" y="1.2" width="16" height="1.4" rx=".7" fill="currentColor" opacity=".55"/><rect x="4" y="4" width="10" height="8.5" rx="2" fill="none" stroke="currentColor" strokeWidth="1.5"/><circle cx="9" cy="4" r="1.6" fill="currentColor"/></svg>
+      : <Mark size={16}/>}
+    {pinned && <span className={s.trayPinned}/>}
+  </button>;
+
+  const coachText = coach === "edge" ? (touch ? t.coach.edgeTouch : t.coach.edge)
+    : coach === "file" ? t.coach.file
+    : coach === "drag" ? (touch ? t.coach.dragTouch : t.coach.drag)
+    : coach === "tray" ? (touch ? t.coach.trayTouch : mac ? t.coach.trayMac : t.coach.trayWin) : "";
+  // Where the bubble sits relative to its target.
+  const coachSide = coach === "edge" || (coach === "tray" && mac) ? "below" : coach === "file" ? (narrow ? "below" : mac ? "left" : "right") : coach === "drag" && touch ? "below" : "above";
+
+  return <div className={s.page} data-skin={skin}>
+    <header className={s.nav}>
+      <div className={s.navInner}>
+        <a href="#top" className={s.brand}><Mark size={22}/>SnapSlot{t.name && <small>{t.name}</small>}</a>
+        <nav aria-label="SnapSlot">
+          <a href="#features">{t.nav.features}</a>
+          <a href={GITHUB} target="_blank" rel="noopener" className={s.navIcon} aria-label="GitHub"><GitHubMark/></a>
+          <div className={s.lang}>
+            <button onClick={() => setLangOpen((v) => !v)} aria-expanded={langOpen} aria-haspopup="true" aria-label={t.nav.language}>
+              <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><circle cx="8" cy="8" r="6.3" fill="none" stroke="currentColor" strokeWidth="1.2"/><path d="M1.7 8h12.6M8 1.7c1.8 1.7 2.6 3.9 2.6 6.3S9.8 12.6 8 14.3C6.2 12.6 5.4 10.4 5.4 8S6.2 3.4 8 1.7Z" fill="none" stroke="currentColor" strokeWidth="1.2"/></svg>
+              {localeNames[locale]}
+            </button>
+            {langOpen && <ul>{locales.map((l) => <li key={l}><a href={`/${l}/`} lang={l} aria-current={l === locale ? "page" : undefined}>{localeNames[l]}</a></li>)}</ul>}
           </div>
-        </div></RailDemo></div>
+        </nav>
+      </div>
+    </header>
+
+    <div className={`${s.island} ${island && !stageVisible ? s.islandOn : ""}`} role="status" aria-live="polite">
+      {island && <>
+        {island.kind === "image"
+          ? <span className={s.islandThumb} style={{ backgroundImage: `url("${island.src}")` }}/>
+          : <span className={s.islandThumb + " " + s.islandText}>Aa</span>}
+        <span>{fill(t.island, notes.length)}</span>
+      </>}
+    </div>
+
+    <main id="top" className={s.main}>
+      <div className={s.fold}>
+        <section className={s.hero}>
+          <h1>{t.headline}</h1>
+          <p className={s.sub}>{t.sub}</p>
+          <div className={s.ctas}>
+            <a href={RELEASES} target="_blank" rel="noopener" className={s.buttonPrimary}>{mac ? t.get.mac : t.get.win}</a>
+            <button className={s.buttonSecondary} onClick={() => setOs(otherOs)}>{mac ? t.get.alsoWin : t.get.alsoMac}</button>
+          </div>
+        </section>
+
+        <section className={s.stageWrap} id="stage">
+          <div
+            className={s.stage}
+            data-os={os}
+            ref={stageRef}
+            onMouseMove={onStageMove}
+            onMouseLeave={onStageLeave}
+            onPointerDown={onStageTap}
+            aria-label={t.stage.desktop}
+          >
+            <div className={s.wallpaper} aria-hidden="true"/>
+
+            {mac
+              ? <div className={s.menubar} data-coach="edge">
+                <span className={s.menuLogo} aria-hidden="true"/>
+                <b>{t.stage.docTitle}</b>
+                <span className={s.menubarRight}>{trayButton}<Glyphs/><span className={s.clock}>{clock}</span></span>
+              </div>
+              : <div className={s.edgeZone} data-coach="edge" aria-hidden="true"/>}
+            <div className={`${s.edgeGlow} ${arming ? s.edgeArming : ""}`} aria-hidden="true"><i/></div>
+
+            <div
+              ref={dialRef}
+              className={`${s.dial} ${open ? s.dialOpen : ""} ${arming ? s.dialArming : ""}`}
+              role="list"
+              aria-label={a.stage.list}
+            >
+              {notes.map((note, index) => {
+                const d = index - focus;
+                const hidden = Math.abs(d) > reach;
+                return <div
+                  role="listitem"
+                  key={note.id}
+                  className={`${s.arm} ${note.kind === "text" ? s.textNote : ""} ${note.fresh ? s.fresh : ""} ${d === 0 ? s.current : ""}`}
+                  style={{ "--d": d, "--ad": Math.abs(d), zIndex: 50 - Math.round(Math.abs(d) * 2), opacity: hidden ? 0 : 1 - Math.max(Math.abs(d) - reach + 1, 0) * 0.7, pointerEvents: hidden ? "none" : undefined } as React.CSSProperties}
+                  aria-hidden={hidden}
+                >
+                  <div className={s.card}>
+                    <span className={s.pin} aria-hidden="true"/>
+                    <button
+                      className={s.face}
+                      data-note={note.id}
+                      data-index={index}
+                      data-focus={d === 0}
+                      tabIndex={d === 0 ? 0 : -1}
+                      draggable
+                      onFocus={() => { cancel("leave"); setHover(true); }}
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData(DRAG_TYPE, note.id);
+                        e.dataTransfer.setData("text/plain", note.kind === "text" ? note.text : note.label);
+                        e.dataTransfer.effectAllowed = "copy";
+                      }}
+                      onClick={() => copy(note, index)}
+                      onKeyDown={(e) => onCardKey(e, note, index)}
+                      aria-label={note.kind === "text" ? a.stage.copyText + note.text.slice(0, 20) : a.stage.copyImage + note.label}
+                    >
+                      {note.kind === "image"
+                        ? <span className={s.photo} style={{ backgroundImage: `url("${note.src}")` }}/>
+                        : <span className={s.noteText}>{note.text}</span>}
+                      <span className={`${s.copied} ${copied === note.id ? s.copiedOn : ""}`} aria-hidden="true">{a.stage.copied}</span>
+                    </button>
+                    <button className={s.remove} onClick={() => remove(note.id)} aria-label={a.stage.remove} tabIndex={-1}>×</button>
+                  </div>
+                </div>;
+              })}
+              {notes.length === 0 && <p className={s.emptyFan}>{a.stage.empty}</p>}
+              {notes.length > 1 && <p className={s.counter} aria-hidden="true">{pinned && <span className={s.pinnedDot}/>}{focus + 1} / {notes.length}</p>}
+            </div>
+
+            <p className={`${s.notice} ${notice ? s.noticeOn : ""}`} role="status" aria-live="polite">{notice}</p>
+
+            <div className={s.files}>
+              {t.stage.files.map((name, index) => <button key={name} className={s.file} data-coach={index === 0 ? "file" : undefined} onClick={(e) => copyFile(e.currentTarget.querySelector("span")!, index)} aria-label={t.stage.copyFile + name}>
+                <span className={s.fileThumb} style={{ backgroundImage: `url("${ART[index]}")` }}/>
+                <span className={s.fileName}>{name}</span>
+              </button>)}
+            </div>
+
+            <div
+              ref={docRef}
+              data-coach="drag"
+              className={`${s.doc} ${docOver ? s.docOver : ""}`}
+              tabIndex={0}
+              onPaste={onDocPaste}
+              onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; setDocOver(true); }}
+              onDragLeave={() => setDocOver(false)}
+              onDrop={onDocDrop}
+              aria-label={t.stage.docTitle}
+            >
+              <div className={s.docBar}>
+                {mac && <span className={s.lights} aria-hidden="true"><i/><i/><i/></span>}
+                <span className={s.docName}>{t.stage.docTitle}</span>
+                {doc.length > 0 && <button onClick={() => setDoc([])}>{t.stage.clear}</button>}
+                {!mac && <span className={s.caption} aria-hidden="true"><i>—</i><i>□</i><i>×</i></span>}
+              </div>
+              <div className={s.docBody}>
+                <p className={s.docTitle}>{t.stage.docHeading}</p>
+                {doc.map((item) => item.kind === "image"
+                  ? <span key={item.id} className={s.docImage} style={{ backgroundImage: `url("${item.src}")` }}/>
+                  : <p key={item.id} className={s.docText}>{item.text}</p>)}
+                {doc.length === 0 && <p className={s.placeholder}>{t.stage.docEmpty}</p>}
+              </div>
+            </div>
+
+            {settings && <section className={s.window} role="dialog" aria-label={a.settings.title}>
+              <header className={s.windowBar}>
+                {mac && <span className={s.lights}><button onClick={() => setSettings(false)} aria-label={a.settings.close}/><i/><i/></span>}
+                {!mac && <Mark size={16}/>}
+                <span>{a.settings.title}</span>
+                {!mac && <button className={s.windowClose} onClick={() => setSettings(false)} aria-label={a.settings.close}>×</button>}
+              </header>
+              <div className={s.windowBody}>
+                <div className={s.row}><span>{a.menu.intake}<small>{a.settings.intakeHint}</small></span><Toggle on={intake} onChange={toggleIntake} label={a.menu.intake}/></div>
+                <div className={s.row}><span>{a.menu.pin}<small>{a.settings.pinHint}</small></span><Toggle on={pinned} onChange={togglePinned} label={a.menu.pin}/></div>
+                <div className={s.row}><span>{a.settings.look}</span>
+                  <span className={s.miniSkins}>{SKINS.map((option, i) => <button key={option} className={`${s.miniSkin} ${skin === option ? s.miniSkinOn : ""}`} data-swatch={option} onClick={() => setSkin(option)} aria-label={a.skins[i]} aria-pressed={skin === option}/>)}</span>
+                </div>
+                <label className={s.row}><span>{a.settings.language}</span>
+                  <select className={s.select} value={appLocale} onChange={(e) => setAppLocale(e.target.value as Locale)}>
+                    {locales.map((l) => <option key={l} value={l} lang={l}>{localeNames[l]}</option>)}
+                  </select>
+                </label>
+                <div className={s.row}><span>{a.settings.pinText}</span><Keys keys={[...mod, "T"]}/></div>
+                <div className={s.row}><span>{a.settings.openNotes}</span><Keys keys={[...mod, "Space"]}/></div>
+                <div className={s.row}><span>{fill(a.settings.count, notes.length)}</span><button className={s.danger} onClick={() => { setNotes([]); setFocus(0); }} disabled={!notes.length}>{a.settings.clear}</button></div>
+              </div>
+            </section>}
+
+            {mac
+              ? <div className={s.dock} aria-hidden="true"><i className={s.appFinder}/><i className={s.appBrowser}/><i className={s.appNotes}/><i className={`${s.appDoc} ${s.appActive}`}/></div>
+              : <div className={s.taskbar}>
+                <span className={s.taskApps} aria-hidden="true">
+                  <i className={s.appStart}/><i className={s.appFolder}/><i className={s.appBrowser}/><i className={`${s.appDoc} ${s.appActive}`}/>
+                </span>
+                <span className={s.tray}>{trayButton}<Glyphs/><span className={s.clock}>{clock}</span></span>
+              </div>}
+
+            {menu && <div className={s.trayMenu} role="menu" aria-label="SnapSlot">
+              <button role="menuitem" onClick={openSettings}><span className={s.check}/>{a.menu.settings}</button>
+              <hr/>
+              <button role="menuitemcheckbox" aria-checked={intake} onClick={() => { setMenu(false); toggleIntake(); }}><span className={s.check}>{intake ? "✓" : ""}</span>{a.menu.intake}</button>
+              <button role="menuitemcheckbox" aria-checked={pinned} onClick={() => { setMenu(false); togglePinned(); }}><span className={s.check}>{pinned ? "✓" : ""}</span>{a.menu.pin}</button>
+            </div>}
+
+            {coach && coachBox && <>
+              <span className={s.coachRing} data-target={coach} style={{ left: coachBox.x, top: coachBox.y, width: coachBox.w, height: coachBox.h }} aria-hidden="true"/>
+              <div
+                ref={coachRef}
+                className={s.coach}
+                data-side={coachSide}
+                style={coachSide === "right"
+                  ? { left: coachBox.x + coachBox.w + 14, top: coachBox.y + coachBox.h / 2 }
+                  : coachSide === "left"
+                  ? { left: coachBox.x - 14, top: coachBox.y + coachBox.h / 2 }
+                  : coachSide === "below"
+                    ? { left: coachBox.x + coachBox.w / 2, top: coachBox.y + coachBox.h + 12, "--shift": `${coachShift}px` } as React.CSSProperties
+                    : { left: coachBox.x + coachBox.w / 2, top: coachBox.y - 12, "--shift": `${coachShift}px` } as React.CSSProperties}
+                role="status"
+                aria-live="polite"
+              >
+                <span className={s.coachStep}>{step + 1}/{STEPS.length}</span>
+                <span>{coachText}</span>
+                <button onClick={() => setStep(STEPS.length + 1)} aria-label={t.coach.skip}>×</button>
+              </div>
+            </>}
+            {step === STEPS.length && <p className={s.coachDone} aria-hidden="true" onAnimationEnd={() => setStep(STEPS.length + 1)}>{t.coach.done}</p>}
+          </div>
+        </section>
+      </div>
+
+      <section className={s.bento} id="features">
+        <article className={`${s.tile} ${s.tileDark} ${s.wide}`} data-reveal>
+          <h2>{t.bento.selectTitle[0]}<br/>{t.bento.selectTitle[1]}</h2>
+          <p className={s.selectable}>{t.bento.selectLine}</p>
+          <p className={s.tileFoot}>{t.bento.selectFoot} <Keys keys={[...mod, "T"]}/></p>
+        </article>
+
+        <article className={s.tile} data-reveal>
+          <h2>{notes.length}<small> / 30</small></h2>
+          <div className={s.meter} aria-label={fill(t.bento.capacityLabel, notes.length)}>
+            {Array.from({ length: CAPACITY }, (_, i) => <i key={i} className={i < notes.length ? s.meterOn : ""}/>)}
+          </div>
+          <p className={s.tileFoot}>{t.bento.capacityFoot}</p>
+        </article>
+
+        <article className={s.tile} data-reveal>
+          <h2>{t.bento.skinTitle}</h2>
+          <div className={s.skins} role="radiogroup" aria-label={t.bento.skinTitle}>
+            {SKINS.map((option, i) => <button key={option} role="radio" aria-checked={skin === option} className={`${s.skin} ${skin === option ? s.skinOn : ""}`} data-swatch={option} onClick={() => setSkin(option)}>
+              <span/>{t.skins[i]}
+            </button>)}
+          </div>
+          <p className={s.tileFoot}>{t.bento.skinFoot}</p>
+        </article>
+
+        <article className={`${s.tile} ${s.wide} ${s.tilePrivacy}`} data-reveal>
+          <h2>{t.bento.privacyTitle[0]}<br/>{t.bento.privacyTitle[1]}</h2>
+          <p className={s.tileFoot}>{t.bento.privacyFoot}</p>
+        </article>
       </section>
-      <SkinEditor locale={locale} m={m} skin={skin} onChange={setSkin} open={editorOpen} onClose={() => setEditorOpen(false)}/>
-      <UsageGuide locale={locale} m={m} open={usageOpen} onClose={() => setUsageOpen(false)}/>
-      <section className="appearance-section page-width" id="skins">
-        <div className="appearance-heading"><h2 data-reveal>{copy.skinTitle.join(" ")}</h2><div><p data-reveal>{copy.skinIntro}</p><button className="customize-link" aria-haspopup="dialog" onClick={() => setEditorOpen(true)}>{copy.customize}<Symbol kind="arrow" size={18}/></button></div></div>
-        <div className="theme-options" data-ui="skin-selector" role="group" aria-label={copy.preview}>
-          {builtInSkins.map((preset, index) => <button key={preset.name} className={`theme-option ${isSameSkin(skin, preset) ? "selected" : ""}`} aria-label={index ? copy.card : copy.paper} aria-pressed={isSameSkin(skin, preset)} onClick={() => setSkin(preset)}>
-            <span className="theme-caption"><span className="theme-name">{index ? copy.card : copy.paper}<small>{index ? copy.cardDetail : copy.paperDetail}</small></span><span className="theme-choice"><Symbol kind="check" size={14}/><span>{copy.selected}</span></span></span>
-            <SkinPreview m={m} skin={preset} label={index ? copy.card : copy.paper}/>
-          </button>)}
-        </div>
-      </section>
-      <section className="privacy" id="privacy">
-        <div className="page-width privacy-content"><h2 data-reveal>{copy.privacy}</h2><p data-reveal>{copy.privacyBody}</p></div>
-      </section>
-      <section className="faq page-width" id="about"><h2 data-reveal>{copy.faq}</h2><div>{copy.questions.map(([q, a]) => <details name="faq" key={q} data-reveal><summary>{q}<span aria-hidden="true" className="faq-toggle"/></summary><p>{a}</p></details>)}</div></section>
-      <section className="release page-width" id="download"><div><h2 data-reveal>{copy.release}</h2><p data-reveal>{copy.releaseBody}</p></div><div className="release-actions"><a className="source-link" href="https://github.com/LING-0001/SnapSlot" target="_blank" rel="noreferrer">{copy.source}</a></div></section>
     </main>
-    <footer className="site-footer page-width"><p>{copy.footer}</p><a href="#privacy">{m.privacyTitle}</a><span>© {new Date().getFullYear()} SnapSlot</span></footer>
-    <BackToTop label={m.top}/>
-  </>;
+
+    <footer className={s.footer}>
+      <div className={s.footerInner}>
+        <Mark size={44}/>
+        <p className={s.footerName}>SnapSlot{t.name && <small>{t.name}</small>}</p>
+        <p className={s.footerTagline}>{t.footer.tagline}</p>
+        <nav className={s.footerLinks} aria-label={t.footer.contact}>
+          <a href={GITHUB} target="_blank" rel="noopener"><GitHubMark size={15}/>GitHub</a>
+          <a href={`mailto:${EMAIL}`} title={t.footer.contact}><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><rect x="1.5" y="3" width="13" height="10" rx="2" fill="none" stroke="currentColor" strokeWidth="1.3"/><path d="m2.5 4.5 5.5 4 5.5-4" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/></svg>{EMAIL}</a>
+        </nav>
+        <p className={s.legal}>© 2026 SnapSlot · {t.footer.license} · {t.get.meta}</p>
+      </div>
+    </footer>
+
+    {chip && <button className={s.chip} style={{ left: chip.x, top: chip.y }} onMouseDown={(e) => e.preventDefault()} onClick={pinSelection}>
+      {t.chip} <Keys keys={[...mod, "T"]}/>
+    </button>}
+  </div>;
 }

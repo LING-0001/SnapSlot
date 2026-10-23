@@ -4,6 +4,83 @@ The user-approved blue/white pinned-note website is the visual and interaction
 source of truth for Windows and macOS. Later user decisions supersede the older
 Pixel Rail/clothesline prototype documents; historical ADRs remain as history.
 
+## Language
+
+**Text note**:
+A temporary pinned card created from text selected in another application and
+explicitly collected through SnapSlot's text shortcut. _Avoid_: pasted text,
+manual note.
+
+**External image**:
+A temporary pinned card created from a newly written image on the system
+clipboard by another application. _Avoid_: imported file, self-copied image.
+
+**External-image intake**:
+The default-enabled local preference that permits collecting external images
+from the system clipboard and persists the user's last choice. _Avoid_: screen
+capture, manual image import.
+
+**Pinned row**:
+The entire visible row of temporary notes held open until the user explicitly
+unpins or dismisses it. Pinning a hidden row makes it visible. _Avoid_: pinned
+card, saved note.
+
+**Tray menu**:
+The right-click menu of the system status icon, which mirrors the row's pinned
+state and offers settings and external-image intake control. _Avoid_: row
+toolbar, card menu.
+
+**Shortcut fallback**:
+The automatically selected unoccupied Ctrl+Alt+letter binding that replaces a
+conflicting user-selected shortcut, with the replacement shown in settings.
+_Avoid_: silent shortcut failure, manual conflict resolution.
+
+**Current note skin**:
+The single active appearance applied uniformly to every current and future
+temporary note on one device. _Avoid_: portable skin, per-note skin, card
+theme.
+
+**Note background image**:
+The local source image referenced by the current skin, which covers every
+temporary note while preserving aspect ratio; cropping is permitted and
+stretching is not. If the source is unavailable, the skin reverts to default.
+_Avoid_: embedded image, per-note image.
+
+**Note dimensions**:
+The current skin's shared card size, limited to 180–480 px wide and 120–280 px
+high. _Avoid_: per-note dimensions, freeform panel size.
+
+**Arrival peek**:
+A short automatic expansion that acknowledges a newly collected external image
+or selected-text note when the row is not pinned. _Avoid_: persistent alert.
+
+**Card hover**:
+The focused visual state of one temporary note, which reveals a remove control
+at the upper left and a copy control at the lower left without obscuring its
+content. _Avoid_: always-visible card toolbar.
+
+**Remove note**:
+The explicit action that discards one temporary note from the current row.
+_Avoid_: unpin, archive.
+
+**Session note**:
+An external-image or text note that exists only for the current SnapSlot run;
+it is not restored after restart. _Avoid_: library item, saved note.
+
+**Note capacity**:
+The row holds at most 30 session notes; a newly arriving note removes the oldest
+one from the left when full; notes are ordered left-to-right from oldest to
+newest. _Avoid_: unlimited inbox, archive.
+
+**Clear notes**:
+The explicit action in both the tray menu and settings that discards every
+current session note immediately, without confirmation or follow-up feedback.
+_Avoid_: unpin, reset skin.
+
+**Shared note surface**:
+The same offline note interface and interaction rules rendered in Windows and
+macOS native hosts. _Avoid_: platform-specific note design.
+
 ## Temporary notes
 
 A local, session-only inbox for screenshots and plain text. It is a transfer
@@ -11,7 +88,7 @@ surface, not a permanent library. Normal startup is empty and fully hidden.
 Exit removes only session-owned temporary exports. Original imported files are
 never deleted. Export files survive card removal until application exit so
 external drag targets can finish reading them. Text is limited to 64 KB UTF-8.
-There is no eight-item page, +N overflow stack or sixteen-item cap.
+The visible row holds at most 30 notes; a new note evicts the oldest one.
 
 ## Pinned-note appearance
 

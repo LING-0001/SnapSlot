@@ -1,1 +1,24 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="16" fill="#1263D7"/><rect x="14" y="20" width="36" height="32" rx="7" fill="#FFF"/><path d="M32 11v19" stroke="#12459A" stroke-width="4"/><path d="M25 11h14v7l-3 4 5 5H23l5-5-3-4z" fill="#A9D8FF"/><path d="M25 11h14v4H25z" fill="#E5F3FF"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4a94ff"/>
+      <stop offset="1" stop-color="#0b57d9"/>
+    </linearGradient>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#cfe2ff"/>
+      <stop offset="1" stop-color="#eef5ff"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14.5" fill="url(#bg)"/>
+  <g transform="translate(0 6)">
+  <!-- the screen's top edge -->
+  <rect x="10" y="9" width="44" height="2.4" rx="1.2" fill="#fff" opacity=".5"/>
+  <!-- a fan of notes hanging from it -->
+  <g transform="rotate(-17 32 64)"><rect x="20" y="17" width="24" height="19" rx="4" fill="#fff" opacity=".5"/></g>
+  <g transform="rotate(17 32 64)"><rect x="20" y="17" width="24" height="19" rx="4" fill="#fff" opacity=".5"/></g>
+  <rect x="18" y="16" width="28" height="23" rx="4.6" fill="#fff"/>
+  <rect x="21" y="19" width="22" height="14.5" rx="2.4" fill="url(#sky)"/>
+  <path d="M21 31.5l6-5.8 4 3.5 3.6-2.8 8.4 6.1v1a2.4 2.4 0 0 1-2.4 2.4H23.4A2.4 2.4 0 0 1 21 33.5Z" fill="#3a84f4"/>
+  <circle cx="32" cy="16" r="3.3" fill="#0b57d9" stroke="#fff" stroke-width="1.7"/>
+  </g>
+</svg>
