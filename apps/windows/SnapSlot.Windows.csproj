@@ -15,6 +15,7 @@
   <ItemGroup>
     <Compile Remove="Checks/**/*.cs" />
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4258.31" />
+    <Content Include="../../assets/brand/SnapSlot.ico" Link="SnapSlot.ico" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="../../artifacts/native-ui/**/*" Link="NativeUI/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

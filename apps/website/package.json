@@ -8,7 +8,8 @@
     "start": "node scripts/serve.mjs",
     "typecheck": "tsc --noEmit",
     "test": "playwright test",
-    "build:native": "node scripts/build-native.mjs"
+    "build:native": "node scripts/build-native.mjs",
+    "readme:media": "node scripts/readme-media.mjs"
   },
   "dependencies": {
     "next": "^16.4.2",
