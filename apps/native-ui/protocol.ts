@@ -1,26 +1,26 @@
 export type NativeItem = { id: string; kind: "image" | "text"; title: string; text?: string; preview?: string };
 export type Shortcut = { key: string; control: boolean; alt: boolean; shift: boolean; meta: boolean };
-export type AppPreferences = { collectScreenshots: boolean; captureShortcut: Shortcut; textShortcut: Shortcut };
-export type HostMessage =
-  | { type: "state"; items: NativeItem[]; skin?: string | null; locale: string; expanded: boolean; reducedMotion: boolean; focus?: boolean; pinned?: boolean }
-  | { type: "error"; message: string }
-  | { type: "shortcutError"; field: "captureShortcut" | "textShortcut"; message: string }
-  | { type: "shortcutAdjusted"; message: string }
+export type AppPreferences = { collectImages: boolean; textShortcut: Shortcut };
+export type Appearance = "glass" | "paper" | "graphite";
+export type Message =
+  | { type: "state"; items: NativeItem[]; locale: string; expanded: boolean; reducedMotion: boolean; focus?: boolean; pinned: boolean; arming: boolean; appearance: Appearance; count: number; platform?: "macos" | "windows" }
+  | { type: "preferences"; value: AppPreferences; platform: "macos" | "windows" }
   | { type: "copied"; id: string }
   | { type: "pointer"; x: number | null; y: number | null }
-  | { type: "preferences"; value: AppPreferences; platform: "macos" | "windows" }
-  | { type: "skin"; source: string };
+  | { type: "error"; message: string };
+export type Surface = { id: string; x: number; y: number; width: number; height: number; angle: number; opacity: number };
 export type Command =
-  | { type: "ready" | "collapse" | "toggleRail" | "pin" | "unpin" | "capture" | "paste" | "addImages" | "newText" | "appearance" | "openPreferences" | "quit" | "close" | "openSkinFolder" }
+  | { type: "ready" | "collapse" | "pin" | "unpin" | "close" | "quit" | "openPreferences" | "clearNotes" | "moveWindow" }
   | { type: "copy" | "remove" | "drag"; id: string }
-  | { type: "saveText"; text: string }
   | { type: "savePreferences"; value: AppPreferences }
-  | { type: "applySkin" | "exportSkin"; source: string };
+  | { type: "setAppearance"; value: Appearance }
+  | { type: "setLocale"; value: string }
+  | { type: "surfaces"; surfaces: Surface[] };
 declare global {
   interface Window {
-    snapslotReceive?: (message: HostMessage) => void;
-    chrome?: { webview?: { postMessage: (message: Command) => void; addEventListener: (event: "message", handler: (event: { data: HostMessage }) => void) => void } };
-    webkit?: { messageHandlers?: { snapslot?: { postMessage: (message: Command) => void } } };
+    snapslotReceive?: (message: Message) => void;
+    webkit?: { messageHandlers?: { snapslot?: { postMessage: (command: Command) => void } } };
+    chrome?: { webview?: { postMessage: (command: Command) => void; addEventListener: (event: "message", handler: (event: { data: Message }) => void) => void; removeEventListener: (event: "message", handler: (event: { data: Message }) => void) => void } };
   }
 }
 export function send(command: Command) {

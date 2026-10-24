@@ -9,11 +9,14 @@
 
 <p align="center">
   <a href="http://101.200.239.135/zh-Hant/"><b>線上體驗</b></a> ·
-  <a href="https://github.com/LING-0001/SnapSlot/releases">下載</a> ·
+  <a href="http://101.200.239.135/zh-Hant/#downloads">下載</a> ·
+  <a href="https://github.com/LING-0001/SnapSlot/releases">GitHub Releases</a> ·
   <a href="../../CONTRIBUTING.md">參與貢獻</a>
 </p>
 
 <p align="center"><a href="../../README.md">简体中文</a> · <a href="README.en.md">English</a> · <b>繁體中文</b> · <a href="README.ja.md">日本語</a> · <a href="README.ko.md">한국어</a> · <a href="README.es.md">Español</a></p>
+
+<p align="center">v1.0.0 · <a href="http://101.200.239.135/downloads/v1.0.0/SnapSlot-1.0.0-macOS-universal.dmg">macOS · DMG · Apple Silicon / Intel</a> · <a href="http://101.200.239.135/downloads/v1.0.0/SnapSlot-1.0.0-windows-x64-setup.exe">Windows x64 · Setup</a></p>
 
 <p align="center"><img src="../../docs/media/zh-Hant/demo.gif" width="760" alt="SnapSlot 示範：滑鼠移到上緣，便箋落下；複製圖片後自動釘上；拖進文件"></p>
 
@@ -34,7 +37,7 @@
 </tr>
 </table>
 
-Windows 在工作列圖示上按右鍵，Mac 點選單列圖示：**設定…**、**自動收取剪貼簿圖片**、**固定便箋**（後兩項可勾選，勾選「固定」後滑鼠離開也不收起）。設定裡還能換外觀、切換語言、查看快速鍵、全部清空。
+Windows 在工作列圖示上按右鍵，Mac 點選單列圖示：**設定…**、**自動收取剪貼簿圖片**、**固定便箋**（後兩項可勾選，勾選「固定」後滑鼠離開也不收起）。設定裡還能換外觀、切換語言、查看快速鍵、全部清空。選單底部保留「結束快照貼」入口。
 
 ## Windows 與 macOS
 
@@ -53,14 +56,13 @@ Windows 在工作列圖示上按右鍵，Mac 點選單列圖示：**設定…**�
 | --- | --- | --- |
 | 展開 / 收起便箋 | <kbd>Ctrl</kbd> <kbd>Alt</kbd> <kbd>Space</kbd> | <kbd>⌃</kbd> <kbd>⌥</kbd> <kbd>Space</kbd> |
 | 收取選取的文字 | <kbd>Ctrl</kbd> <kbd>Alt</kbd> <kbd>T</kbd> | <kbd>⌃</kbd> <kbd>⌥</kbd> <kbd>T</kbd> |
-| 截圖 | <kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>S</kbd> | <kbd>⌃</kbd> <kbd>⌥</kbd> <kbd>S</kbd> |
 | 挑選 / 複製 / 移除 / 收起 | <kbd>←</kbd> <kbd>→</kbd> / <kbd>Enter</kbd> / <kbd>Delete</kbd> / <kbd>Esc</kbd> | <kbd>←</kbd> <kbd>→</kbd> / <kbd>Enter</kbd> / <kbd>Delete</kbd> / <kbd>Esc</kbd> |
 
-所有快速鍵都可以在設定裡重新錄製。
+設定中可查看目前的快速鍵。
 
 ## 隱私
 
-不截圖、不讀取檔案、不連網。只收其他應用程式寫進剪貼簿的圖片，以及你按快速鍵時選取的文字。最多 30 張，結束就清空。
+只收其他應用程式寫入剪貼簿的圖片，以及按快速鍵時選取的文字。不會上傳內容；最多 30 張，正常結束後清空。
 
 ## 從原始碼建置
 
@@ -82,21 +84,21 @@ npm run dev --prefix apps/website -- --port 3000
 open artifacts/macos/SnapSlot.app
 ```
 
-Windows 請攜帶整個 `artifacts/windows/win-x64/` 資料夾或 ZIP，不要只複製 exe。Mac 本機套件為 ad-hoc 簽署，僅供測試。
+使用者可直接下載上方 DMG / Setup 安裝套件。原始碼建置產物供開發測試。Mac 套件為 ad-hoc 簽署，尚未經 Apple 公證，系統可能阻止首次啟動。請參閱[發布與部署指南](../../docs/releases/hosting.md)。
 
 ## 儲存庫結構
 
 | | |
 | --- | --- |
-| `apps/website` | 官網（六種語言）、外觀解析器 |
-| `apps/native-ui` | 兩端共用的便箋與外觀面板 |
+| `apps/website` | 官網與六語言互動示範 |
+| `apps/native-ui` | 兩端共用的扇形便箋、選單與設定 |
 | `apps/windows` | Windows 用戶端（C# / WPF + WebView2） |
 | `apps/macos` | macOS 用戶端（Swift / AppKit + WKWebView） |
-| `docs` | 設計紀錄、測試清單、README 圖片 |
+| `docs` | 目前規範、測試清單、README 圖片 |
 
 ## 測試
 
-官網與共用介面 24 / 24 通過。Windows / macOS 檢查指令與實機驗收清單見 [CONTRIBUTING.md](../../CONTRIBUTING.md) 與 `docs/native-testing.md`。
+建置、自動化測試及實機驗收指令見 [CONTRIBUTING.md](../../CONTRIBUTING.md) 與 `docs/native-testing.md`。
 
 ## 參與貢獻
 

@@ -1,8 +1,0 @@
-{
-  "schemaVersion": 1,
-  "name": "Card",
-  "card": { "width": 168, "height": 208, "textWidth": 168, "gap": 22, "padding": 7, "radius": 9, "borderWidth": 2, "frame": "#304E73", "textBackground": "#EEF4FC", "ink": "#193454", "fontSize": 14, "imageFit": "cover" },
-  "shadow": { "color": "#102B5033", "blur": 20, "offsetY": 8 },
-  "pin": { "enabled": false, "color": "#5A9FE6", "shade": "#2565AA", "width": 14, "height": 18, "x": 50, "y": -12 },
-  "buttons": { "size": 24, "inset": 2, "background": "#FFFFFF", "foreground": "#193454", "copyBackground": "#173F65E6", "copyForeground": "#FFFFFF" }
-}

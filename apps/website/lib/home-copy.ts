@@ -1,11 +1,11 @@
-import type { Locale } from "./messages";
+import type { Locale } from "./locales";
 
 export type HomeCopy = {
   name: string;
   nav: { features: string; download: string; language: string };
   headline: string;
   sub: string;
-  get: { win: string; mac: string; alsoMac: string; alsoWin: string; meta: string };
+  get: { win: string; mac: string; meta: string };
   stage: {
     desktop: string; docTitle: string; docHeading: string; docEmpty: string; clear: string;
     files: [string, string]; fileLabels: [string, string]; sampleText: string; pasted: string;
@@ -13,7 +13,7 @@ export type HomeCopy = {
   };
   coach: { edge: string; edgeTouch: string; file: string; drag: string; dragTouch: string; trayWin: string; trayMac: string; trayTouch: string; done: string; skip: string };
   notice: { notPinned: string; intakeOn: string; intakeOff: string };
-  menu: { settings: string; intake: string; pin: string; trayWin: string; trayMac: string };
+  menu: { settings: string; intake: string; pin: string; quit: string; trayWin: string; trayMac: string };
   settings: { title: string; language: string; intakeHint: string; pinHint: string; look: string; pinText: string; openNotes: string; count: string; clear: string; close: string };
   skins: [string, string, string];
   island: string;
@@ -32,7 +32,7 @@ export const homeCopy: Record<Locale, HomeCopy> = {
     nav: { features: "功能", download: "下载", language: "语言" },
     headline: "复制过的，都钉在屏幕顶上。",
     sub: "复制的图片、选中的文字，变成屏幕上沿的便签。点一下，就回到剪贴板。",
-    get: { win: "下载 Windows 版", mac: "下载 macOS 版", alsoMac: "也有 macOS 版", alsoWin: "也有 Windows 版", meta: "免费开源 · Windows 10 / 11 · macOS 13 及以上" },
+    get: { win: "下载 Windows 版", mac: "下载 macOS 版", meta: "免费开源 · Windows 10 / 11 · macOS 13 及以上" },
     stage: {
       desktop: "SnapSlot 演示桌面", docTitle: "周报草稿", docHeading: "本周进展", docEmpty: "把便签拖到这里", clear: "清空",
       files: ["湖边的山.png", "窗边的绿植.png"], fileLabels: ["湖边的山", "窗边的绿植"],
@@ -47,7 +47,7 @@ export const homeCopy: Record<Locale, HomeCopy> = {
       done: "都会了。", skip: "跳过",
     },
     notice: { notPinned: "已复制。自动收取已关闭，所以没有钉上", intakeOn: "已开启自动收取", intakeOff: "已关闭自动收取" },
-    menu: { settings: "设置…", intake: "自动收取剪贴板图片", pin: "固定便签", trayWin: "SnapSlot（右键打开菜单）", trayMac: "SnapSlot 菜单" },
+    menu: { settings: "设置…", intake: "自动收取剪贴板图片", pin: "固定便签", quit: "退出快照贴", trayWin: "SnapSlot（右键打开菜单）", trayMac: "SnapSlot 菜单" },
     settings: { title: "SnapSlot 设置", language: "语言", intakeHint: "其他应用复制的图片会自动钉上", pinHint: "鼠标离开后也不收起", look: "外观", pinText: "选中文字钉成便签", openNotes: "展开便签", count: "便签 {n} / 30", clear: "清空全部", close: "关闭设置" },
     skins: ["磨砂", "纸白", "石墨"],
     island: "已钉上 · 第 {n} 张",
@@ -65,7 +65,7 @@ export const homeCopy: Record<Locale, HomeCopy> = {
     nav: { features: "功能", download: "下載", language: "語言" },
     headline: "複製過的，都釘在螢幕頂端。",
     sub: "複製的圖片、選取的文字，會變成螢幕上緣的便箋。點一下，就回到剪貼簿。",
-    get: { win: "下載 Windows 版", mac: "下載 macOS 版", alsoMac: "也有 macOS 版", alsoWin: "也有 Windows 版", meta: "免費開源 · Windows 10 / 11 · macOS 13 以上" },
+    get: { win: "下載 Windows 版", mac: "下載 macOS 版", meta: "免費開源 · Windows 10 / 11 · macOS 13 以上" },
     stage: {
       desktop: "SnapSlot 示範桌面", docTitle: "週報草稿", docHeading: "本週進度", docEmpty: "把便箋拖到這裡", clear: "清空",
       files: ["湖邊的山.png", "窗邊的綠植.png"], fileLabels: ["湖邊的山", "窗邊的綠植"],
@@ -80,7 +80,7 @@ export const homeCopy: Record<Locale, HomeCopy> = {
       done: "都會了。", skip: "略過",
     },
     notice: { notPinned: "已複製。自動收取已關閉，所以沒有釘上", intakeOn: "已開啟自動收取", intakeOff: "已關閉自動收取" },
-    menu: { settings: "設定…", intake: "自動收取剪貼簿圖片", pin: "固定便箋", trayWin: "SnapSlot（按右鍵開啟選單）", trayMac: "SnapSlot 選單" },
+    menu: { settings: "設定…", intake: "自動收取剪貼簿圖片", pin: "固定便箋", quit: "結束快照貼", trayWin: "SnapSlot（按右鍵開啟選單）", trayMac: "SnapSlot 選單" },
     settings: { title: "SnapSlot 設定", language: "語言", intakeHint: "其他應用程式複製的圖片會自動釘上", pinHint: "滑鼠離開後也不收起", look: "外觀", pinText: "把選取的文字釘成便箋", openNotes: "展開便箋", count: "便箋 {n} / 30", clear: "全部清空", close: "關閉設定" },
     skins: ["磨砂", "紙白", "石墨"],
     island: "已釘上 · 第 {n} 張",
@@ -98,7 +98,7 @@ export const homeCopy: Record<Locale, HomeCopy> = {
     nav: { features: "Features", download: "Download", language: "Language" },
     headline: "Everything you copy, pinned to the top of your screen.",
     sub: "Copied images and selected text become notes along the top edge. Click one and it’s back on your clipboard.",
-    get: { win: "Download for Windows", mac: "Download for Mac", alsoMac: "Also on Mac", alsoWin: "Also on Windows", meta: "Free and open source · Windows 10 / 11 · macOS 13 or later" },
+    get: { win: "Download for Windows", mac: "Download for Mac", meta: "Free and open source · Windows 10 / 11 · macOS 13 or later" },
     stage: {
       desktop: "SnapSlot demo desktop", docTitle: "Weekly update", docHeading: "This week", docEmpty: "Drag a note here", clear: "Clear",
       files: ["lake.png", "plant.png"], fileLabels: ["Mountain lake", "Plant by the window"],
@@ -113,7 +113,7 @@ export const homeCopy: Record<Locale, HomeCopy> = {
       done: "That’s all there is.", skip: "Skip",
     },
     notice: { notPinned: "Copied. Auto-collect is off, so it wasn’t pinned", intakeOn: "Auto-collect on", intakeOff: "Auto-collect off" },
-    menu: { settings: "Settings…", intake: "Collect clipboard images", pin: "Pin notes", trayWin: "SnapSlot (right-click for menu)", trayMac: "SnapSlot menu" },
+    menu: { settings: "Settings…", intake: "Collect clipboard images", pin: "Pin notes", quit: "Quit SnapSlot", trayWin: "SnapSlot (right-click for menu)", trayMac: "SnapSlot menu" },
     settings: { title: "SnapSlot Settings", language: "Language", intakeHint: "Images copied in other apps get pinned automatically", pinHint: "Stay open when the pointer leaves", look: "Appearance", pinText: "Pin selected text", openNotes: "Show notes", count: "Notes {n} / 30", clear: "Clear all", close: "Close settings" },
     skins: ["Frosted", "Paper", "Graphite"],
     island: "Pinned · note {n}",
@@ -131,7 +131,7 @@ export const homeCopy: Record<Locale, HomeCopy> = {
     nav: { features: "機能", download: "ダウンロード", language: "言語" },
     headline: "コピーしたものは、画面の上にピン留め。",
     sub: "コピーした画像や選択したテキストが、画面の上端にメモとして並びます。クリックすれば、クリップボードに戻ります。",
-    get: { win: "Windows 版をダウンロード", mac: "Mac 版をダウンロード", alsoMac: "Mac 版もあります", alsoWin: "Windows 版もあります", meta: "無料・オープンソース · Windows 10 / 11 · macOS 13 以降" },
+    get: { win: "Windows 版をダウンロード", mac: "Mac 版をダウンロード", meta: "無料・オープンソース · Windows 10 / 11 · macOS 13 以降" },
     stage: {
       desktop: "SnapSlot デモデスクトップ", docTitle: "週報の下書き", docHeading: "今週の進捗", docEmpty: "ここにメモをドラッグ", clear: "クリア",
       files: ["湖と山.png", "窓辺の植物.png"], fileLabels: ["湖と山", "窓辺の植物"],
@@ -146,7 +146,7 @@ export const homeCopy: Record<Locale, HomeCopy> = {
       done: "これで全部です。", skip: "スキップ",
     },
     notice: { notPinned: "コピーしました。自動取り込みがオフなのでピン留めされません", intakeOn: "自動取り込み：オン", intakeOff: "自動取り込み：オフ" },
-    menu: { settings: "設定…", intake: "クリップボードの画像を自動取り込み", pin: "メモを固定", trayWin: "SnapSlot（右クリックでメニュー）", trayMac: "SnapSlot メニュー" },
+    menu: { settings: "設定…", intake: "クリップボードの画像を自動取り込み", pin: "メモを固定", quit: "SnapSlot を終了", trayWin: "SnapSlot（右クリックでメニュー）", trayMac: "SnapSlot メニュー" },
     settings: { title: "SnapSlot 設定", language: "言語", intakeHint: "ほかのアプリでコピーした画像を自動でピン留め", pinHint: "マウスが離れても閉じない", look: "外観", pinText: "選択したテキストをピン留め", openNotes: "メモを表示", count: "メモ {n} / 30", clear: "すべて消去", close: "設定を閉じる" },
     skins: ["すりガラス", "ペーパー", "グラファイト"],
     island: "ピン留めしました · {n} 枚目",
@@ -164,7 +164,7 @@ export const homeCopy: Record<Locale, HomeCopy> = {
     nav: { features: "기능", download: "다운로드", language: "언어" },
     headline: "복사한 모든 것을, 화면 위에 고정하세요.",
     sub: "복사한 이미지와 선택한 텍스트가 화면 위쪽 가장자리에 메모로 놓입니다. 클릭하면 다시 클립보드로 돌아와요.",
-    get: { win: "Windows용 다운로드", mac: "Mac용 다운로드", alsoMac: "Mac용도 있어요", alsoWin: "Windows용도 있어요", meta: "무료 오픈 소스 · Windows 10 / 11 · macOS 13 이상" },
+    get: { win: "Windows용 다운로드", mac: "Mac용 다운로드", meta: "무료 오픈 소스 · Windows 10 / 11 · macOS 13 이상" },
     stage: {
       desktop: "SnapSlot 데모 바탕 화면", docTitle: "주간 보고 초안", docHeading: "이번 주 진행", docEmpty: "여기로 메모를 끌어오세요", clear: "비우기",
       files: ["호수와 산.png", "창가 식물.png"], fileLabels: ["호수와 산", "창가 식물"],
@@ -179,7 +179,7 @@ export const homeCopy: Record<Locale, HomeCopy> = {
       done: "이게 전부예요.", skip: "건너뛰기",
     },
     notice: { notPinned: "복사됨. 자동 수집이 꺼져 있어 고정되지 않았어요", intakeOn: "자동 수집 켜짐", intakeOff: "자동 수집 꺼짐" },
-    menu: { settings: "설정…", intake: "클립보드 이미지 자동 수집", pin: "메모 고정", trayWin: "SnapSlot (오른쪽 클릭하면 메뉴)", trayMac: "SnapSlot 메뉴" },
+    menu: { settings: "설정…", intake: "클립보드 이미지 자동 수집", pin: "메모 고정", quit: "SnapSlot 종료", trayWin: "SnapSlot (오른쪽 클릭하면 메뉴)", trayMac: "SnapSlot 메뉴" },
     settings: { title: "SnapSlot 설정", language: "언어", intakeHint: "다른 앱에서 복사한 이미지를 자동으로 고정", pinHint: "마우스가 벗어나도 닫히지 않아요", look: "모양", pinText: "선택한 텍스트 고정", openNotes: "메모 보기", count: "메모 {n} / 30", clear: "모두 지우기", close: "설정 닫기" },
     skins: ["반투명", "종이", "그래파이트"],
     island: "고정됨 · {n}번째 메모",
@@ -197,7 +197,7 @@ export const homeCopy: Record<Locale, HomeCopy> = {
     nav: { features: "Funciones", download: "Descargar", language: "Idioma" },
     headline: "Todo lo que copias, fijado arriba en tu pantalla.",
     sub: "Las imágenes que copias y el texto que seleccionas se vuelven notas en el borde superior. Haz clic en una y vuelve a tu portapapeles.",
-    get: { win: "Descargar para Windows", mac: "Descargar para Mac", alsoMac: "También para Mac", alsoWin: "También para Windows", meta: "Gratis y de código abierto · Windows 10 / 11 · macOS 13 o posterior" },
+    get: { win: "Descargar para Windows", mac: "Descargar para Mac", meta: "Gratis y de código abierto · Windows 10 / 11 · macOS 13 o posterior" },
     stage: {
       desktop: "Escritorio de demostración de SnapSlot", docTitle: "Informe semanal", docHeading: "Esta semana", docEmpty: "Arrastra una nota aquí", clear: "Vaciar",
       files: ["lago.png", "planta.png"], fileLabels: ["Lago y montañas", "Planta junto a la ventana"],
@@ -212,7 +212,7 @@ export const homeCopy: Record<Locale, HomeCopy> = {
       done: "Eso es todo.", skip: "Omitir",
     },
     notice: { notPinned: "Copiada. La recogida automática está desactivada, así que no se fijó", intakeOn: "Recogida automática activada", intakeOff: "Recogida automática desactivada" },
-    menu: { settings: "Ajustes…", intake: "Recoger imágenes del portapapeles", pin: "Fijar notas", trayWin: "SnapSlot (clic derecho para el menú)", trayMac: "Menú de SnapSlot" },
+    menu: { settings: "Ajustes…", intake: "Recoger imágenes del portapapeles", pin: "Fijar notas", quit: "Salir de SnapSlot", trayWin: "SnapSlot (clic derecho para el menú)", trayMac: "Menú de SnapSlot" },
     settings: { title: "Ajustes de SnapSlot", language: "Idioma", intakeHint: "Las imágenes que copias en otras apps se fijan solas", pinHint: "No se oculta al apartar el cursor", look: "Apariencia", pinText: "Fijar texto seleccionado", openNotes: "Mostrar notas", count: "Notas {n} / 30", clear: "Borrar todo", close: "Cerrar ajustes" },
     skins: ["Esmerilado", "Papel", "Grafito"],
     island: "Fijada · nota {n}",

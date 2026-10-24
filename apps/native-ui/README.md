@@ -1,11 +1,28 @@
-# Native client presentation
+# Native presentation
 
-Windows (WPF + WebView2) and macOS (AppKit + WKWebView) load this bundled,
-offline presentation. It reuses the approved website card styles, version 1
-skin parser, presets, six locales and appearance editor. No website server,
-account, remote JavaScript or network access is required at runtime.
+Windows (WPF/WebView2 Composition) and macOS (AppKit/WKWebView) load this same offline
+React interface. It imports `apps/website/components/home.module.css` and the current
+six-language product copy. Fan geometry, three appearances, hover/copy/arrival
+feedback, compact settings and the four-entry menu follow the website.
 
-Build with `npm run build:native` in `apps/website`. Output is generated in
-`artifacts/native-ui`; the platform build scripts copy it into their bundles.
-Native hosts implement the commands in `protocol.ts`. UI data never authorizes
-arbitrary paths or processes; item IDs resolve to session-owned files in the host.
+`protocol.ts` is the complete host contract. Hosts own clipboard bytes, selected
+text, shortcuts, display placement and file-copy dragging. The UI uses session item
+IDs and validated commands; it cannot authorize arbitrary file paths or processes.
+Mac supplies behind-window materials and always-active pointer tracking. The Windows
+bridge uses WebView2 messages and native cursor coordinates.
+
+```sh
+npm run build:native --prefix apps/website
+apps/website/node_modules/.bin/tsc -p apps/native-ui/tsconfig.json
+cd apps/website && npx playwright test tests/native-ui.spec.ts
+```
+
+`SNAPSLOT_UI_OUTPUT` selects a temporary bundle directory. Packaging uses this to
+avoid leaving duplicate resources. Default standalone output is `artifacts/native-ui`.
+Mac local builds keep only `artifacts/macos/SnapSlot.app`; `--archive` keeps only its
+ZIP for CI. Windows local builds keep one runtime directory; `-Archive` keeps one ZIP.
+Windows packages include the runtime and NativeUI beside the exe.
+
+Inter Tight and Noto Sans SC are shared from `apps/website/assets/fonts` and bundled with SIL Open Font Licenses. No installed
+client needs a website server or requests remote fonts. Browser parity and native
+acceptance procedures are in `docs/native-testing.md`.

@@ -9,11 +9,14 @@
 
 <p align="center">
   <a href="http://101.200.239.135/ko/"><b>온라인으로 체험</b></a> ·
-  <a href="https://github.com/LING-0001/SnapSlot/releases">다운로드</a> ·
+  <a href="http://101.200.239.135/ko/#downloads">다운로드</a> ·
+  <a href="https://github.com/LING-0001/SnapSlot/releases">GitHub Releases</a> ·
   <a href="../../CONTRIBUTING.md">기여하기</a>
 </p>
 
 <p align="center"><a href="../../README.md">简体中文</a> · <a href="README.en.md">English</a> · <a href="README.zh-Hant.md">繁體中文</a> · <a href="README.ja.md">日本語</a> · <b>한국어</b> · <a href="README.es.md">Español</a></p>
+
+<p align="center">v1.0.0 · <a href="http://101.200.239.135/downloads/v1.0.0/SnapSlot-1.0.0-macOS-universal.dmg">macOS · DMG · Apple Silicon / Intel</a> · <a href="http://101.200.239.135/downloads/v1.0.0/SnapSlot-1.0.0-windows-x64-setup.exe">Windows x64 · Setup</a></p>
 
 <p align="center"><img src="../../docs/media/ko/demo.gif" width="760" alt="SnapSlot 데모: 위쪽 가장자리에 머물면 메모가 내려오고, 복사한 이미지가 자동으로 고정되고, 문서로 끌어다 놓기"></p>
 
@@ -34,7 +37,7 @@
 </tr>
 </table>
 
-Windows는 트레이 아이콘을 오른쪽 클릭, Mac은 메뉴 막대 아이콘을 클릭: **설정…**, **클립보드 이미지 자동 수집**, **메모 고정**(뒤의 두 개는 켜고 끌 수 있어요. 고정하면 마우스가 벗어나도 닫히지 않아요). 설정에서 모양과 언어 변경, 단축키 확인, 모두 지우기도 할 수 있어요.
+Windows는 트레이 아이콘을 오른쪽 클릭, Mac은 메뉴 막대 아이콘을 클릭: **설정…**, **클립보드 이미지 자동 수집**, **메모 고정**(뒤의 두 개는 켜고 끌 수 있어요. 고정하면 마우스가 벗어나도 닫히지 않아요). 설정에서 모양과 언어 변경, 단축키 확인, 모두 지우기도 할 수 있어요. 메뉴 아래에서 SnapSlot을 종료할 수 있어요.
 
 ## Windows와 macOS
 
@@ -53,14 +56,13 @@ Windows는 트레이 아이콘을 오른쪽 클릭, Mac은 메뉴 막대 아이�
 | --- | --- | --- |
 | 메모 보이기 / 숨기기 | <kbd>Ctrl</kbd> <kbd>Alt</kbd> <kbd>Space</kbd> | <kbd>⌃</kbd> <kbd>⌥</kbd> <kbd>Space</kbd> |
 | 선택한 텍스트 고정 | <kbd>Ctrl</kbd> <kbd>Alt</kbd> <kbd>T</kbd> | <kbd>⌃</kbd> <kbd>⌥</kbd> <kbd>T</kbd> |
-| 스크린샷 | <kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>S</kbd> | <kbd>⌃</kbd> <kbd>⌥</kbd> <kbd>S</kbd> |
 | 선택 / 복사 / 삭제 / 숨기기 | <kbd>←</kbd> <kbd>→</kbd> / <kbd>Enter</kbd> / <kbd>Delete</kbd> / <kbd>Esc</kbd> | <kbd>←</kbd> <kbd>→</kbd> / <kbd>Enter</kbd> / <kbd>Delete</kbd> / <kbd>Esc</kbd> |
 
-모든 단축키는 설정에서 다시 지정할 수 있어요.
+설정에서 현재 단축키를 확인할 수 있어요.
 
 ## 개인정보
 
-임의로 캡처하지 않고, 파일을 읽지 않고, 네트워크를 쓰지 않아요. 다른 앱이 클립보드에 넣은 이미지와, 단축키를 누를 때 선택한 텍스트만 받아요. 최대 30개, 종료하면 모두 사라져요.
+다른 앱이 클립보드에 넣은 이미지와 단축키를 누를 때 선택한 텍스트를 수집해요. 내용을 업로드하지 않아요. 최대 30개이며 정상 종료하면 세션이 지워져요.
 
 ## 소스에서 빌드
 
@@ -82,21 +84,21 @@ npm run dev --prefix apps/website -- --port 3000
 open artifacts/macos/SnapSlot.app
 ```
 
-Windows에서는 `artifacts/windows/win-x64/` 폴더나 ZIP을 통째로 옮기세요. exe만으로는 실행되지 않아요. Mac 로컬 빌드는 ad-hoc 서명이며 테스트용이에요.
+위의 DMG / Setup 설치 파일을 다운로드해 설치하세요. 소스 빌드 결과물은 개발용입니다. Mac 패키지는 ad-hoc 서명이며 Apple 공증을 받지 않아 첫 실행이 차단될 수 있어요. [릴리스 및 배포 안내](../../docs/releases/hosting.md)를 참고하세요.
 
 ## 저장소 구조
 
 | | |
 | --- | --- |
-| `apps/website` | 웹사이트(6개 언어), 스킨 파서 |
-| `apps/native-ui` | 두 클라이언트가 함께 쓰는 메모·모양 패널 |
+| `apps/website` | 6개 언어 웹사이트와 대화형 데모 |
+| `apps/native-ui` | 두 클라이언트 공용 부채꼴 메모·메뉴·설정 |
 | `apps/windows` | Windows 클라이언트(C# / WPF + WebView2) |
 | `apps/macos` | macOS 클라이언트(Swift / AppKit + WKWebView) |
-| `docs` | 설계 기록, 테스트 항목, README 이미지 |
+| `docs` | 현재 사양, 테스트 항목, README 이미지 |
 
 ## 테스트
 
-웹사이트와 공용 UI: 24 / 24 통과. Windows / macOS 검사와 실기기 확인 항목은 [CONTRIBUTING.md](../../CONTRIBUTING.md)와 `docs/native-testing.md`를 보세요.
+빌드, 자동 테스트, 실기기 확인 명령은 [CONTRIBUTING.md](../../CONTRIBUTING.md)와 `docs/native-testing.md`를 보세요.
 
 ## 기여하기
 

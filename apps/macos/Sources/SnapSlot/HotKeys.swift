@@ -6,7 +6,6 @@ final class HotKeys {
     private var handler: EventHandlerRef?
     private var references: [EventHotKeyRef] = []
     private var desired: AppPreferences?
-    private var suspended = false
     private let opening: Shortcut
     var action: ((UInt32) -> Void)?
     init(opening:Shortcut = .open) {
@@ -24,7 +23,7 @@ final class HotKeys {
         let letters:[UInt32]=[0,11,8,2,14,3,5,4,34,38,40,37,46,45,31,35,12,15,1,17,32,9,13,7,16,6]
         let digits:[UInt32]=[29,18,19,20,21,23,22,26,28,25]
         let functions:[UInt32]=[122,120,99,118,96,97,98,100,101,109,103]
-        for (id,shortcut) in [(UInt32(1),opening),(2,preferences.captureShortcut),(3,preferences.textShortcut)] {
+        for (id,shortcut) in [(UInt32(1),opening),(3,preferences.textShortcut)] {
             let key:UInt32
             if shortcut.key=="Space" {key=49}
             else if shortcut.key.hasPrefix("Key"),let scalar=shortcut.key.last?.asciiValue {key=letters[Int(scalar)-65]}
@@ -40,10 +39,8 @@ final class HotKeys {
     }
     func apply(_ preferences:AppPreferences) throws {
         try preferences.validate();let previous=desired;clear()
-        do {try register(preferences);desired=preferences;if suspended{clear()}}
-        catch {clear();if let previous {do{try register(previous)}catch{clear()}};if suspended{clear()};throw error}
+        do {try register(preferences);desired=preferences}
+        catch {clear();if let previous {do{try register(previous)}catch{clear()}};throw error}
     }
-    func suspend() {suspended=true;clear()}
-    func resume() throws {guard suspended else{return};suspended=false;if let desired {try apply(desired)}}
     deinit {clear();if let handler{RemoveEventHandler(handler)}}
 }

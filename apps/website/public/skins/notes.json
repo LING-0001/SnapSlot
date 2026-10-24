@@ -1,8 +1,0 @@
-{
-  "schemaVersion": 1,
-  "name": "Paper",
-  "card": { "width": 220, "height": 136, "textWidth": 208, "gap": 22, "padding": 6, "radius": 16, "borderWidth": 2, "frame": "#FFFFFF", "textBackground": "#FFFCEB", "ink": "#28384B", "fontSize": 14, "imageFit": "contain" },
-  "shadow": { "color": "#153B6226", "blur": 18, "offsetY": 7 },
-  "pin": { "enabled": true, "color": "#5A9FE6", "shade": "#2565AA", "width": 14, "height": 18, "x": 50, "y": -12 },
-  "buttons": { "size": 24, "inset": 0, "background": "#FFFFFF", "foreground": "#345576", "copyBackground": "#173F65E6", "copyForeground": "#FFFFFF" }
-}

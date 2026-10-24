@@ -9,11 +9,14 @@
 
 <p align="center">
   <a href="http://101.200.239.135/ja/"><b>オンラインで試す</b></a> ·
-  <a href="https://github.com/LING-0001/SnapSlot/releases">ダウンロード</a> ·
+  <a href="http://101.200.239.135/ja/#downloads">ダウンロード</a> ·
+  <a href="https://github.com/LING-0001/SnapSlot/releases">GitHub Releases</a> ·
   <a href="../../CONTRIBUTING.md">コントリビュート</a>
 </p>
 
 <p align="center"><a href="../../README.md">简体中文</a> · <a href="README.en.md">English</a> · <a href="README.zh-Hant.md">繁體中文</a> · <b>日本語</b> · <a href="README.ko.md">한국어</a> · <a href="README.es.md">Español</a></p>
+
+<p align="center">v1.0.0 · <a href="http://101.200.239.135/downloads/v1.0.0/SnapSlot-1.0.0-macOS-universal.dmg">macOS · DMG · Apple Silicon / Intel</a> · <a href="http://101.200.239.135/downloads/v1.0.0/SnapSlot-1.0.0-windows-x64-setup.exe">Windows x64 · Setup</a></p>
 
 <p align="center"><img src="../../docs/media/ja/demo.gif" width="760" alt="SnapSlot のデモ：上端で止まるとメモが下りてくる、コピーした画像が自動でピン留め、書類へドラッグ"></p>
 
@@ -34,7 +37,7 @@
 </tr>
 </table>
 
-Windows はトレイアイコンを右クリック、Mac はメニューバーのアイコンをクリック：**設定…**、**クリップボードの画像を自動取り込み**、**メモを固定**（後の 2 つはオン／オフ。固定するとマウスが離れても閉じません）。設定では見た目・言語の変更、ショートカットの確認、すべて消去もできます。
+Windows はトレイアイコンを右クリック、Mac はメニューバーのアイコンをクリック：**設定…**、**クリップボードの画像を自動取り込み**、**メモを固定**（後の 2 つはオン／オフ。固定するとマウスが離れても閉じません）。設定では見た目・言語の変更、ショートカットの確認、すべて消去もできます。メニューの下部から SnapSlot を終了できます。
 
 ## Windows と macOS
 
@@ -53,14 +56,13 @@ Windows はトレイアイコンを右クリック、Mac はメニューバー�
 | --- | --- | --- |
 | メモを表示 / 隠す | <kbd>Ctrl</kbd> <kbd>Alt</kbd> <kbd>Space</kbd> | <kbd>⌃</kbd> <kbd>⌥</kbd> <kbd>Space</kbd> |
 | 選択テキストをピン留め | <kbd>Ctrl</kbd> <kbd>Alt</kbd> <kbd>T</kbd> | <kbd>⌃</kbd> <kbd>⌥</kbd> <kbd>T</kbd> |
-| スクリーンショット | <kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>S</kbd> | <kbd>⌃</kbd> <kbd>⌥</kbd> <kbd>S</kbd> |
 | 選ぶ / コピー / 削除 / 閉じる | <kbd>←</kbd> <kbd>→</kbd> / <kbd>Enter</kbd> / <kbd>Delete</kbd> / <kbd>Esc</kbd> | <kbd>←</kbd> <kbd>→</kbd> / <kbd>Enter</kbd> / <kbd>Delete</kbd> / <kbd>Esc</kbd> |
 
-ショートカットはすべて設定で変更できます。
+設定で現在のショートカットを確認できます。
 
 ## プライバシー
 
-勝手に撮らない、ファイルを読まない、通信しない。取り込むのは、ほかのアプリがクリップボードに入れた画像と、ショートカットを押したときに選択していたテキストだけ。最大 30 枚、終了すればすべて消えます。
+ほかのアプリがクリップボードに書き込んだ画像と、ショートカットを押したときに選択していたテキストを取り込みます。内容はアップロードしません。最大 30 枚で、通常の終了時に消去されます。
 
 ## ソースからビルド
 
@@ -82,21 +84,21 @@ npm run dev --prefix apps/website -- --port 3000
 open artifacts/macos/SnapSlot.app
 ```
 
-Windows では `artifacts/windows/win-x64/` フォルダか ZIP ごと持ち運んでください。exe 単体では動きません。Mac のローカルビルドは ad-hoc 署名で、テスト用です。
+上の DMG / Setup インストーラーからインストールできます。ソースのビルド出力は開発用です。Mac 版は ad-hoc 署名で Apple の公証を受けていないため、初回起動がブロックされる場合があります。[公開・配信ガイド](../../docs/releases/hosting.md)も参照してください。
 
 ## リポジトリ構成
 
 | | |
 | --- | --- |
-| `apps/website` | Web サイト（6 言語）、スキン解析 |
-| `apps/native-ui` | 両クライアント共通のメモと外観パネル |
+| `apps/website` | 6 言語のサイトとインタラクティブデモ |
+| `apps/native-ui` | 両クライアント共通の扇形メモ・メニュー・設定 |
 | `apps/windows` | Windows クライアント（C# / WPF + WebView2） |
 | `apps/macos` | macOS クライアント（Swift / AppKit + WKWebView） |
-| `docs` | 設計記録、テスト項目、README 画像 |
+| `docs` | 現在の仕様、テスト項目、README 画像 |
 
 ## テスト
 
-Web サイトと共通 UI：24 / 24 合格。Windows / macOS のチェックと実機確認項目は [CONTRIBUTING.md](../../CONTRIBUTING.md) と `docs/native-testing.md` を参照。
+ビルド、自動テスト、実機確認のコマンドは [CONTRIBUTING.md](../../CONTRIBUTING.md) と `docs/native-testing.md` を参照してください。
 
 ## コントリビュート
 

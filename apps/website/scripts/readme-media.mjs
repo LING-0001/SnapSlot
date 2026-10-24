@@ -5,20 +5,25 @@
 import { chromium } from "@playwright/test";
 import { mkdir, rm } from "node:fs/promises";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 const base = process.env.SNAPSLOT_URL ?? "http://127.0.0.1:3000";
 const all = ["zh-Hans", "en", "zh-Hant", "ja", "ko", "es"];
-const wanted = process.argv.slice(2).length ? process.argv.slice(2) : all;
-const root = path.resolve("../../docs/media");
+const menusOnly = process.argv.includes("--menus-only");
+const localeArgs = process.argv.slice(2).filter(value => value !== "--menus-only");
+const wanted = localeArgs.length ? localeArgs : all;
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../docs/media");
 // Edge ships with Windows; elsewhere use Chrome, or Playwright's Chromium if neither is installed.
 const channel = process.platform === "win32" ? { channel: "msedge" } : process.platform === "darwin" ? { channel: "chrome" } : {};
 const browser = await chromium.launch(channel);
-const asMac = (context) => context.addInitScript(() => Object.defineProperty(navigator, "platform", { get: () => "MacIntel" }));
 
 async function open(locale, { mac = false, width = 1280, height = 800, scale = 2, mobile = false } = {}) {
   const context = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: scale, ...(mobile ? { isMobile: true, hasTouch: true } : {}) });
-  await context.grantPermissions(["clipboard-read", "clipboard-write"], { origin: base });
-  if (mac) await asMac(context);
+  await context.addInitScript(({mac}) => {
+    Object.defineProperty(navigator, "platform", { get: () => mac ? "MacIntel" : "Win32" });
+    let text = "";
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async value => { text=value; }, readText: async () => text, write: async () => {} } });
+  }, {mac});
   const page = await context.newPage();
   await page.goto(`${base}/${locale}/`, { waitUntil: "networkidle" });
   await page.evaluate(() => document.fonts.ready);
@@ -48,7 +53,7 @@ for (const locale of wanted) {
   await mkdir(dir, { recursive: true });
 
   // 1. Hero: notes fanned open on the Windows desktop.
-  {
+  if (!menusOnly) {
     const page = await open(locale);
     await skip(page);
     await reveal(page);
@@ -71,15 +76,18 @@ for (const locale of wanted) {
     const right = box.x + box.width, bottom = box.y + box.height;
     const clip = { x: menu.x - 40, y: menu.y - 40, width: right - (menu.x - 40), height: bottom - (menu.y - 40) };
     await page.screenshot({ path: path.join(dir, "tray-menu.png"), clip });
-    await page.locator("[role=menu] [role=menuitem]").click();
-    await page.waitForTimeout(500);
-    const win = await page.locator("[role=dialog]").boundingBox();
-    await page.screenshot({ path: path.join(dir, "settings.png"), clip: { x: win.x - 24, y: win.y - 24, width: win.width + 48, height: win.height + 48 } });
+    if (!menusOnly) {
+      await page.setViewportSize({ width: 1280, height: 1000 });
+      await page.locator("[role=menu] [role=menuitem]").first().click();
+      await page.waitForTimeout(500);
+      const win = await page.locator("[role=dialog]").boundingBox();
+      await page.screenshot({ path: path.join(dir, "settings.png"), clip: { x: win.x - 24, y: win.y - 24, width: win.width + 48, height: win.height + 48 } });
+    }
     await page.context().close();
   }
 
   // 3. Drag a note into a document.
-  {
+  if (!menusOnly) {
     const page = await open(locale);
     await skip(page);
     await reveal(page);
@@ -94,7 +102,7 @@ for (const locale of wanted) {
   }
 
   // 4. Select text, press the shortcut.
-  {
+  if (!menusOnly) {
     const page = await open(locale);
     await skip(page);
     const line = page.locator("[class*=selectable]");
@@ -124,7 +132,7 @@ for (const locale of wanted) {
   }
 
   // 6. Phone.
-  {
+  if (!menusOnly) {
     const page = await open(locale, { width: 390, height: 844, scale: 2, mobile: true });
     await skip(page);
     const box = await desk(page).boundingBox();
@@ -135,7 +143,7 @@ for (const locale of wanted) {
   }
 
   // 7. Animation: one continuous take, recorded with Chrome's screencast so timing is real.
-  {
+  if (!menusOnly) {
     const frames = path.join(dir, "frames");
     await rm(frames, { recursive: true, force: true });
     await mkdir(frames);

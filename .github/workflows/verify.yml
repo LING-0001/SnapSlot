@@ -19,6 +19,7 @@ jobs:
           cache: npm
           cache-dependency-path: apps/website/package-lock.json
       - run: npm ci
+      - run: npm run test:downloads
       - run: npm run build
       - run: npm run build:native
       - run: npx playwright install --with-deps chromium
@@ -38,7 +39,10 @@ jobs:
         with:
           dotnet-version: 10.0.x
       - run: npm ci --prefix apps/website
-      - run: ./scripts/build-windows.ps1
+      - run: ./scripts/build-windows.ps1 -Archive
+        shell: pwsh
+      - name: Verify the published Windows installer lifecycle
+        run: ./scripts/installers/check-windows.ps1
         shell: pwsh
       - uses: actions/upload-artifact@v4
         with:
@@ -52,7 +56,7 @@ jobs:
         with:
           node-version: 22
       - run: npm ci --prefix apps/website
-      - run: ./scripts/build-macos.sh
+      - run: ./scripts/build-macos.sh --archive --universal
       - uses: actions/upload-artifact@v4
         with:
           name: SnapSlot-macOS

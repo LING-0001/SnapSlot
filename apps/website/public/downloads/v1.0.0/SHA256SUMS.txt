@@ -1,0 +1,2 @@
+aa4b18b808aef7c626662f10dffd347f7da963aa8b1245b02e423a8f54437f2c  SnapSlot-1.0.0-macOS-universal.dmg
+fbedfea3d9cc51d5056b8175bf40275f17daf505ce4a3e25fc2da692abd882f1  SnapSlot-1.0.0-windows-x64-setup.exe

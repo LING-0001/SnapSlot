@@ -1,0 +1,34 @@
+{
+  "version": "1.0.0",
+  "tag": "v1.0.0",
+  "githubReleases": "https://github.com/LING-0001/SnapSlot/releases",
+  "dependencies": {
+    "webview2Bootstrapper": {
+      "source": "https://go.microsoft.com/fwlink/p/?LinkId=2124703",
+      "sha256": "f414de01c4680f0bb0694d1ea7803c6968f3a81bf6bad01b89bfc65dce14c2a2",
+      "size": 1876736
+    }
+  },
+  "packages": {
+    "macos": {
+      "file": "SnapSlot-1.0.0-macOS-universal.dmg",
+      "url": "/downloads/v1.0.0/SnapSlot-1.0.0-macOS-universal.dmg",
+      "size": 6011296,
+      "sha256": "aa4b18b808aef7c626662f10dffd347f7da963aa8b1245b02e423a8f54437f2c",
+      "format": "dmg",
+      "architecture": "universal (arm64, x86_64)",
+      "minimumOS": "macOS 13",
+      "signing": "ad-hoc app, DMG not notarized"
+    },
+    "windows": {
+      "file": "SnapSlot-1.0.0-windows-x64-setup.exe",
+      "url": "/downloads/v1.0.0/SnapSlot-1.0.0-windows-x64-setup.exe",
+      "size": 61418100,
+      "sha256": "fbedfea3d9cc51d5056b8175bf40275f17daf505ce4a3e25fc2da692abd882f1",
+      "format": "nsis",
+      "architecture": "x64",
+      "minimumOS": "Windows 10",
+      "signing": "unsigned"
+    }
+  }
+}

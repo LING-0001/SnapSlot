@@ -1,177 +1,201 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { messages, locales, type Locale } from "../website/lib/messages";
-import { siteCopy } from "../website/lib/site-copy";
-import { builtInSkins, parseSkin, skinStyle, type Skin } from "../website/lib/skin";
-import { SkinEditor } from "../website/components/skin-editor";
-import { nativeCopy } from "./copy";
-import { send, type AppPreferences, type HostMessage, type NativeItem } from "./protocol";
-import { PreferencesPanel, defaultPreferences, shortcutLabel } from "./preferences";
-import "../website/app/globals.css";
+import { homeCopy, fill } from "../website/lib/home-copy";
+import { locales, localeNames, type Locale } from "../website/lib/locales";
+import { navigateMenu } from "../website/lib/menu-navigation";
+import s from "../website/components/home.module.css";
+import "../website/assets/fonts/fonts.css";
+import { send, type Appearance, type AppPreferences, type Message, type NativeItem, type Surface } from "./protocol";
 import "./native.css";
 
-function Icon({ kind }: { kind: string }) {
-  const paths: Record<string, React.ReactNode> = {
-    copy: <><rect x="8" y="8" width="12" height="12" rx="1"/><path d="M16 4H4v12"/></>,
-    capture: <><rect x="3" y="6" width="18" height="15" rx="3"/><circle cx="12" cy="13" r="4"/><path d="m8 6 1-3h6l1 3"/></>,
-    text: <path d="M4 5h16M12 5v15M8 20h8M4 5v3m16-3v3"/>,
-    image: <><rect x="3" y="3" width="18" height="18" rx="3"/><path d="m3 17 6-6 5 5 3-3 4 4"/><circle cx="16" cy="8" r="1"/></>,
-    skin: <><path d="M12 3a9 9 0 1 0 0 18h2a2 2 0 0 0 0-4h-1a2 2 0 0 1 0-4h4a4 4 0 0 0 4-4c0-3-4-6-9-6Z"/><path d="M7 9h.01M10 6h.01M15 6h.01M5 13h.01"/></>,
-    paste: <><path d="M8 5H5v16h14V5h-3"/><rect x="8" y="2" width="8" height="5" rx="1"/><path d="M9 12h6m-6 4h6"/></>,
-    close: <path d="m6 6 12 12M6 18 18 6"/>,
-    collapse: <path d="m6 15 6-6 6 6"/>,
-    pin: <><path d="M8 4h8l-1 6 3 3H6l3-3-1-6Z"/><path d="M12 13v7"/></>,
-    gear: <><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.02 2.02-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.04 1.56V20h-2.86v-.08A1.7 1.7 0 0 0 10.9 18.36a1.7 1.7 0 0 0-1.88.34l-.06.06-2.02-2.02.06-.06A1.7 1.7 0 0 0 7.34 14.8 1.7 1.7 0 0 0 5.78 13.76H5.7v-2.86h.08a1.7 1.7 0 0 0 1.56-1.04A1.7 1.7 0 0 0 7 7.98l-.06-.06L8.96 5.9l.06.06a1.7 1.7 0 0 0 1.88.34 1.7 1.7 0 0 0 1.04-1.56V4.7h2.86v.08a1.7 1.7 0 0 0 1.04 1.56 1.7 1.7 0 0 0 1.88-.34l.06-.06 2.02 2.02-.06.06a1.7 1.7 0 0 0-.34 1.88 1.7 1.7 0 0 0 1.56 1.04h.08v2.86H21a1.7 1.7 0 0 0-1.6 1.16Z"/></>,
-    chevron: <path d="m7 10 5 5 5-5"/>,
-  };
-  return <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[kind] || paths.copy}</svg>;
+const appearances: Appearance[] = ["glass", "paper", "graphite"];
+const defaults: AppPreferences = { collectImages: true, textShortcut: { key: "KeyT", control: true, alt: true, shift: false, meta: false } };
+function Toggle({ on, label, onChange }: { on: boolean; label: string; onChange: () => void }) {
+  return <button className={`${s.toggle} ${on ? s.toggleOn : ""}`} role="switch" aria-checked={on} aria-label={label} onClick={onChange}><span/></button>;
 }
-function TrayMenu({ locale, platform, pinned, preferences }: { locale: Locale; platform: "macos" | "windows"; pinned: boolean; preferences: AppPreferences | null }) {
-  const zh=locale==="zh-Hans", labels=zh?{shot:"截取屏幕",open:"展开便签",pin:"固定便签",unpin:"取消固定",collect:"自动收取剪贴板图片",settings:"设置",quit:"退出 SnapSlot",name:"快照贴"}:{shot:"Take a screenshot",open:"Open notes",pin:"Pin notes",unpin:"Unpin notes",collect:"Automatically collect clipboard images",settings:"Settings",quit:"Quit SnapSlot",name:"SnapSlot"};
-  const value=preferences||defaultPreferences,mac=platform==="macos";
-  return <main className="native-tray-menu" role="menu" aria-label="SnapSlot">
-    <header className="native-tray-header"><img className="native-tray-logo" src="assets/icon.svg" alt=""/><strong>SnapSlot</strong><small>{labels.name}</small></header>
-    <button type="button" role="menuitem" className="native-tray-row" onClick={()=>send({type:"capture"})}><span><Icon kind="capture"/>{labels.shot}</span><kbd>{shortcutLabel(value.captureShortcut,mac)}</kbd></button>
-    <button type="button" role="menuitem" className="native-tray-row" onClick={()=>send({type:"toggleRail"})}><span>{labels.open}</span><kbd>{shortcutLabel({key:"Space",control:true,alt:true,shift:false,meta:false},mac)}</kbd></button>
-    <button type="button" role="menuitem" className="native-tray-row" onClick={()=>send({type:pinned?"unpin":"pin"})}><span>{pinned?labels.unpin:labels.pin}</span><Icon kind="pin"/></button>
-    <button type="button" role="menuitemcheckbox" aria-checked={value.collectScreenshots} className="native-tray-row" onClick={()=>send({type:"savePreferences",value:{...value,collectScreenshots:!value.collectScreenshots}})}><span>{labels.collect}</span><i className={`native-tray-check${value.collectScreenshots?" checked":""}`} aria-hidden="true"/></button>
-    <hr/>
-    <button type="button" role="menuitem" className="native-tray-row" onClick={()=>send({type:"openPreferences"})}><span><Icon kind="gear"/>{labels.settings}</span><Icon kind="chevron"/></button>
-    <hr/>
-    <button type="button" role="menuitem" className="native-tray-row native-tray-quit" onClick={()=>send({type:"quit"})}>{labels.quit}</button>
-  </main>;
-}
+function Keys({ keys }: { keys: string[] }) { return <span className={s.keys}>{keys.map(key => <kbd key={key}>{key}</kbd>)}</span>; }
+
 function App() {
-  const [locale, setLocale] = useState<Locale>("en");
-  const [items, setItems] = useState<NativeItem[]>([]);
-  const [skin, setSkin] = useState<Skin>(builtInSkins[0]);
-  const [expanded, setExpanded] = useState(false);
-  const [pinned, setPinned] = useState(false);
-  const [focusRequest, setFocusRequest] = useState(0);
-  const [notice, setNotice] = useState("");
-  const [copied, setCopied] = useState("");
-  const [text, setText] = useState("");
-  const [removals, setRemovals] = useState<{id:string;x:number;y:number}[]>([]);
-  const [preferences,setPreferences]=useState<AppPreferences|null>(null),[platform,setPlatform]=useState<"macos"|"windows">("macos"),[preferencesRevision,setPreferencesRevision]=useState(0),[shortcutError,setShortcutError]=useState<{field:"captureShortcut"|"textShortcut";message:string}|null>(null);
   const mode = new URLSearchParams(location.search).get("mode") || "rail";
-  const row = useRef<HTMLDivElement>(null);
-  const focusNext = useRef(false);
-  const positions = useRef<Map<string,number>>(new Map());
-  const animations = useRef<Animation[]>([]);
-  const dragging = useRef(false);
-  const pointer = useRef<{id:string;x:number;y:number;time:number} | null>(null);
-  const hostPointer = useRef<{x:number;y:number}|null>(null);
+  const [locale, setLocale] = useState<Locale>("en");
+  const [platform, setPlatform] = useState<"macos" | "windows">("macos");
+  const [items, setItems] = useState<NativeItem[]>([]);
+  const [expanded, setExpanded] = useState(false), [arming, setArming] = useState(false), [pinned, setPinned] = useState(false);
+  const [appearance, setAppearance] = useState<Appearance>("glass"), [preferences, setPreferences] = useState(defaults);
+  const [count, setCount] = useState(0), [focus, setFocus] = useState(0), [focusRequest, setFocusRequest] = useState(0);
+  const [narrow, setNarrow] = useState(() => matchMedia("(max-width: 760px)").matches);
+  const [fresh, setFresh] = useState<string[]>([]), [copied, setCopied] = useState(""), [notice, setNotice] = useState("");
+  const dial = useRef<HTMLDivElement>(null), known = useRef(new Map<string, NativeItem>()), initialized = useRef(false);
+  const focusId = useRef(""), timers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+  const focusAfterRemoval = useRef(false);
+  const wheel = useRef(0), pointer = useRef<{ id: string; x: number; y: number; time: number } | null>(null), dragged = useRef(false);
+  const hostPointer = useRef<{ x: number; y: number } | null>(null), wakeSurfaces = useRef<() => void>(() => {});
+  const a = homeCopy[locale];
+  function later(key: string, fn: () => void, ms: number) { clearTimeout(timers.current.get(key)); timers.current.set(key, setTimeout(fn, ms)); }
   function updateHover() {
-    const point=hostPointer.current;
-    const card=point?document.elementFromPoint(point.x,point.y)?.closest<HTMLElement>("[data-card]"):null;
-    row.current?.querySelectorAll<HTMLElement>("[data-card]").forEach(node=>node.classList.toggle("host-hover",node===card));
+    const point = hostPointer.current;
+    const arm = point ? document.elementFromPoint(point.x, point.y)?.closest<HTMLElement>("[data-arm]") : null;
+    dial.current?.querySelectorAll<HTMLElement>("[data-arm]").forEach(node => node.classList.toggle("host-hover", node === arm));
+    if (mode === "tray") {
+      const item = point ? document.elementFromPoint(point.x, point.y)?.closest<HTMLElement>(".native-menu button") : null;
+      document.querySelectorAll<HTMLElement>(".native-menu button").forEach(node => node.classList.toggle("host-hover", node === item));
+    }
   }
-  const m = messages[locale], copy = siteCopy[locale], labels = nativeCopy(locale);
-  const currentSkin = useRef(skin); currentSkin.current = skin;
-  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
-  const later = (fn:()=>void, ms:number) => { timers.current.push(setTimeout(fn,ms)); };
   useEffect(() => {
-    function receive(message:HostMessage) {
+    function receive(message: Message) {
       if (message.type === "state") {
-        setItems(old=>{
-          const known=new Map(old.map(item=>[item.id,item]));
-          const next=message.items.map(item=>({...item,text:item.text??known.get(item.id)?.text,preview:item.preview??known.get(item.id)?.preview}));
-          return old.length===next.length && old.every((item,index)=>item.id===next[index].id&&item.text===next[index].text&&item.preview===next[index].preview&&item.title===next[index].title) ? old : next;
-        }); setExpanded(message.expanded);setPinned(!!message.pinned);
+        const previous = known.current;
+        const next = message.items.map(item => ({ ...item, text: item.text ?? previous.get(item.id)?.text, preview: item.preview ?? previous.get(item.id)?.preview }));
+        const arrivals = next.filter(item => !previous.has(item.id));
+        setItems(next); setCount(message.count); setExpanded(message.expanded); setArming(message.arming); setPinned(message.pinned);
+        if (message.platform) setPlatform(message.platform);
         if (locales.includes(message.locale as Locale)) setLocale(message.locale as Locale);
-        document.documentElement.classList.toggle("reduce-motion",message.reducedMotion);
-        focusNext.current = !!message.focus;
-        if(message.focus)setFocusRequest(value=>value+1);
-        try { if(typeof message.skin === "string")setSkin(parseSkin(message.skin)); setNotice(""); } catch (error) { setNotice(String(error)); }
-      } else if(message.type === "preferences") {
-        setPreferences(old=>JSON.stringify(old)===JSON.stringify(message.value)?old:message.value);setPlatform(message.platform);setPreferencesRevision(value=>value+1);setShortcutError(null);setNotice("");
-      } else if (message.type === "pointer") {
-        hostPointer.current=message.x!==null&&message.y!==null?{x:message.x,y:message.y}:null;updateHover();
-      } else if (message.type === "skin") {
-        try { const next=parseSkin(message.source);setSkin(next);setNotice("");send({type:"applySkin",source:JSON.stringify(next)}); }
-        catch(error) { setNotice(String(error)); }
-      } else if(message.type === "shortcutError") {setShortcutError({field:message.field,message:message.message});}
-      else if(message.type === "shortcutAdjusted") {setShortcutError(null);setNotice(message.message);}
-      else if(message.type === "error") {setNotice(message.message);setPreferencesRevision(value=>value+1);}
-      else if(message.type === "copied") { setCopied(message.id);later(()=>setCopied(""),1400); }
+        if (appearances.includes(message.appearance)) setAppearance(message.appearance);
+        document.documentElement.classList.toggle("reduce-motion", message.reducedMotion);
+        // Keep the selected card stable through incremental state updates and removals.
+        const selected = next.findIndex(item => item.id === focusId.current);
+        const nextFocus = arrivals.length ? next.length - 1 : selected >= 0 ? selected : Math.max(0, next.length - 1);
+        setFocus(nextFocus); focusId.current = next[nextFocus]?.id || "";
+        if (initialized.current && arrivals.length) {
+          setFresh(arrivals.map(item => item.id)); later("fresh", () => setFresh([]), 1400);
+        }
+        initialized.current = true; known.current = new Map(next.map(item => [item.id, item]));
+        if (message.focus) setFocusRequest(value => value + 1);
+      } else if (message.type === "preferences") { setPreferences(message.value); setPlatform(message.platform); }
+      else if (message.type === "copied") { setCopied(message.id); later("copied", () => setCopied(""), 1400); }
+      else if (message.type === "pointer") {
+        hostPointer.current = message.x !== null && message.y !== null ? { x: message.x, y: message.y } : null;
+        updateHover(); wakeSurfaces.current();
+      } else if (message.type === "error") { setNotice(message.message); later("notice", () => setNotice(""), 7000); }
     }
-    window.snapslotReceive=receive;
-    window.chrome?.webview?.addEventListener("message",event=>receive(event.data));
-    send({type:"ready"});
-    return ()=>{ delete window.snapslotReceive;timers.current.forEach(clearTimeout);animations.current.forEach(animation=>animation.cancel()); };
-  },[]);
-  useLayoutEffect(()=>{
-    const cards=[...row.current?.querySelectorAll<HTMLElement>("[data-card]") || []];
-    animations.current.forEach(animation=>animation.cancel());animations.current=[];
-    const next=new Map<string,number>();
-    for(const card of cards) {
-      const x=card.offsetLeft;next.set(card.dataset.card!,x);
-      const before=positions.current.get(card.dataset.card!);
-      if(before!==undefined && Math.abs(before-x)>.5 && !document.documentElement.classList.contains("reduce-motion") && !matchMedia("(prefers-reduced-motion:reduce)").matches)
-        animations.current.push(card.animate([{transform:`translateX(${before-x}px)`},{transform:"none"}],{duration:180,easing:"cubic-bezier(.22,1,.36,1)"}));
-    }
-    const arrived=cards.find(card=>!positions.current.has(card.dataset.card!));
-    if(arrived && row.current)row.current.scrollLeft=Math.max(0,arrived.offsetLeft-row.current.clientWidth+arrived.offsetWidth+12);
-    positions.current=next;
-    updateHover();
-    if(focusNext.current) { focusNext.current=false;row.current?.querySelector<HTMLButtonElement>(".card-copy")?.focus({preventScroll:true}); }
-  },[items,expanded,focusRequest]);
-  useEffect(()=>{ if(notice) { const timer=setTimeout(()=>setNotice(""),7000);return()=>clearTimeout(timer); } },[notice]);
-  useEffect(()=>{ document.documentElement.lang=locale; },[locale]);
-  function applySkin(next:Skin) { setSkin(next);send({type:"applySkin",source:JSON.stringify(next)}); }
-  function remove(item:NativeItem) {
-    const card=row.current?.querySelector<HTMLElement>(`[data-card="${CSS.escape(item.id)}"]`);
-    if(card) {
-      const removal={id:item.id,x:card.offsetLeft,y:card.offsetTop};
-      setRemovals(old=>[...old,removal]);later(()=>setRemovals(old=>old.filter(value=>value.id!==item.id)),190);
-    }
-    const index=items.findIndex(value=>value.id===item.id);
-    const next=items[index+1] || items[index-1];
-    setItems(old=>old.filter(value=>value.id!==item.id));send({type:"remove",id:item.id});
-    if(card?.contains(document.activeElement)) later(()=>{
-      if(next)row.current?.querySelector<HTMLButtonElement>(`[data-card="${CSS.escape(next.id)}"] .card-copy`)?.focus();
-      else document.querySelector<HTMLButtonElement>(".native-tool")?.focus();
-    },0);
-  }
-  if(mode === "preferences")return <PreferencesPanel value={preferences} platform={platform} locale={locale} revision={preferencesRevision} notice={notice} pinned={pinned} skin={skin} shortcutError={shortcutError} onSave={value=>{setNotice("");setShortcutError(null);send({type:"savePreferences",value});}} onPinnedChange={value=>send({type:value?"pin":"unpin"})} onSkinChange={applySkin} onClose={()=>send({type:"close"})}/>;
-  if(mode === "tray")return <TrayMenu locale={locale} platform={platform} pinned={pinned} preferences={preferences}/>;
-  if(mode === "settings") return <main className="native-settings">
-    <SkinEditor locale={locale} m={m} skin={skin} onChange={applySkin} open onClose={()=>send({type:"close"})} onExport={()=>send({type:"exportSkin",source:JSON.stringify(skin)})} footer={<div className="native-folder"><button onClick={()=>send({type:"openSkinFolder"})}>{labels.folder}</button><span>{labels.skinHint}</span></div>}/>
-    {notice && <p className="native-notice" role="status">{labels.skinError}{notice}</p>}
-  </main>;
-  if(mode === "text") return <main className="native-text"><h1>{m.addText}</h1><textarea autoFocus value={text} onChange={event=>setText(event.target.value)} aria-label={m.addText} onKeyDown={event=>{
-    if(event.key==="Escape")send({type:"close"});
-    if(event.key==="Enter"&&(event.metaKey||event.ctrlKey)) {event.preventDefault();if(text.trim()&&new TextEncoder().encode(text).length<=65536)send({type:"saveText",text});}
-  }}/><div className="native-text-actions"><button onClick={()=>send({type:"close"})}>{labels.cancel}</button><button className="primary button" disabled={!text.trim()||new TextEncoder().encode(text).length>65536} onClick={()=>send({type:"saveText",text})}>{labels.save}</button></div>{new TextEncoder().encode(text).length>65536 && <p role="alert">{labels.tooLarge}</p>}</main>;
-  return <main className="native-root" style={skinStyle(skin)} onKeyDown={event=>{
-    if(event.key==="Escape"){event.preventDefault();send({type:"collapse"});}
-  }}>
-    <div className={`rail ${expanded?"expanded":"collapsed"}`} data-ui="native-notes">
-      <div className="rail-drawer" inert={!expanded} aria-hidden={!expanded}>
-        <div ref={row} className="slot-row" role="group" aria-label={m.demoLabel} onScroll={updateHover} onWheel={event=>{if(row.current&&!event.ctrlKey&&!event.shiftKey&&Math.abs(event.deltaY)>Math.abs(event.deltaX))row.current.scrollLeft+=event.deltaY*(event.deltaMode===1?20:1);}}>
-          {items.map((item,index)=><div className={`capture-card ${item.kind}`} data-card={item.id} key={item.id}>
-            <span className="card-pin" aria-hidden="true"><i/><b/></span>
-            <button className="card-copy" aria-label={`${m.copy}: ${item.title}`} onClick={()=>{if(!dragging.current)send({type:"copy",id:item.id});dragging.current=false;}}
-              onPointerDown={event=>{dragging.current=false;pointer.current={id:item.id,x:event.clientX,y:event.clientY,time:performance.now()};}}
-              onPointerMove={event=>{const start=pointer.current;if(!start||start.id!==item.id||event.buttons!==1||dragging.current)return;if(performance.now()-start.time>=160&&Math.hypot(event.clientX-start.x,event.clientY-start.y)>=6){dragging.current=true;pointer.current=null;send({type:"drag",id:item.id});}}}
-              onPointerUp={()=>{pointer.current=null;}} onPointerCancel={()=>{pointer.current=null;}} onDragStart={event=>event.preventDefault()}
-              onKeyDown={event=>{if(event.key==="Delete"||event.key==="Backspace"){event.preventDefault();remove(item);}if(event.key==="ArrowLeft"||event.key==="ArrowRight"){event.preventDefault();const next=(index+(event.key==="ArrowLeft"?-1:1)+items.length)%items.length;row.current?.querySelector<HTMLButtonElement>(`[data-card="${CSS.escape(items[next].id)}"] .card-copy`)?.focus();}}}>
-              {item.kind==="image"?<span className="sample-artwork" role="img" aria-label={item.title} style={{backgroundImage:`url("${item.preview}")`}}/>:<div className="text-preview"><strong>{item.title}</strong>{(item.text || "").slice(0,180).split("\n").slice(1,4).map((line,i)=><p key={i}>{line || "\u00a0"}</p>)}</div>}
-              <span className="copy-overlay"><Icon kind="copy"/>{copied===item.id?m.copied:m.copy}</span>
-            </button>
-            <button className="card-remove" aria-label={`${m.remove}: ${item.title}`} onClick={()=>remove(item)}><Icon kind="close"/></button>
-          </div>)}
-          {removals.map(item=><div key={item.id} className="fragments" aria-hidden="true" style={{left:item.x,top:item.y}}>{Array.from({length:12},(_,i)=><i key={i} style={{"--x":`${i%4*28}px`,"--y":`${Math.floor(i/4)*24}px`,"--fragment":["#eabd42","#a7c8ae","#f6f4ed","#6e96ad"][i%4]} as React.CSSProperties}/>)}</div>)}
-          {!items.length&&<button className="empty-slot" onClick={()=>send({type:"capture"})}><Icon kind="capture"/><span>{m.empty}</span></button>}
+    const receiveWebView = (event: { data: Message }) => receive(event.data);
+    window.snapslotReceive = receive; window.chrome?.webview?.addEventListener("message", receiveWebView); send({ type: "ready" });
+    return () => { delete window.snapslotReceive; window.chrome?.webview?.removeEventListener("message", receiveWebView); timers.current.forEach(clearTimeout); };
+  }, []);
+  useEffect(() => { document.documentElement.lang = locale; }, [locale]);
+  useEffect(() => {
+    const media = matchMedia("(max-width: 760px)");
+    const update = () => setNarrow(media.matches);
+    media.addEventListener("change", update); return () => media.removeEventListener("change", update);
+  }, []);
+  useLayoutEffect(() => {
+    focusId.current = items[focus]?.id || ""; updateHover(); wakeSurfaces.current();
+    if (focusAfterRemoval.current) { focusAfterRemoval.current = false; dial.current?.querySelector<HTMLButtonElement>("[data-focus='true']")?.focus({ preventScroll: true }); }
+  }, [items, focus, expanded, arming, appearance, narrow]);
+  useEffect(() => { if (focusRequest) dial.current?.querySelector<HTMLButtonElement>("[data-focus='true']")?.focus({ preventScroll: true }); }, [focusRequest]);
+
+  // A WKWebView cannot blur the desktop outside its own document. Supply the
+  // animated card geometry to AppKit's behind-window material, below the web view.
+  useEffect(() => {
+    if (mode !== "rail") return;
+    let frame = 0, until = 0, last = "", disposed = false;
+    const measure = () => {
+      frame = 0;
+      const node = dial.current;
+      const surfaces: Surface[] = [];
+      if (node) {
+        const dialOpacity = Number(getComputedStyle(node).opacity);
+        node.querySelectorAll<HTMLElement>("[data-arm]").forEach(arm => {
+          const face = arm.querySelector<HTMLElement>("[data-note]")!, card = face.parentElement!;
+          const style = getComputedStyle(arm), rect = face.getBoundingClientRect();
+          const rotation = new DOMMatrix(style.transform), scale = new DOMMatrix(getComputedStyle(card).transform);
+          const opacity = dialOpacity * Number(style.opacity) * Number(getComputedStyle(card).opacity);
+          if (opacity < .01 || rect.bottom < 0 || rect.top > innerHeight || arm.getAttribute("aria-hidden") === "true") return;
+          const size = Math.hypot(scale.a, scale.b) * (parseFloat(getComputedStyle(card).scale) || 1);
+          surfaces.push({ id: arm.dataset.arm!, x: rect.x + rect.width / 2, y: rect.y + rect.height / 2, width: face.offsetWidth * size, height: face.offsetHeight * size, angle: Math.atan2(rotation.b, rotation.a) * 180 / Math.PI, opacity });
+        });
+      }
+      const value = JSON.stringify(surfaces);
+      if (value !== last) { last = value; send({ type: "surfaces", surfaces }); }
+      if (!disposed && performance.now() < until) frame = requestAnimationFrame(measure);
+    };
+    const wake = () => { until = performance.now() + 850; if (!frame) frame = requestAnimationFrame(measure); };
+    wakeSurfaces.current = wake; wake(); addEventListener("resize", wake);
+    return () => { disposed = true; cancelAnimationFrame(frame); removeEventListener("resize", wake); wakeSurfaces.current = () => {}; };
+  }, [mode, appearance]);
+  useEffect(() => {
+    const node = dial.current; if (!node) return;
+    const onWheel = (event: WheelEvent) => {
+      event.preventDefault(); wheel.current += Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+      if (Math.abs(wheel.current) < 40) return;
+      const by = Math.sign(wheel.current); wheel.current = 0;
+      setFocus(value => Math.min(Math.max(value + by, 0), known.current.size - 1));
+    };
+    node.addEventListener("wheel", onWheel, { passive: false });
+    return () => node.removeEventListener("wheel", onWheel);
+  }, []);
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") send({ type: mode === "rail" ? "collapse" : "close" }); };
+    addEventListener("keydown", onKey); return () => removeEventListener("keydown", onKey);
+  }, [mode]);
+  const savePreferences = (next: AppPreferences) => send({ type: "savePreferences", value: next });
+  const togglePin = () => send({ type: pinned ? "unpin" : "pin" });
+  const closeMenu = () => send({ type: "close" });
+  const mac = platform === "macos";
+  const keys = (value: AppPreferences["textShortcut"]) => [value.control ? (mac ? "⌃" : "Ctrl") : "", value.alt ? (mac ? "⌥" : "Alt") : "", value.shift ? (mac ? "⇧" : "Shift") : "", value.meta ? (mac ? "⌘" : "Win") : "", value.key.replace(/^Key|^Digit/, "")].filter(Boolean);
+  const remove = (item: NativeItem, index: number) => {
+    const next = items[index - 1] || items[index + 1]; focusId.current = next?.id || "";
+    focusAfterRemoval.current = !!document.activeElement?.closest("[data-arm]");
+    send({ type: "remove", id: item.id });
+  };
+  const select = (index: number, keyboard = false) => {
+    setFocus(index); focusId.current = items[index]?.id || "";
+    if (keyboard) later("focus", () => dial.current?.querySelector<HTMLButtonElement>(`[data-index='${index}']`)?.focus({ preventScroll: true }), 0);
+  };
+  return <main className={`${s.page} native-page`} data-skin={appearance}>
+    <div className={`${s.stage} native-surface`} data-os={mac ? "mac" : "win"} data-mode={mode}>
+      {mode === "tray" ? <div className={`${s.trayMenu} native-menu`} role="menu" aria-label="SnapSlot" onKeyDown={navigateMenu}>
+        <button role="menuitem" onClick={() => send({ type: "openPreferences" })}><span className={s.check}/>{a.menu.settings}</button><hr/>
+        <button role="menuitemcheckbox" aria-checked={preferences.collectImages} onClick={() => { savePreferences({ ...preferences, collectImages: !preferences.collectImages }); closeMenu(); }}><span className={s.check}>{preferences.collectImages ? "✓" : ""}</span>{a.menu.intake}</button>
+        <button role="menuitemcheckbox" aria-checked={pinned} onClick={() => { togglePin(); closeMenu(); }}><span className={s.check}>{pinned ? "✓" : ""}</span>{a.menu.pin}</button>
+        <hr/>
+        <button role="menuitem" onClick={() => send({ type: "quit" })}><span className={s.check}/>{a.menu.quit}</button>
+      </div> : mode !== "rail" ? <section className={`${s.window} native-window`} role="dialog" aria-label={a.settings.title}>
+        <header className={s.windowBar} data-drag-region onPointerDown={event => { if (!(event.target as HTMLElement).closest("button")) send({ type: "moveWindow" }); }}>
+          {mac ? <span className={s.lights}><button onClick={() => send({ type: "close" })} aria-label={a.settings.close}/><i/><i/></span> : <img src="icon.svg" width="16" height="16" alt=""/>}
+          <span>{a.settings.title}</span>
+          {!mac && <button className={s.windowClose} onClick={() => send({ type: "close" })} aria-label={a.settings.close}>×</button>}
+        </header>
+        <div className={s.windowBody}>
+          <div className={s.row}><span>{a.menu.intake}<small>{a.settings.intakeHint}</small></span><Toggle on={preferences.collectImages} label={a.menu.intake} onChange={() => savePreferences({ ...preferences, collectImages: !preferences.collectImages })}/></div>
+          <div className={s.row}><span>{a.menu.pin}<small>{a.settings.pinHint}</small></span><Toggle on={pinned} label={a.menu.pin} onChange={togglePin}/></div>
+          <div className={s.row}><span>{a.settings.look}</span><span className={s.miniSkins}>{appearances.map((option, index) => <button key={option} className={`${s.miniSkin} ${appearance === option ? s.miniSkinOn : ""}`} data-swatch={option} onClick={() => send({ type: "setAppearance", value: option })} aria-label={a.skins[index]} aria-pressed={appearance === option}/>)}</span></div>
+          <label className={s.row}><span>{a.settings.language}</span><select className={s.select} value={locale} onChange={event => send({ type: "setLocale", value: event.target.value })}>{locales.map(value => <option key={value} value={value} lang={value}>{localeNames[value]}</option>)}</select></label>
+          <div className={s.row}><span>{a.settings.pinText}</span><Keys keys={keys(preferences.textShortcut)}/></div>
+          <div className={s.row}><span>{a.settings.openNotes}</span><Keys keys={keys({key:"Space",control:true,alt:true,shift:false,meta:false})}/></div>
+          <div className={s.row}><span>{fill(a.settings.count, count)}</span><button className={s.danger} disabled={!count} onClick={() => send({ type: "clearNotes" })}>{a.settings.clear}</button></div>
         </div>
-        <div className={`native-status${pinned?" is-pinned":""}`} data-ui="native-toolbar" role="status" aria-live="polite">
-          <button className="native-pin-toggle" aria-label={pinned?labels.unpin:labels.pin} aria-pressed={pinned} title={pinned?labels.unpin:labels.pin} onClick={()=>send({type:pinned?"unpin":"pin"})}><Icon kind="pin"/></button>
-          <span className="native-status-label">{pinned?labels.pinned:labels.autoHide}</span>
-          <button className="native-tool" title={m.collapse} aria-label={m.collapse} onClick={()=>send({type:"collapse"})}><Icon kind="collapse"/></button>
+      </section> : <>
+        <div className={`${s.edgeGlow} ${arming ? s.edgeArming : ""}`} aria-hidden="true"><i/></div>
+        <div ref={dial} className={`${s.dial} ${expanded ? s.dialOpen : ""} ${arming ? s.dialArming : ""}`} role="list" aria-label={a.stage.list} inert={!expanded} aria-hidden={!expanded}>
+          {items.map((item, index) => {
+            const d = index - focus, reach = narrow ? 1.6 : 3.2, hidden = Math.abs(d) > reach;
+            return <div key={item.id} role="listitem" data-arm={item.id} className={`${s.arm} ${item.kind === "text" ? s.textNote : ""} ${fresh.includes(item.id) ? s.fresh : ""} ${d === 0 ? s.current : ""}`} aria-hidden={hidden} style={{ "--d": d, "--ad": Math.abs(d), zIndex: 50 - Math.round(Math.abs(d) * 2), opacity: hidden ? 0 : 1 - Math.max(Math.abs(d) - reach + 1, 0) * .7, pointerEvents: hidden ? "none" : undefined } as React.CSSProperties}>
+              <div className={s.card}><span className={s.pin} aria-hidden="true"/>
+                <button className={s.face} data-note={item.id} data-index={index} data-focus={d === 0} tabIndex={d === 0 ? 0 : -1}
+                  aria-label={item.kind === "text" ? a.stage.copyText + (item.text || "").slice(0, 20) : a.stage.copyImage + item.title}
+                  onPointerDown={event => { dragged.current = false; pointer.current = { id: item.id, x: event.clientX, y: event.clientY, time: performance.now() }; }}
+                  onPointerMove={event => { const start = pointer.current; if (start?.id === item.id && event.buttons === 1 && !dragged.current && performance.now() - start.time >= 160 && Math.hypot(event.clientX - start.x, event.clientY - start.y) >= 6) { dragged.current = true; pointer.current = null; send({ type: "drag", id: item.id }); } }}
+                  onPointerUp={() => { pointer.current = null; }} onPointerCancel={() => { pointer.current = null; }} onDragStart={event => event.preventDefault()}
+                  onClick={() => { if (!dragged.current) { select(index); send({ type: "copy", id: item.id }); } dragged.current = false; }}
+                  onKeyDown={event => {
+                    if (event.key === "ArrowRight" && index < items.length - 1) select(index + 1, true);
+                    else if (event.key === "ArrowLeft" && index > 0) select(index - 1, true);
+                    else if (event.key === "Delete" || event.key === "Backspace") remove(item, index);
+                    else return; event.preventDefault();
+                  }}>
+                  {item.kind === "image" ? <span className={s.photo} style={{ backgroundImage: `url("${item.preview}")` }}/> : <span className={s.noteText}>{item.text}</span>}
+                  <span className={`${s.copied} ${copied === item.id ? s.copiedOn : ""}`} aria-hidden="true">{a.stage.copied}</span>
+                </button><button className={s.remove} aria-label={a.stage.remove} tabIndex={-1} onClick={() => remove(item, index)}>×</button>
+              </div>
+            </div>;
+          })}
+          {!items.length && <p className={s.emptyFan}>{a.stage.empty}</p>}
+          {items.length > 1 && <p className={s.counter} aria-hidden="true">{pinned && <span className={s.pinnedDot}/ >}{focus + 1} / {items.length}</p>}
         </div>
-      </div>
+      </>}
+      <p className={`${s.notice} ${notice ? s.noticeOn : ""} native-notice`} role="status" aria-live="polite">{notice}</p>
     </div>
-    {notice&&<p className="native-notice" role="status">{notice}</p>}
   </main>;
 }
 createRoot(document.getElementById("root")!).render(<App/>);

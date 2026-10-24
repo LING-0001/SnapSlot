@@ -1,139 +1,205 @@
-import {test,expect,type Page} from '@playwright/test';
-import path from 'node:path';
-import {execFileSync} from 'node:child_process';
-import {pathToFileURL} from 'node:url';
-import {builtInSkins} from '../lib/skin';
-test.beforeAll(()=>{execFileSync(process.execPath,['scripts/build-native.mjs'],{stdio:'pipe'});});
-const entry=pathToFileURL(path.resolve('../..','artifacts/native-ui/index.html')).href;
-async function host(page:Page,mode='rail'){
-  await page.addInitScript(({skin})=>{
-    const bridge=window as typeof window & {nativeCommands:Record<string,unknown>[];nativeState:Record<string,unknown>;nativePreferences:Record<string,unknown>;preferenceError?:string;snapslotReceive?:(value:unknown)=>void;chrome?:{webview:unknown}};
-    bridge.nativeCommands=[];
-    bridge.nativeState={type:'state',items:Array.from({length:21},(_,i)=>({id:'item-'+i,kind:'text',title:'Note '+i,text:'Full payload '+i+'\nKeep useful things close.'})),skin:JSON.stringify(skin),locale:'zh-Hans',expanded:true,pinned:false,reducedMotion:false};
-    bridge.nativePreferences={collectScreenshots:true,captureShortcut:{key:'KeyS',control:true,alt:true,shift:false,meta:false},textShortcut:{key:'KeyT',control:true,alt:true,shift:false,meta:false}};
-    const chrome=(window as unknown as {chrome:Record<string,unknown>}).chrome||{};
-    chrome.webview={addEventListener:()=>{},postMessage:(command:Record<string,unknown>)=>{
-      bridge.nativeCommands.push(command);
-      if(command.type==='ready'){bridge.snapslotReceive?.(bridge.nativeState);if(location.search.includes('preferences')||location.search.includes('tray'))bridge.snapslotReceive?.({type:'preferences',value:bridge.nativePreferences,platform:'macos'});}
-      if(command.type==='savePreferences'){
-        if(bridge.preferenceError)bridge.snapslotReceive?.({type:'shortcutError',field:'captureShortcut',message:bridge.preferenceError});
-        else{bridge.nativePreferences=command.value as Record<string,unknown>;bridge.snapslotReceive?.({type:'preferences',value:bridge.nativePreferences,platform:'macos'});}
-      }
-      if(command.type==='pin'||command.type==='unpin'){bridge.nativeState={...bridge.nativeState,pinned:command.type==='pin'};bridge.snapslotReceive?.(bridge.nativeState);}
-      if(command.type==='remove'){
-        bridge.nativeState.items=(bridge.nativeState.items as {id:string}[]).filter(item=>item.id!==command.id);
-        bridge.snapslotReceive?.(bridge.nativeState);
-      }
-      if(command.type==='applySkin'){bridge.nativeState.skin=command.source;bridge.snapslotReceive?.(bridge.nativeState);}
-    }};
-    (window as unknown as {chrome:unknown}).chrome=chrome;
-  },{skin:builtInSkins[0]});
-  await page.goto(entry+(mode==='rail'?'':'?mode='+mode));
+import { test, expect, type Page } from "@playwright/test";
+import { pathToFileURL } from "node:url";
+import path from "node:path";
+import { execFileSync } from "node:child_process";
+const root = path.resolve(__dirname, "../../..");
+const entry = pathToFileURL(process.env.SNAPSLOT_UI_ENTRY || path.join(root, "artifacts/native-ui/index.html")).href;
+const output = process.env.SNAPSLOT_QA_OUTPUT || path.join(root, "artifacts/qa/native-ui");
+test.beforeAll(() => { if (!process.env.SNAPSLOT_UI_ENTRY) execFileSync(process.execPath, [path.join(root, "apps/native-ui/build.mjs")], { stdio: "pipe" }); });
+async function host(page: Page, mode = "rail", count = 8, platform: "macos" | "windows" = "macos") {
+  await page.addInitScript(({ count, platform }) => {
+    const w = window as any;
+    w.commands = [];
+    w.state = { type: "state", items: Array.from({ length: count }, (_, i) => ({ id: `note-${i}`, kind: "text", title: `Note ${i}`, text: `周五前：\n· 定下图标\n· 更新截图\n· 发给设计组看\n${i}` })), expanded: true, arming: false, pinned: false, appearance: "glass", count, locale: "zh-Hans", reducedMotion: false, platform };
+    w.preferences = { collectImages: true, textShortcut: { key: "KeyT", control: true, alt: true, shift: false, meta: false } };
+    w.emit = (message: any) => platform === "windows" ? w.hostListener({ data: message }) : w.snapslotReceive(message);
+    const postMessage = (command: any) => {
+      w.commands.push(command);
+      if (command.type === "surfaces" || command.type === "moveWindow" || command.type === "drag" || command.type === "close") return;
+      if (command.type === "setAppearance") w.state.appearance = command.value;
+      if (command.type === "setLocale") w.state.locale = command.value;
+      if (command.type === "pin") { w.state.pinned = true; w.state.expanded = true; }
+      if (command.type === "unpin" || command.type === "collapse") { w.state.pinned = false; w.state.expanded = false; }
+      if (command.type === "clearNotes") { w.state.items = []; w.state.count = 0; }
+      if (command.type === "remove") { w.state.items = w.state.items.filter((item: any) => item.id !== command.id); w.state.count = w.state.items.length; }
+      if (command.type === "savePreferences") w.preferences = command.value;
+      w.emit(w.state); w.emit({ type: "preferences", value: w.preferences, platform });
+      if (command.type === "copy") w.emit({ type: "copied", id: command.id });
+    };
+    if (platform === "windows") w.chrome = { ...w.chrome, webview: { postMessage, addEventListener: (_: string, listener: any) => { w.hostListener = listener; }, removeEventListener: () => {} } };
+    else w.webkit = { messageHandlers: { snapslot: { postMessage } } };
+  }, { count, platform });
+  await page.goto(entry + (mode === "rail" ? "" : `?mode=${mode}`));
+  await expect(page.locator("main")).toHaveAttribute("data-skin", "glass");
+  await page.evaluate(() => document.fonts.ready);
+  await page.waitForFunction(() => document.getAnimations().every(animation => animation.playState !== "running"));
 }
-test('offline native row keeps 21 notes and sends copy, remove and drag to the host',async({page})=>{
-  const network:string[]=[];page.on('request',request=>{if(/^https?:/.test(request.url()))network.push(request.url());});
+const focused = (page: Page) => page.locator("[data-focus=true]");
+
+test("fan uses the exact website geometry, colors, shadows and animation timings", async ({ page, context }) => {
+  await page.setViewportSize({ width: 1280, height: 360 });
   await host(page);
-  await expect(page.locator('.capture-card')).toHaveCount(21);
-  const last=page.locator('.card-copy').last();await last.click();
-  expect(await page.evaluate(()=>(window as unknown as {nativeCommands:unknown[]}).nativeCommands)).toContainEqual({type:'copy',id:'item-20'});
-  const box=(await last.boundingBox())!;
-  await page.mouse.move(box.x+40,box.y+40);await page.mouse.down();await page.waitForTimeout(180);await page.mouse.move(box.x+60,box.y+45);await page.mouse.up();
-  expect(await page.evaluate(()=>(window as unknown as {nativeCommands:unknown[]}).nativeCommands)).toContainEqual({type:'drag',id:'item-20'});
-  await last.press('Delete');await expect(page.locator('.capture-card')).toHaveCount(20);
-  expect(network).toEqual([]);
-  await expect(page.locator('.native-tool')).toHaveCount(1);
-  const pin=page.locator('.native-pin-toggle');await expect(pin).toHaveAttribute('aria-pressed','false');await pin.click();await expect(pin).toHaveAttribute('aria-pressed','true');
-});
-test('native appearance uses the shared editor, keeps image controls visible and exports through the OS',async({page})=>{
-  await page.setViewportSize({width:1080,height:790});await host(page,'settings');
-  await expect(page.locator('.skin-dialog')).toBeVisible();await expect(page.locator('.artwork-choose')).toBeInViewport({ratio:1});
-  await page.locator('#skin-image-upload').setInputFiles('public/images/ice-desktop.png');
-  await expect(page.locator('.artwork-thumbnail')).toHaveClass(/has-image/);
-  await page.getByRole('button',{name:'下载皮肤',exact:true}).click();
-  const exports=await page.evaluate(()=>(window as unknown as {nativeCommands:{type:string;source?:string}[]}).nativeCommands.filter(command=>command.type==='exportSkin'));
-  expect(JSON.parse(exports.at(-1)!.source!).background.image).toMatch(/^data:image\//);
-  await page.getByRole('button',{name:'打开皮肤文件夹',exact:true}).click();
-  expect(await page.evaluate(()=>(window as unknown as {nativeCommands:unknown[]}).nativeCommands)).toContainEqual({type:'openSkinFolder'});
-  await page.evaluate(()=>{(window as unknown as {snapslotReceive:(value:unknown)=>void}).snapslotReceive({type:'skin',source:'{}'});});
-  await expect(page.locator('.native-notice')).toBeVisible();await expect(page.locator('.artwork-thumbnail')).toHaveClass(/has-image/);
-});
-test('native text composer sends full text only on explicit save',async({page})=>{
-  await page.setViewportSize({width:520,height:360});await host(page,'text');
-  await page.getByRole('textbox').fill('完整文字\nSecond line');
-  await page.getByRole('button',{name:'贴上文字',exact:true}).click();
-  expect(await page.evaluate(()=>(window as unknown as {nativeCommands:unknown[]}).nativeCommands)).toContainEqual({type:'saveText',text:'完整文字\nSecond line'});
+  const reference = await context.newPage();
+  await reference.addInitScript(() => Object.defineProperty(navigator, "platform", { get: () => "MacIntel" }));
+  await reference.goto("http://127.0.0.1:3000/zh-Hans/");
+  await reference.getByRole("button", { name: "跳过", exact: true }).click();
+  await reference.getByRole("button", { name: "SnapSlot 菜单" }).click();
+  await reference.getByRole("menuitemcheckbox", { name: "固定便签", exact: true }).click();
+  await reference.evaluate(() => document.fonts.ready);
+  const properties = (node: Element) => {
+    const style = getComputedStyle(node), arm = getComputedStyle(node.closest("[role=listitem]")!), card = getComputedStyle(node.parentElement!);
+    return { width: style.width, height: style.height, radius: style.borderRadius, padding: style.padding, background: style.backgroundColor, color: style.color, shadow: style.boxShadow, blur: style.backdropFilter, faceTransition: style.transitionDuration, armTransition: arm.transitionDuration, origin: arm.transformOrigin, cardAnimation: card.animationDuration, dialTransition: getComputedStyle(node.closest("[role=list]")!).transitionDuration };
+  };
+  expect(await focused(page).evaluate(properties)).toEqual(await reference.locator("[data-focus=true]").evaluate(properties));
+  await expect(page.locator("[data-arm][aria-hidden=false]")).toHaveCount(4);
+  expect(await page.locator("[data-arm][aria-hidden=false] [data-note]").evaluateAll(nodes => nodes.every(node => node.getBoundingClientRect().bottom < innerHeight - 20))).toBe(true);
+  await page.screenshot({ path: path.join(output, "fan.png"), omitBackground: true });
 });
 
-test('native tray menu uses the prototype menu hierarchy and sends its host actions',async({page})=>{
-  await page.setViewportSize({width:320,height:420});await host(page,'tray');
-  const menu=page.locator('.native-tray-menu');await expect(menu).toBeVisible();await expect(menu).toHaveCSS('border-radius','12px');
-  await expect(page.getByRole('menuitem',{name:'截取屏幕'})).toContainText('⌃⌥S');
-  await page.getByRole('menuitemcheckbox',{name:'自动收取剪贴板图片'}).click();
-  expect(await page.evaluate(()=>(window as unknown as {nativeCommands:{type:string;value?:{collectScreenshots?:boolean}}[]}).nativeCommands)).toContainEqual({type:'savePreferences',value:{collectScreenshots:false,captureShortcut:{key:'KeyS',control:true,alt:true,shift:false,meta:false},textShortcut:{key:'KeyT',control:true,alt:true,shift:false,meta:false}}});
-  await page.getByRole('menuitem',{name:'设置'}).click();await page.getByRole('menuitem',{name:'退出 SnapSlot'}).click();
-  expect(await page.evaluate(()=>(window as unknown as {nativeCommands:{type:string}[]}).nativeCommands.map(command=>command.type))).toEqual(expect.arrayContaining(['openPreferences','quit']));
+test("wheel navigation and incremental native updates preserve the selected card", async ({ page }) => {
+  await host(page, "rail", 30);
+  await expect(focused(page)).toHaveAttribute("data-index", "29");
+  await page.mouse.move(640, 100); await page.mouse.wheel(0, -40);
+  await expect(focused(page)).toHaveAttribute("data-index", "28");
+  await focused(page).press("ArrowLeft"); await expect(focused(page)).toHaveAttribute("data-index", "27");
+  await page.evaluate(() => { const w = window as any; w.snapslotReceive({ ...w.state, items: w.state.items.map(({ id, kind, title }: any) => ({ id, kind, title })) }); });
+  await expect(focused(page)).toHaveAttribute("data-index", "27");
+  await expect(focused(page)).toContainText("定下图标");
+  await focused(page).press("Delete"); await expect(page.locator("[data-arm]")).toHaveCount(29);
+  await expect(focused(page)).toHaveAttribute("data-index", "26");
+  await expect(focused(page)).toBeFocused();
 });
 
-test('native hover selects before clicking, including an inactive host window',async({page})=>{
+test("click copies, shows the website feedback and native drag does not copy", async ({ page }) => {
   await host(page);
-  const card=page.locator('[data-card="item-20"]'), button=card.locator('.card-copy');
-  await button.scrollIntoViewIfNeeded();
-  await expect(card).toBeInViewport();
-  const box=(await button.boundingBox())!;
-  await page.mouse.move(0,0);
-  await page.evaluate(({x,y})=>(window as unknown as {snapslotReceive:(value:unknown)=>void}).snapslotReceive({type:'pointer',x,y}),{x:box.x+30,y:box.y+30});
-  await expect(card).toHaveClass(/host-hover/);
-  await expect(card.locator('.copy-overlay')).toHaveCSS('opacity','1');
-  await expect(button).toHaveCSS('outline-width','2px');
-  expect(await page.evaluate(()=>(window as unknown as {nativeCommands:{type:string}[]}).nativeCommands.filter(command=>command.type==='copy'))).toHaveLength(0);
-  await button.click();
-  expect(await page.evaluate(()=>(window as unknown as {nativeCommands:{type:string}[]}).nativeCommands.filter(command=>command.type==='copy'))).toHaveLength(1);
-  await page.mouse.move(0,0);
-  await page.evaluate(()=>(window as unknown as {snapslotReceive:(value:unknown)=>void}).snapslotReceive({type:'pointer',x:null,y:null}));
-  await expect(card).not.toHaveClass(/host-hover/);
+  await focused(page).click();
+  await expect(page.locator("[data-arm]").last().getByText("已复制", { exact: true })).toHaveCSS("opacity", "1");
+  expect(await page.evaluate(() => (window as any).commands.filter((c: any) => c.type === "copy"))).toEqual([{ type: "copy", id: "note-7" }]);
+  const box = (await focused(page).boundingBox())!;
+  await page.mouse.move(box.x + 60, box.y + 60); await page.mouse.down(); await page.waitForTimeout(180); await page.mouse.move(box.x + 80, box.y + 65); await page.mouse.up();
+  expect(await page.evaluate(() => (window as any).commands.filter((c: any) => c.type === "drag"))).toEqual([{ type: "drag", id: "note-7" }]);
+  expect(await page.evaluate(() => (window as any).commands.filter((c: any) => c.type === "copy"))).toHaveLength(1);
 });
 
-test('incremental native states retain existing image previews and text payloads',async({page})=>{
+test("native pointer feedback reveals the same hover controls without activation", async ({ page }) => {
   await host(page);
-  await page.evaluate(()=>{
-    const bridge=window as unknown as {nativeState:{items:Record<string,unknown>[]};snapslotReceive:(value:unknown)=>void};
-    bridge.nativeState.items[0]={id:'item-0',kind:'image',title:'Photo',preview:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aLf8AAAAASUVORK5CYII='};
-    bridge.snapslotReceive({...bridge.nativeState,type:'state'});
-  });
-  const before=await page.locator('[data-card="item-0"] .sample-artwork').evaluate(node=>getComputedStyle(node).backgroundImage);
-  await page.evaluate(()=>{
-    const bridge=window as unknown as {nativeState:{items:{id:string;kind:string;title:string}[]};snapslotReceive:(value:unknown)=>void};
-    bridge.snapslotReceive({type:'state',items:bridge.nativeState.items.map(({id,kind,title})=>({id,kind,title})),expanded:true,locale:'zh-Hans',reducedMotion:false});
-  });
-  await expect(page.locator('[data-card="item-0"] .sample-artwork')).toHaveCSS('background-image',before);
-  await expect(page.locator('[data-card="item-1"] .text-preview')).toContainText('Keep useful things close.');
-  await page.evaluate(()=>{const bridge=window as unknown as {nativeState:unknown;snapslotReceive:(value:unknown)=>void};bridge.snapslotReceive({...bridge.nativeState as object,type:'state',focus:true});});
-  await expect(page.locator('.card-copy').first()).toBeFocused();
+  const box = (await focused(page).boundingBox())!;
+  await page.mouse.move(0, 650);
+  await page.evaluate(({ x, y }) => (window as any).snapslotReceive({ type: "pointer", x, y }), { x: box.x + box.width / 2, y: box.y + box.height / 2 });
+  await expect(page.locator(".host-hover")).toHaveCount(1);
+  await expect(page.locator(".host-hover button").last()).toHaveCSS("opacity", "1");
+  expect(await page.evaluate(() => (window as any).commands.some((c: any) => c.type === "copy"))).toBe(false);
 });
 
-test('native settings use the compact prototype layout and save changes through the host immediately',async({page})=>{
-  await page.setViewportSize({width:700,height:740});await host(page,'preferences');
-  await expect(page.getByRole('heading',{name:'设置',exact:true})).toBeVisible();
-  const fixed=page.getByRole('switch',{name:'固定便签栏'}),intake=page.getByRole('switch',{name:'自动收取剪贴板图片'});await expect(fixed).not.toBeChecked();await expect(intake).toBeChecked();
-  await fixed.check();await expect(fixed).toBeChecked();
-  const capture=page.getByRole('button',{name:'截取屏幕',exact:true}),text=page.getByRole('button',{name:'收取选中文字',exact:true});
-  await intake.uncheck();await capture.click();await capture.press('Control+Alt+Shift+P');
-  await text.click();await text.press('Control+Alt+Shift+P');
-  await expect(page.locator('.shortcut-adjusted')).toContainText('已自动改为');
-  const value=await page.evaluate(()=>(window as unknown as {nativePreferences:Record<string,unknown>}).nativePreferences);
-  expect(value).toEqual({collectScreenshots:false,captureShortcut:{key:'KeyP',control:true,alt:true,shift:true,meta:false},textShortcut:{key:'KeyT',control:true,alt:true,shift:true,meta:false}});
-  await page.getByRole('button',{name:'外观',exact:true}).click();await expect(page.locator('.preferences-appearance-editor')).toBeVisible();
-  await capture.click();await capture.press('Escape');
-  expect(await page.evaluate(()=>(window as unknown as {nativeCommands:{type:string}[]}).nativeCommands.filter(value=>value.type==='close'))).toHaveLength(0);
+test("settings match the website and persist changes through native commands", async ({ page, context }) => {
+  await page.setViewportSize({ width: 420, height: 442 }); await host(page, "preferences", 30);
+  await expect(page.getByRole("dialog")).toHaveCSS("width", "420px");
+  await expect(page.getByRole("switch")).toHaveCount(2);
+  await expect(page.getByRole("button", { name: "清空全部", exact: true })).toBeInViewport({ ratio: 1 });
+  const reference = await context.newPage(); await reference.setViewportSize({ width: 1280, height: 1000 });
+  await reference.addInitScript(() => Object.defineProperty(navigator, "platform", { get: () => "MacIntel" }));
+  await reference.goto("http://127.0.0.1:3000/zh-Hans/"); await reference.getByRole("button", { name: "跳过", exact: true }).click();
+  await reference.getByRole("button", { name: "SnapSlot 菜单" }).click(); await reference.getByRole("menuitem", { name: "设置…", exact: true }).click();
+  await reference.evaluate(() => document.fonts.ready);
+  const rowStyle = (node: Element) => { const s = getComputedStyle(node); return [s.minHeight, s.padding, s.backgroundColor, s.borderRadius, s.fontSize, s.gap]; };
+  expect(await page.getByRole("switch").first().locator("..").evaluate(rowStyle)).toEqual(await reference.getByRole("switch").first().locator("..").evaluate(rowStyle));
+  await page.getByRole("button", { name: "纸白", exact: true }).click(); await expect(page.locator("main")).toHaveAttribute("data-skin", "paper");
+  await page.getByRole("button", { name: "石墨", exact: true }).click(); await expect(page.locator("main")).toHaveAttribute("data-skin", "graphite");
+  await page.getByRole("switch", { name: "自动收取剪贴板图片", exact: true }).click(); await expect(page.getByRole("switch").first()).toHaveAttribute("aria-checked", "false");
+  await page.getByRole("switch", { name: "固定便签", exact: true }).click(); await expect(page.getByRole("switch").last()).toHaveAttribute("aria-checked", "true");
+  await page.screenshot({ path: path.join(output, "settings.png"), omitBackground: true });
+  await page.getByRole("button", { name: "清空全部", exact: true }).click(); await expect(page.getByRole("button", { name: "清空全部", exact: true })).toBeDisabled();
+  await page.getByRole("combobox").selectOption("en"); await expect(page.getByRole("dialog")).toHaveAttribute("aria-label", "SnapSlot Settings");
 });
 
-test('a rejected native shortcut save retains the draft and allows an immediate retry',async({page})=>{
-  await page.setViewportSize({width:700,height:740});await host(page,'preferences');
-  await page.evaluate(()=>{(window as unknown as {preferenceError:string}).preferenceError='快捷键已被占用，请换一个组合。';});
-  await page.getByRole('switch',{name:'自动收取剪贴板图片'}).uncheck();
-  await expect(page.locator('.shortcut-error').first()).toContainText('快捷键已被占用');
-  expect(await page.evaluate(()=>(window as unknown as {nativePreferences:{collectScreenshots:boolean}}).nativePreferences.collectScreenshots)).toBe(true);
-  await page.evaluate(()=>{delete (window as unknown as {preferenceError?:string}).preferenceError;});
-  const capture=page.getByRole('button',{name:'截取屏幕',exact:true});await capture.click();await capture.press('Control+Alt+Shift+P');
-  await expect.poll(()=>page.evaluate(()=>(window as unknown as {nativePreferences:{collectScreenshots:boolean}}).nativePreferences.collectScreenshots)).toBe(false);
+test("tray matches the four website menu actions", async ({ page }) => {
+  await page.setViewportSize({ width: 244, height: 140 }); await host(page, "tray");
+  await expect(page.getByRole("menuitem")).toHaveCount(2); await expect(page.getByRole("menuitemcheckbox")).toHaveCount(2);
+  await expect(page.getByRole("menu")).toHaveCSS("border-radius", "10px");
+  await expect(page.getByRole("menuitemcheckbox").last()).toBeInViewport({ ratio: 1 });
+  await page.screenshot({ path: path.join(output, "menu.png"), omitBackground: true });
+  await page.getByRole("menuitemcheckbox", { name: "固定便签", exact: true }).click();
+  expect(await page.evaluate(() => (window as any).commands.some((c: any) => c.type === "pin"))).toBe(true);
+});
+
+test("tray hover highlights each row, including native pointer updates from an inactive window", async ({ page }) => {
+  await page.setViewportSize({ width: 244, height: 140 }); await host(page, "tray");
+  const rows = page.locator(".native-menu button");
+  for (let index = 0; index < 4; index++) {
+    const row = rows.nth(index);
+    await row.hover();
+    await expect(row).toHaveCSS("background-color", "rgb(10, 132, 255)");
+    await expect(row).toHaveCSS("color", "rgb(255, 255, 255)");
+    await expect(row.locator("span")).toHaveCSS("color", "rgb(255, 255, 255)");
+    await page.mouse.move(0, 0);
+    const box = (await row.boundingBox())!;
+    await page.evaluate(({ x, y }) => (window as any).snapslotReceive({ type: "pointer", x, y }), { x: box.x + 30, y: box.y + box.height / 2 });
+    await expect(page.locator(".native-menu .host-hover")).toHaveCount(1);
+    await expect(row).toHaveCSS("background-color", "rgb(10, 132, 255)");
+    await expect(row.locator("span")).toHaveCSS("color", "rgb(255, 255, 255)");
+  }
+  await page.screenshot({ path: path.join(output, "menu-hover.png"), omitBackground: true });
+  await page.evaluate(() => (window as any).snapslotReceive({ type: "pointer", x: null, y: null }));
+  await expect(page.locator(".native-menu .host-hover")).toHaveCount(0);
+  await expect(rows.last()).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+});
+
+test("arrivals animate, reduced motion disables animation, collapsed cards cannot receive input", async ({ page }) => {
+  await host(page, "rail", 1);
+  await page.evaluate(() => { const w = window as any; w.state.items.push({ id: "new", kind: "text", title: "New", text: "New note" }); w.state.count = 2; w.snapslotReceive(w.state); });
+  await expect(focused(page)).toHaveAttribute("data-note", "new");
+  await expect(focused(page).locator("..")).toHaveCSS("animation-duration", "0.52s");
+  await page.evaluate(() => { const w = window as any; w.state.reducedMotion = true; w.snapslotReceive(w.state); });
+  await expect(focused(page).locator("..")).toHaveCSS("animation-name", "none");
+  await focused(page).press("Escape");
+  await expect(page.locator("[role=list]")).toHaveAttribute("inert", "");
+});
+
+test("the entire native interface loads offline without network requests or missing fonts", async ({ page }) => {
+  const requests: string[] = [], errors: string[] = [];
+  page.on("request", request => { if (/^https?:/.test(request.url())) requests.push(request.url()); });
+  page.on("pageerror", error => errors.push(error.message));
+  await host(page); await page.evaluate(() => Promise.all([document.fonts.load('500 13px "Noto Sans SC"', "便签"), document.fonts.load('500 13px "Inter Tight"', "SnapSlot")]));
+  expect(await page.evaluate(() => document.fonts.check('500 13px "Noto Sans SC"', "便签") && document.fonts.check('500 13px "Inter Tight"', "SnapSlot"))).toBe(true);
+  expect(requests).toEqual([]); expect(errors).toEqual([]);
+});
+
+
+test("Windows uses the same fan, native WebView2 bridge and website settings", async ({ page }) => {
+  await host(page, "rail", 30, "windows");
+  await expect(page.locator("[data-os=win]")).toHaveCount(1);
+  await expect(focused(page)).toHaveCSS("width", "200px");
+  await focused(page).click();
+  expect(await page.evaluate(() => (window as any).commands.filter((c: any) => c.type === "copy"))).toEqual([{ type: "copy", id: "note-29" }]);
+  await focused(page).press("Delete");await expect(page.locator("[data-arm]")).toHaveCount(29);
+});
+
+test("Windows settings and tray match the website's platform chrome", async ({ page }) => {
+  await page.setViewportSize({ width: 420, height: 442 });await host(page, "preferences", 3, "windows");
+  await expect(page.getByRole("dialog")).toHaveCSS("border-radius", "10px");
+  await expect(page.getByRole("button", { name: "关闭设置" })).toHaveText("×");
+  await expect(page.locator("kbd")).toContainText(["Ctrl", "Alt", "T", "Ctrl", "Alt", "Space"]);
+  await page.getByRole("button", { name: "石墨", exact: true }).click();await expect(page.locator("main")).toHaveAttribute("data-skin", "graphite");
+  await page.getByRole("switch", { name: "固定便签", exact: true }).click();await expect(page.getByRole("switch").last()).toHaveAttribute("aria-checked", "true");
+  await page.setViewportSize({ width: 244, height: 170 });await page.goto(entry+"?mode=tray");
+  const row=page.getByRole("menuitemcheckbox").last();await row.hover();await expect(row).toHaveCSS("background-color", "rgba(0, 0, 0, 0.05)");
+  await expect(row).toHaveCSS("color", "rgb(27, 27, 27)");
+});
+
+test("native menu supports arrow, Home and End navigation", async ({ page }) => {
+  await host(page,"tray");const rows=page.locator(".native-menu button");
+  await rows.first().focus();await page.keyboard.press("End");await expect(rows.last()).toBeFocused();
+  await page.keyboard.press("ArrowDown");await expect(rows.first()).toBeFocused();
+  await page.keyboard.press("ArrowUp");await expect(rows.last()).toBeFocused();
+  await page.keyboard.press("Home");await expect(rows.first()).toBeFocused();
+});
+
+test("Quit is separated, fully visible and sends only the native quit command", async ({ page }) => {
+  for(const platform of ["macos","windows"] as const){
+    await page.setViewportSize({width:244,height:platform==="macos"?140:170});await host(page,"tray",8,platform);
+    const quit=page.getByRole("menuitem",{name:"退出快照贴",exact:true});
+    await expect(quit).toBeInViewport({ratio:1});await expect(quit.locator("xpath=preceding-sibling::*[1]")).toHaveJSProperty("tagName","HR");
+    await quit.click();expect(await page.evaluate(()=>(window as any).commands.filter((command:any)=>command.type==="quit").length)).toBe(1);
+    expect(await page.evaluate(()=>(window as any).commands.some((command:any)=>command.type==="clearNotes"))).toBe(false);
+  }
 });

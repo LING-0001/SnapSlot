@@ -9,11 +9,14 @@
 
 <p align="center">
   <a href="http://101.200.239.135/en/"><b>Try it online</b></a> ·
-  <a href="https://github.com/LING-0001/SnapSlot/releases">Download</a> ·
+  <a href="http://101.200.239.135/en/#downloads">Download</a> ·
+  <a href="https://github.com/LING-0001/SnapSlot/releases">GitHub Releases</a> ·
   <a href="../../CONTRIBUTING.md">Contribute</a>
 </p>
 
 <p align="center"><a href="../../README.md">简体中文</a> · <b>English</b> · <a href="README.zh-Hant.md">繁體中文</a> · <a href="README.ja.md">日本語</a> · <a href="README.ko.md">한국어</a> · <a href="README.es.md">Español</a></p>
+
+<p align="center">v1.0.0 · <a href="http://101.200.239.135/downloads/v1.0.0/SnapSlot-1.0.0-macOS-universal.dmg">macOS · DMG · Apple Silicon / Intel</a> · <a href="http://101.200.239.135/downloads/v1.0.0/SnapSlot-1.0.0-windows-x64-setup.exe">Windows x64 · Setup</a></p>
 
 <p align="center"><img src="../../docs/media/en/demo.gif" width="760" alt="SnapSlot demo: rest at the top edge and notes drop down; copied images pin themselves; drag one into a document"></p>
 
@@ -34,7 +37,7 @@
 </tr>
 </table>
 
-Right-click the tray icon on Windows, or click the menu-bar icon on Mac: **Settings…**, **Collect clipboard images**, **Pin notes** (both checkable; with Pin on, notes stay open when the pointer leaves). Settings also change the look and language, show shortcuts, and clear everything.
+Right-click the tray icon on Windows, or click the menu-bar icon on Mac: **Settings…**, **Collect clipboard images**, **Pin notes** (both checkable; with Pin on, notes stay open when the pointer leaves). Settings also change the look and language, show shortcuts, and clear everything. Quit SnapSlot is available at the bottom of the menu.
 
 ## Windows and macOS
 
@@ -53,14 +56,13 @@ Same notes and gestures on both; each uses its own system features natively. The
 | --- | --- | --- |
 | Show / hide notes | <kbd>Ctrl</kbd> <kbd>Alt</kbd> <kbd>Space</kbd> | <kbd>⌃</kbd> <kbd>⌥</kbd> <kbd>Space</kbd> |
 | Pin selected text | <kbd>Ctrl</kbd> <kbd>Alt</kbd> <kbd>T</kbd> | <kbd>⌃</kbd> <kbd>⌥</kbd> <kbd>T</kbd> |
-| Screenshot | <kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>S</kbd> | <kbd>⌃</kbd> <kbd>⌥</kbd> <kbd>S</kbd> |
 | Choose / copy / remove / hide | <kbd>←</kbd> <kbd>→</kbd> / <kbd>Enter</kbd> / <kbd>Delete</kbd> / <kbd>Esc</kbd> | <kbd>←</kbd> <kbd>→</kbd> / <kbd>Enter</kbd> / <kbd>Delete</kbd> / <kbd>Esc</kbd> |
 
-All shortcuts can be re-recorded in Settings.
+Settings shows the current shortcuts.
 
 ## Privacy
 
-No screenshots taken for you, no file access, no network. SnapSlot only takes images other apps put on the clipboard, and text you select when you press the shortcut. Up to 30 notes; quit and they’re gone.
+Collects images other apps write to the clipboard and text selected when you press the shortcut. No content is uploaded. Up to 30 notes; a normal exit clears the session.
 
 ## Build from source
 
@@ -82,21 +84,21 @@ npm run dev --prefix apps/website -- --port 3000
 open artifacts/macos/SnapSlot.app
 ```
 
-On Windows, keep the whole `artifacts/windows/win-x64/` folder or ZIP together; the exe alone won’t run. The local Mac build is ad-hoc signed, for testing only.
+Download the DMG / Setup installer above to install the app. Source-build outputs are intended for development. The Mac package is ad-hoc signed and not notarized; the system may block its first launch. See the [release and hosting guide](../../docs/releases/hosting.md).
 
 ## Repository layout
 
 | | |
 | --- | --- |
-| `apps/website` | Website (six languages), skin parser |
-| `apps/native-ui` | Note and appearance panels shared by both clients |
+| `apps/website` | Website and interactive demo in six languages |
+| `apps/native-ui` | Fan notes, menu and settings shared by both clients |
 | `apps/windows` | Windows client (C# / WPF + WebView2) |
 | `apps/macos` | macOS client (Swift / AppKit + WKWebView) |
-| `docs` | Design records, test checklists, README images |
+| `docs` | Current specifications, test checklists, README images |
 
 ## Tests
 
-Website and shared UI: 24 / 24 passing. Windows / macOS checks and the hardware checklist are in [CONTRIBUTING.md](../../CONTRIBUTING.md) and `docs/native-testing.md`.
+Build, automated test and physical-machine acceptance commands are in [CONTRIBUTING.md](../../CONTRIBUTING.md) and `docs/native-testing.md`.
 
 ## Contributing
 

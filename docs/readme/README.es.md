@@ -9,11 +9,14 @@
 
 <p align="center">
   <a href="http://101.200.239.135/es/"><b>Pruébalo en línea</b></a> ·
-  <a href="https://github.com/LING-0001/SnapSlot/releases">Descargar</a> ·
+  <a href="http://101.200.239.135/es/#downloads">Descargar</a> ·
+  <a href="https://github.com/LING-0001/SnapSlot/releases">GitHub Releases</a> ·
   <a href="../../CONTRIBUTING.md">Contribuir</a>
 </p>
 
 <p align="center"><a href="../../README.md">简体中文</a> · <a href="README.en.md">English</a> · <a href="README.zh-Hant.md">繁體中文</a> · <a href="README.ja.md">日本語</a> · <a href="README.ko.md">한국어</a> · <b>Español</b></p>
+
+<p align="center">v1.0.0 · <a href="http://101.200.239.135/downloads/v1.0.0/SnapSlot-1.0.0-macOS-universal.dmg">macOS · DMG · Apple Silicon / Intel</a> · <a href="http://101.200.239.135/downloads/v1.0.0/SnapSlot-1.0.0-windows-x64-setup.exe">Windows x64 · Setup</a></p>
 
 <p align="center"><img src="../../docs/media/es/demo.gif" width="760" alt="Demostración de SnapSlot: al detenerte en el borde superior bajan las notas, las imágenes copiadas se fijan solas, arrastra una a un documento"></p>
 
@@ -34,7 +37,7 @@
 </tr>
 </table>
 
-Clic derecho en el icono de la bandeja en Windows, o clic en el icono de la barra de menús en Mac: **Ajustes…**, **Recoger imágenes del portapapeles**, **Fijar notas** (las dos últimas se activan y desactivan; con «Fijar», las notas no se ocultan al apartar el cursor). En Ajustes también cambias el aspecto y el idioma, ves los atajos y borras todo.
+Clic derecho en el icono de la bandeja en Windows, o clic en el icono de la barra de menús en Mac: **Ajustes…**, **Recoger imágenes del portapapeles**, **Fijar notas** (las dos últimas se activan y desactivan; con «Fijar», las notas no se ocultan al apartar el cursor). En Ajustes también cambias el aspecto y el idioma, ves los atajos y borras todo. Puedes salir de SnapSlot desde la última opción del menú.
 
 ## Windows y macOS
 
@@ -53,14 +56,13 @@ Las mismas notas y gestos en ambos; cada uno usa las funciones de su sistema de 
 | --- | --- | --- |
 | Mostrar / ocultar notas | <kbd>Ctrl</kbd> <kbd>Alt</kbd> <kbd>Space</kbd> | <kbd>⌃</kbd> <kbd>⌥</kbd> <kbd>Space</kbd> |
 | Fijar texto seleccionado | <kbd>Ctrl</kbd> <kbd>Alt</kbd> <kbd>T</kbd> | <kbd>⌃</kbd> <kbd>⌥</kbd> <kbd>T</kbd> |
-| Captura de pantalla | <kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>S</kbd> | <kbd>⌃</kbd> <kbd>⌥</kbd> <kbd>S</kbd> |
 | Elegir / copiar / quitar / ocultar | <kbd>←</kbd> <kbd>→</kbd> / <kbd>Enter</kbd> / <kbd>Delete</kbd> / <kbd>Esc</kbd> | <kbd>←</kbd> <kbd>→</kbd> / <kbd>Enter</kbd> / <kbd>Delete</kbd> / <kbd>Esc</kbd> |
 
-Todos los atajos se pueden volver a grabar en Ajustes.
+Ajustes muestra los atajos actuales.
 
 ## Privacidad
 
-No hace capturas por su cuenta, no lee archivos, no usa la red. Solo recoge las imágenes que otras apps ponen en el portapapeles y el texto que seleccionas al pulsar el atajo. Hasta 30 notas; al salir, todo se borra.
+Recoge imágenes que otras apps ponen en el portapapeles y el texto seleccionado al pulsar el atajo. No sube contenido. Hasta 30 notas; al salir normalmente se borra la sesión.
 
 ## Compilar desde el código
 
@@ -82,21 +84,21 @@ npm run dev --prefix apps/website -- --port 3000
 open artifacts/macos/SnapSlot.app
 ```
 
-En Windows, lleva la carpeta `artifacts/windows/win-x64/` o el ZIP completos; el exe solo no funciona. La compilación local de Mac tiene firma ad-hoc, solo para pruebas.
+Descarga el instalador DMG / Setup de arriba para instalar la aplicación. Los resultados de compilar el código son para desarrollo. El paquete de Mac tiene firma ad-hoc y no está notarizado por Apple; el sistema puede bloquear el primer inicio. Consulta la [guía de publicación y alojamiento](../../docs/releases/hosting.md).
 
 ## Estructura del repositorio
 
 | | |
 | --- | --- |
-| `apps/website` | Sitio web (seis idiomas), analizador de temas |
-| `apps/native-ui` | Paneles de notas y apariencia compartidos |
+| `apps/website` | Sitio y demostración interactiva en seis idiomas |
+| `apps/native-ui` | Notas en abanico, menú y ajustes compartidos |
 | `apps/windows` | Cliente de Windows (C# / WPF + WebView2) |
 | `apps/macos` | Cliente de macOS (Swift / AppKit + WKWebView) |
-| `docs` | Registros de diseño, listas de pruebas, imágenes del README |
+| `docs` | Especificaciones actuales, listas de pruebas, imágenes del README |
 
 ## Pruebas
 
-Sitio web e interfaz compartida: 24 / 24 superadas. Las comprobaciones de Windows / macOS y la lista para equipos reales están en [CONTRIBUTING.md](../../CONTRIBUTING.md) y `docs/native-testing.md`.
+Los comandos de compilación, pruebas automáticas y aceptación en equipos reales están en [CONTRIBUTING.md](../../CONTRIBUTING.md) y `docs/native-testing.md`.
 
 ## Contribuir
 

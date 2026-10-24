@@ -1,60 +1,69 @@
-# Website design
+# Current website and desktop design
 
-Scope: the marketing site in `app/[locale]` (`components/home.tsx`, `components/home.module.css`,
-copy in `lib/home-copy.ts`). Chinese product name 快照贴 / 快照貼, English SnapSlot.
-The native clients' note surface (`apps/native-ui`) is separate and unchanged by this page.
+The reference is the running page implemented in `components/home.tsx`,
+`components/home.module.css` and `lib/home-copy.ts`. Desktop presentation in
+`apps/native-ui` imports the same CSS module and localized product copy.
 
-## Direction
+## Visuals
 
-A product launch page in an Apple-like register: white and `#f5f5f7`, near-black ink,
-one blue (`#0071e3`) for actions, glass for the app itself. Inter Tight for Latin,
-Noto Sans SC (self-hosted through `next/font`) for Han, system CJK fonts for Japanese
-and Korean. Copy stays to one line per block; the page explains by letting people use it.
+White and `#f5f5f7` backgrounds, near-black ink, `#0071e3` actions, Inter Tight and
+Noto Sans SC with system CJK fallbacks. Product imagery is a working desktop demo,
+not a static mockup. `mountains.svg` and `studio.svg` are its sample illustrations.
+`public/icon.svg` is the app mark; native icons use the matching brand render.
 
-Earlier rounds (blue/white SaaS layout, cyanotype sun print) were rejected as templated
-or wordy. The user liked selecting page text and pinning it with Ctrl+Alt+T; every
-direction keeps that.
+The first screen contains a headline, one sentence, platform download actions and
+the complete desktop. Windows has a taskbar; Mac has a menu bar and Dock. A four-step
+interactive guide covers the edge, copying an image, dragging and opening the menu.
 
-## First screen
+## Product interface
 
-Headline, one sentence, one download button and a link to the other platform. The rest
-of the viewport is a working desktop (`.fold` sizes hero + desktop to `100svh`), so the
-whole desktop, including its taskbar or Dock, is visible without scrolling at 1280×720
-and up.
+Notes hang from the top edge as a fan. Image cards are 220 × 144 px; text cards
+200 × 144 px. The radius is 1500 px, angular step 7.2 degrees, face radius 14 px.
+Wheel or arrows turn the fan; responsive geometry comes from the same stylesheet.
 
-The desktop follows the visitor's OS (Mac → menu bar + Dock, else Windows 11 taskbar);
-“Also on Mac/Windows” switches it and the download button.
+The three appearances are glass, paper and graphite. A single appearance applies
+to all notes. Hover reveals the upper-right remove button and lowers the card face.
+Click shows centered copy feedback. There is no separate skin workbench.
 
-- Notes hang from the top edge as a fan on an arc; wheel or swipe turns it.
-  Hidden until the pointer rests within 14 px of the top (Mac: the menu bar) for
-  500 ms; a glow line charges during the wait; moving below the fan hides it after
-  450 ms. New notes peek for 2.5 s.
-- Desktop images: clicking one stands in for copying an image in another app.
-- The document window accepts dragged notes and pasted clipboard content.
-- Tray (Windows, right-click) or menu-bar icon (Mac, click) opens: Settings…, Collect
-  clipboard images (checkable), Pin notes (checkable). The settings window mirrors both
-  switches. Pin keeps the fan open when the pointer leaves; collect off greys the icon
-  and stops desktop images from pinning.
-- A four-step guide replaces instructional text: a pulsing ring on the target and a
-  dark bubble beside it (top edge → an image → drag into the document → the tray
-  icon). Each step advances when the visitor does it; × skips the guide.
+The popup contains Settings…, collection, pinning and Quit below a separator. Mac hover is blue with white
+text/checkmarks; Windows uses the website's neutral highlight. Settings contains
+two switches, appearance swatches, language, shortcut labels and Clear all/count.
 
-## Below the fold
+Below the desktop are select-to-pin, capacity, appearance and privacy demonstrations.
+The footer contains the repository, contact, license and platform information.
 
-A bento on a mist band: select-to-pin demo (black tile), 30-slot capacity meter,
-skin switcher (changes the notes on the desktop), privacy statement. Footer: brand and
-tagline, Product and Contact columns (GitHub, email), legal line with license and
-platform requirements. Downloads link to GitHub Releases; no installers are published yet.
+## Validation
 
-## Verification
+`tests/home.spec.ts` checks localized layouts, dwell, guide, selection, menu/settings
+state, platform variants and links. `tests/native-ui.spec.ts` compares the shared
+bundle to the website and tests host commands, keyboard, dragging, inactive hover,
+reduced motion and offline resources. Native acceptance is in `docs/native-testing.md`.
 
-`tests/home.spec.ts` covers all six locales fitting the first screen without horizontal
-overflow, the 500 ms edge dwell and leave, the guide order, tray menu ↔ settings sync,
-pin/collect behaviour, select-to-pin with clipboard, the Mac variant, hydration with
-image-annotating extensions, and footer links.
+## Experience details
 
-## Image provenance
+Download actions are real links. The website's separate demo toolbar chooses the
+platform, opens notes and restarts the guide without reloading the page. It keeps
+the chosen platform when the in-demo language changes.
 
-`mountains.svg` and `studio.svg` are project sample illustrations. `icon.svg` is the
-app mark; `assets/brand/SnapSlot.ico` and `scripts/make-icon.swift` reproduce it for
-Windows and macOS.
+The document accepts native drag/paste and offers an explicit Paste button for
+touch users. A browser clipboard denial is reported honestly: the note is copied
+inside this demo only and can still be pasted into its document. The guide follows
+that route and flips above its target when there is insufficient room below.
+
+Closed notes are inert. Product menus support arrows, Home and End; Escape closes
+the foremost menu/settings surface before unpinning notes. Settings focus returns
+to the menu trigger. A clipped desktop must not become horizontally scrollable
+when a control receives focus.
+
+Fresh notes settle in 520 ms with 64 px of travel and a .94 starting scale, using
+the existing ease-out curve. Guide pulses stop after three repetitions. Feature
+content is visible before its one-time entrance, with readable fallbacks when
+JavaScript, observers or motion are unavailable.
+
+Both website desktops stay entirely inside the first fold on desktop. They reserve
+separate note and document/file areas. Short desktop previews use a smaller fan,
+fewer visible side notes, compact Dock and side-by-side files. Windows keeps the document on the right and files on the left; Mac uses its
+centered document and right-side files. The in-demo document also reduces its
+chrome rather than extending the page. Mobile keeps its separate
+composition. The final feature-to-footer-logo gap is 64 px on desktop and 44 px on
+mobile.

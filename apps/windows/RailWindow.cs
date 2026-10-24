@@ -31,11 +31,10 @@ public sealed class RailWindow : Window
     private string settingsMode="";
     private PreferencesStore preferences=null!;
     private AppPreferences? registeredPreferences;
-    private bool shortcutsSuspended,collectingText;
+    private bool collectingText;
     private string? lastError,startupShortcutError;
     private readonly HashSet<WebView> ready=new();
     private readonly Dictionary<WebView,HashSet<Guid>> sentItems=new();
-    private readonly Dictionary<WebView,string> sentSkins=new();
     private CoreWebView2Environment? environment;
     private readonly DispatcherTimer hover=new(){Interval=TimeSpan.FromMilliseconds(500)};
     private readonly DispatcherTimer edgeProbe=new(){Interval=TimeSpan.FromMilliseconds(50)};
@@ -45,15 +44,18 @@ public sealed class RailWindow : Window
     private readonly EdgeDwell edgeDwell=new();
     private Forms.NotifyIcon? tray;
     private Drawing.Icon? icon;
+    private Drawing.Icon? stateIcon;
+    private (bool Pinned,bool CollectImages)? iconState;
     private HwndSource? source;
-    private bool expanded,pinned,busy,dragging,disposed;
+    private bool expanded,pinned,arming,dragging,disposed;
+    private string appearance="glass";
+    private readonly List<(double X,double Y,double Width,double Height,double Angle)> hitAreas=new();
     private bool collectImages=true;
     private uint ignoredClipboard;
     private int clipboardRequest;
     private readonly bool testing;
     private Forms.Screen screen=Forms.Screen.PrimaryScreen!;
     private DateTime peekUntil=DateTime.MinValue;
-    private readonly SkinStore skins;
     private readonly string uiRoot=Path.Combine(AppContext.BaseDirectory,"NativeUI");
     private readonly string appData;
     private string locale="en";
@@ -64,19 +66,17 @@ public sealed class RailWindow : Window
         this.testing=testing;
         menuCopy=JsonSerializer.Deserialize<Dictionary<string,Dictionary<string,string>>>(File.ReadAllText(Path.Combine(uiRoot,"menus.json")))!;
         appData=testing?Path.Combine(App.SessionDirectory,"Settings"):Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"SnapSlot");
-        skins=new SkinStore(Path.Combine(appData,"Skins"),uiRoot);
         collectImages=!File.Exists(Path.Combine(appData,"image-intake-off"));
-        preferences=new PreferencesStore(Path.Combine(appData,"preferences.json"),collectImages);collectImages=preferences.Value.CollectScreenshots;
+        preferences=new PreferencesStore(Path.Combine(appData,"preferences.json"),collectImages);collectImages=preferences.Value.CollectImages;
         var preferred=File.Exists(Path.Combine(appData,"locale.txt"))?File.ReadAllText(Path.Combine(appData,"locale.txt")):CultureInfo.CurrentUICulture.Name;
         locale=preferred.StartsWith("zh",StringComparison.OrdinalIgnoreCase)?(preferred.Contains("TW")||preferred.Contains("HK")||preferred.Contains("Hant")?"zh-Hant":"zh-Hans"):Strings.Locales.FirstOrDefault(value=>preferred.StartsWith(value,StringComparison.OrdinalIgnoreCase))??"en";
         Strings.Locale=locale;
+        var savedLook=Path.Combine(appData,"appearance.txt");if(File.Exists(savedLook)&&new[]{"glass","paper","graphite"}.Contains(File.ReadAllText(savedLook)))appearance=File.ReadAllText(savedLook);
         Title="SnapSlot";WindowStyle=WindowStyle.None;AllowsTransparency=true;Background=Brushes.Transparent;ResizeMode=ResizeMode.NoResize;
-        Topmost=true;ShowInTaskbar=false;ShowActivated=false;Width=SystemParameters.PrimaryScreenWidth;Height=skins.Height+48;Left=0;Top=0;
+        Topmost=true;ShowInTaskbar=false;ShowActivated=false;Width=SystemParameters.PrimaryScreenWidth;Height=360;Left=0;Top=0;
         Content=web;
-        skins.Changed+=candidate=>Dispatcher.BeginInvoke(()=>Safe(()=>{skins.Apply(candidate);Position();State();}));
-        skins.Invalid+=message=>Dispatcher.BeginInvoke(()=>Error(message));
         hover.Tick+=(_,_)=>{hover.Stop();if(EdgeWatcher.IsAtEdge()&&EdgeWatcher.CanReveal(source?.Handle??IntPtr.Zero))Reveal(false);};
-        dismiss.Tick+=(_,_)=>{dismiss.Stop();if(!KeepOpen()&&!pinned&&!busy&&!dragging&&settings is null)Collapse();};
+        dismiss.Tick+=(_,_)=>{dismiss.Stop();if(!KeepOpen()&&!pinned&&!dragging&&settings is null)Collapse();};
         hide.Tick+=(_,_)=>{hide.Stop();if(!expanded)Hide();};
         SourceInitialized+=OnSource;
         DpiChanged+=(_,_)=>Dispatcher.BeginInvoke(Position);
@@ -92,7 +92,7 @@ public sealed class RailWindow : Window
         core.SetVirtualHostNameToFolderMapping("snapslot.local",uiRoot,CoreWebView2HostResourceAccessKind.DenyCors);
         core.Settings.AreDefaultContextMenusEnabled=false;core.Settings.IsStatusBarEnabled=false;core.Settings.IsZoomControlEnabled=false;core.Settings.AreDevToolsEnabled=testing;
         core.NavigationStarting+=(_,e)=>{if(!Uri.TryCreate(e.Uri,UriKind.Absolute,out var uri)||uri.Scheme!="https"||uri.Host!="snapslot.local")e.Cancel=true;};
-        core.ProcessFailed+=(_,_)=>{ready.Remove(view);sentItems.Remove(view);sentSkins.Remove(view);if(!disposed)view.Reload();};
+        core.ProcessFailed+=(_,_)=>{ready.Remove(view);sentItems.Remove(view);if(!disposed)view.Reload();};
         core.NewWindowRequested+=(_,e)=>e.Handled=true;
         core.WebMessageReceived+=(_,e)=>{if(Uri.TryCreate(e.Source,UriKind.Absolute,out var origin)&&origin.Scheme=="https"&&origin.Host=="snapslot.local")Safe(()=>Receive(view,e.WebMessageAsJson));};
         core.Navigate("https://snapslot.local/index.html"+(mode=="rail"?"":"?mode="+mode));
@@ -113,40 +113,37 @@ public sealed class RailWindow : Window
     }
     private void State(bool focus=false)
     {
+        UpdateTrayIcon();
         foreach(var view in ready.ToArray())
         {
             var known=sentItems.GetValueOrDefault(view)??new HashSet<Guid>();
             var visible=view==web?items.Where(item=>item.Display==screen.DeviceName).ToArray():Array.Empty<InboxItem>();
             var captures=visible.Select(item=>new{id=item.Id.ToString(),kind=item.Text is null?"image":"text",title=item.Title,text=known.Contains(item.Id)?null:item.Text,preview=!known.Contains(item.Id)&&item.Text is null?Preview(item):null}).ToArray();
-            Post(view,new{type="state",items=captures,skin=sentSkins.GetValueOrDefault(view)==skins.Source?null:skins.Source,locale,expanded,reducedMotion=!SystemParameters.ClientAreaAnimation,focus,pinned});
-            sentItems[view]=visible.Select(item=>item.Id).ToHashSet();sentSkins[view]=skins.Source;
+            Post(view,new{type="state",items=captures,locale,expanded,reducedMotion=!SystemParameters.ClientAreaAnimation,focus,pinned,arming,appearance,count=items.Count,platform="windows"});
+            sentItems[view]=visible.Select(item=>item.Id).ToHashSet();
         }
     }
     private void Receive(WebView view,string json)
     {
-        if(Encoding.UTF8.GetByteCount(json)>SkinStore.MaxBytes+4096)return;
+        if(Encoding.UTF8.GetByteCount(json)>131072)return;
         using var message=JsonDocument.Parse(json);var value=message.RootElement;
         string? Get(string key)=>value.TryGetProperty(key,out var field)&&field.ValueKind==JsonValueKind.String?field.GetString():null;
         switch(Get("type"))
         {
-            case "ready":ready.Add(view);sentItems[view]=new();sentSkins.Remove(view);State();if(view==settingsWeb&&(settingsMode=="preferences"||settingsMode=="tray"))SendPreferences(view);if(lastError is not null)Post(view,new{type="error",message=lastError});break;
+            case "ready":ready.Add(view);sentItems[view]=new();State();if(view==settingsWeb&&(settingsMode=="preferences"||settingsMode=="tray"))SendPreferences(view);if(lastError is not null)Post(view,new{type="error",message=lastError});break;
             case "collapse":Collapse();break;
             case "toggleRail":if(settingsMode=="tray")settings?.Close();if(expanded)Collapse();else Reveal(true);break;
             case "pin":Pin();break;
             case "unpin":Unpin();break;
-            case "capture":if(settingsMode=="tray")settings?.Close();Capture();break;
-            case "paste":Paste();break;
-            case "addImages":AddImages();break;
-            case "newText":OpenSettings("text");break;
-            case "appearance":OpenSettings("settings");break;
             case "openPreferences":OpenSettings("preferences");break;
-            case "quit":Application.Current.Shutdown();break;
+            case "quit":if(view==settingsWeb&&settingsMode=="tray")Application.Current.Shutdown();break;
             case "close":settings?.Close();break;
-            case "openSkinFolder":Process.Start(new ProcessStartInfo(skins.DirectoryPath){UseShellExecute=true});break;
-            case "saveText":if(Get("text") is string text&&!string.IsNullOrWhiteSpace(text)){Add(new InboxItem(text.Split('\n')[0].Trim()[..Math.Min(text.Split('\n')[0].Trim().Length,30)],text));settings?.Close();Arrived();}break;
-            case "savePreferences":if(view==settingsWeb&&(settingsMode=="preferences"||settingsMode=="tray")&&value.TryGetProperty("value",out var next)){var preference=JsonSerializer.Deserialize<AppPreferences>(next.GetRawText(),PreferencesStore.Json)??throw new ArgumentException("Invalid settings");try{SavePreferences(preference);}catch(Exception ex) when(ex is ArgumentException or InvalidOperationException){Post(view,new{type="shortcutError",field=ShortcutField(preference,ex.Message),message=ex.Message});}}break;
-            case "applySkin":if(Get("source") is string candidate){skins.Apply(candidate);Position();State();}break;
-            case "exportSkin":if(Get("source") is string export){skins.Validate(export);ExportSkin(export);}break;
+            case "savePreferences":if(view==settingsWeb&&value.TryGetProperty("value",out var next)){var preference=JsonSerializer.Deserialize<AppPreferences>(next.GetRawText(),PreferencesStore.Json)??throw new ArgumentException("Invalid settings");SavePreferences(preference);}break;
+            case "setAppearance":if(Get("value") is string look&&new[]{"glass","paper","graphite"}.Contains(look)){appearance=look;Directory.CreateDirectory(appData);File.WriteAllText(Path.Combine(appData,"appearance.txt"),look);State();}break;
+            case "setLocale":if(Get("value") is string language&&Strings.Locales.Contains(language)){locale=language;Strings.Locale=language;Directory.CreateDirectory(appData);File.WriteAllText(Path.Combine(appData,"locale.txt"),language);State();}break;
+            case "clearNotes":items.Clear();State();break;
+            case "moveWindow":if(view==settingsWeb&&settingsMode=="preferences"&&System.Windows.Input.Mouse.LeftButton==System.Windows.Input.MouseButtonState.Pressed)settings?.DragMove();break;
+            case "surfaces":if(view==web&&value.TryGetProperty("surfaces",out var surfaces))UpdateHitAreas(surfaces);break;
             case "copy":case "remove":case "drag":
                 if(!Guid.TryParse(Get("id"),out var id))return;
                 var item=items.FirstOrDefault(item=>item.Id==id&&item.Display==screen.DeviceName);if(item is null)return;
@@ -156,10 +153,32 @@ public sealed class RailWindow : Window
                 break;
         }
     }
-    private void Add(InboxItem item){item.Display=screen.DeviceName;items.Add(item);}
+    private void Add(InboxItem item){item.Display=screen.DeviceName;items.Add(item);if(items.Count>30)items.RemoveAt(0);}
+    private void UpdateHitAreas(JsonElement surfaces)
+    {
+        hitAreas.Clear();
+        if(surfaces.ValueKind!=JsonValueKind.Array)return;
+        foreach(var shape in surfaces.EnumerateArray().Take(9)){
+            if(!Guid.TryParse(shape.GetProperty("id").GetString(),out var id)||!items.Any(item=>item.Id==id&&item.Display==screen.DeviceName))continue;
+            double x=shape.GetProperty("x").GetDouble(),y=shape.GetProperty("y").GetDouble(),width=shape.GetProperty("width").GetDouble(),height=shape.GetProperty("height").GetDouble(),angle=shape.GetProperty("angle").GetDouble();
+            if(new[]{x,y,width,height,angle}.All(double.IsFinite)&&width>0&&width<500&&height>0&&height<300)hitAreas.Add((x,y,width,height,angle*Math.PI/180));
+        }
+        UpdatePointers();
+    }
+    private void UpdatePointers()
+    {
+        var screenPoint=Forms.Cursor.Position;
+        void Pointer(WebView view){if(!ready.Contains(view))return;var p=view.PointFromScreen(new Point(screenPoint.X,screenPoint.Y));bool inside=p.X>=0&&p.Y>=0&&p.X<view.ActualWidth&&p.Y<view.ActualHeight;Post(view,new{type="pointer",x=inside?(double?)p.X:null,y=inside?(double?)p.Y:null});}
+        if(expanded){
+            Pointer(web);var p=web.PointFromScreen(new Point(screenPoint.X,screenPoint.Y));
+            bool hit=hitAreas.Any(area=>{var dx=p.X-area.X;var dy=p.Y-area.Y;return Math.Abs(dx*Math.Cos(area.Angle)+dy*Math.Sin(area.Angle))<=area.Width/2+12&&Math.Abs(-dx*Math.Sin(area.Angle)+dy*Math.Cos(area.Angle))<=area.Height/2+12;});
+            if(!dragging)SetInteractive(hit);
+        }
+        if(settingsMode=="tray"&&settingsWeb is not null)Pointer(settingsWeb);
+    }
     private void Position()
     {
-        Height=skins.Height+48;
+        Height=360;
         if(source is null)return;
         var bounds=screen.Bounds;
         var area=screen.WorkingArea;
@@ -170,14 +189,14 @@ public sealed class RailWindow : Window
     private void Reveal(bool focus,bool peek=false)
     {
         hover.Stop();dismiss.Stop();hide.Stop();if(!expanded&&!peek)screen=Forms.Screen.FromPoint(Forms.Cursor.Position);
-        expanded=true;if(peek)peekUntil=DateTime.UtcNow.AddMilliseconds(2500);
+        expanded=true;arming=false;if(peek)peekUntil=DateTime.UtcNow.AddMilliseconds(2500);
         Position();Show();SetInteractive(true);State(focus);
         if(focus){Activate();web.Focus();}
         if(peek)ScheduleDismiss();
     }
     private void Collapse()
     {
-        hover.Stop();dismiss.Stop();hide.Stop();expanded=false;pinned=false;SetInteractive(false);State();
+        hover.Stop();dismiss.Stop();hide.Stop();expanded=false;pinned=false;arming=false;SetInteractive(false);State();
         if(SystemParameters.ClientAreaAnimation)hide.Start();else Hide();
     }
     private void Pin()
@@ -185,12 +204,7 @@ public sealed class RailWindow : Window
         if(!expanded)Reveal(false);
         pinned=true;dismiss.Stop();State();
     }
-    private void Unpin()
-    {
-        if(!pinned)return;
-        pinned=false;State();
-        if(!KeepOpen())ScheduleDismiss();
-    }
+    private void Unpin()=>Collapse();
     private void SetInteractive(bool interactive)
     {
         if(source is null)return;var style=GetWindowLong(source.Handle,-20);
@@ -199,14 +213,14 @@ public sealed class RailWindow : Window
     private bool KeepOpen()
     {
         if(!expanded)return false;var point=Forms.Cursor.Position;var scale=source?.CompositionTarget?.TransformToDevice.M22??1;
-        return EdgeWatcher.IsPointerWithinRail(point.X,point.Y,screen.Bounds.Left,screen.WorkingArea.Top,screen.Bounds.Width,(int)Math.Ceiling(Height*scale));
+        return NotesGeometry.IsPointerWithinRail(point.X,point.Y,screen.Bounds.Left,screen.WorkingArea.Top,screen.Bounds.Width,(int)Math.Ceiling(230*scale));
     }
     private void ScheduleDismiss()
     {
-        if(disposed||!expanded||pinned||busy||dragging||settings is not null)return;
+        if(disposed||!expanded||pinned||dragging||settings is not null)return;
         dismiss.Stop();dismiss.Interval=TimeSpan.FromMilliseconds(Math.Max(450,(peekUntil-DateTime.UtcNow).TotalMilliseconds));dismiss.Start();
     }
-    private void Arrived(){State();Reveal(false,true);_ = web.CoreWebView2?.ExecuteScriptAsync("document.querySelector('.slot-row')?.scrollTo({left:100000,behavior:'smooth'})");}
+    private void Arrived(){Reveal(false,true);}
     private void Copy(InboxItem item)
     {
         try {
@@ -230,86 +244,37 @@ public sealed class RailWindow : Window
                 // Text and the clipboard already present at launch are never collected automatically.
                 var image=Clipboard.ContainsImage()?Clipboard.GetImage():null;
                 ignoredClipboard=GetClipboardSequenceNumber();
-                if(image is not null){if(!expanded)screen=Forms.Screen.FromPoint(Forms.Cursor.Position);Add(new InboxItem(Label("Screenshot"),image));Arrived();}
+                if(image is not null){if(!expanded)screen=Forms.Screen.FromPoint(Forms.Cursor.Position);Add(new InboxItem("PNG",image));Arrived();}
                 return;
             } catch(ExternalException) { /* Screenshot tools can hold the clipboard while publishing pixels. */ }
               catch(Exception ex) when(ex is IOException or NotSupportedException or InvalidOperationException){Error(ex.Message);return;}
         }
-    }
-    private void ToggleImageIntake()
-    {
-        SetImageIntake(!collectImages);
-    }
-    private void SetImageIntake(bool enabled)
-    {
-        if(collectImages==enabled)return;
-        SavePreferences(preferences.Value with{CollectScreenshots=enabled},refreshShortcuts:false);
     }
     private void SendPreferences(WebView view)=>Post(view,new{type="preferences",value=JsonSerializer.SerializeToElement(preferences.Value,PreferencesStore.Json),platform="windows"});
     private void ClearShortcuts(){if(source is null)return;for(int id=1;id<=3;id++)UnregisterHotKey(source.Handle,id);}
     private void RegisterShortcuts(AppPreferences value)
     {
         if(source is null)return;
-        foreach(var binding in new[]{(1,Shortcut.Open),(2,value.CaptureShortcut),(3,value.TextShortcut)})
+        foreach(var binding in new[]{(1,Shortcut.Open),(3,value.TextShortcut)})
             if(!RegisterHotKey(source.Handle,binding.Item1,binding.Item2.Modifiers,binding.Item2.VirtualKey))throw new InvalidOperationException(binding.Item2.Display+" — "+Strings.Get("hotkey"));
     }
     private void ApplyShortcuts(AppPreferences value)
     {
         value.Validate();var previous=registeredPreferences;ClearShortcuts();
-        try{RegisterShortcuts(value);registeredPreferences=value;if(shortcutsSuspended)ClearShortcuts();}
-        catch{ClearShortcuts();if(previous is not null){try{RegisterShortcuts(previous);}catch{ClearShortcuts();}}if(shortcutsSuspended)ClearShortcuts();throw;}
+        try{RegisterShortcuts(value);registeredPreferences=value;}
+        catch{ClearShortcuts();if(previous is not null){try{RegisterShortcuts(previous);}catch{ClearShortcuts();}}throw;}
     }
     private void SavePreferences(AppPreferences value,bool refreshShortcuts=true)
     {
-        value.Validate();var previous=preferences.Value;string? adjustment=null;
-        var applied=testing||!refreshShortcuts?value:ApplyShortcutsWithFallback(value,out adjustment);
-        try{preferences.Save(applied);}catch{if(!testing)ApplyShortcuts(previous);throw;}
-        collectImages=applied.CollectScreenshots;ignoredClipboard=GetClipboardSequenceNumber();clipboardRequest++;lastError=null;
-        if(!testing)Dispatcher.BeginInvoke(new Action(SetupTray),DispatcherPriority.Background);
-        if(settingsWeb is not null&&(settingsMode=="preferences"||settingsMode=="tray")){SendPreferences(settingsWeb);if(adjustment is not null)Post(settingsWeb,new{type="shortcutAdjusted",message=adjustment});}
-    }
-    private AppPreferences ApplyShortcutsWithFallback(AppPreferences value,out string? adjustment)
-    {
-        adjustment=null;
-        try{ApplyShortcuts(value);return value;}
-        catch(InvalidOperationException){
-            foreach(bool capture in new[]{true,false}){
-                var source=capture?value.CaptureShortcut:value.TextShortcut;
-                foreach(var replacement in new[]{source with{Shift=true},new Shortcut(capture?"KeyS":"KeyT",Control:true,Alt:true,Shift:true)}){
-                    var candidate=capture?value with{CaptureShortcut=replacement}:value with{TextShortcut=replacement};
-                    if(candidate==value)continue;
-                    try{candidate.Validate();ApplyShortcuts(candidate);adjustment=ShortcutAdjusted(capture,replacement);return candidate;}
-                    catch(ArgumentException){}
-                    catch(InvalidOperationException){}
-                }
-            }
-            throw;
-        }
-    }
-    private string ShortcutAdjusted(bool capture,Shortcut replacement)=>locale switch
-    {
-        "zh-Hans"=>$"{(capture?"截图":"文字")}快捷键不可用，已自动改为 {replacement.Display}。",
-        "zh-Hant"=>$"{(capture?"截圖":"文字")}快速鍵無法使用，已自動改為 {replacement.Display}。",
-        _=>$"{(capture?"Screenshot":"Text")} shortcut was unavailable and was changed to {replacement.Display}.",
-    };
-    private static string ShortcutField(AppPreferences value,string message)
-    {
-        if(message.StartsWith(value.CaptureShortcut.Display,StringComparison.Ordinal))return "captureShortcut";
-        if(message.StartsWith(value.TextShortcut.Display,StringComparison.Ordinal))return "textShortcut";
-        return "captureShortcut";
-    }
-    private sealed class TrayColors : Forms.ProfessionalColorTable
-    {
-        public override Drawing.Color ToolStripDropDownBackground=>Drawing.Color.FromArgb(255,253,248);
-        public override Drawing.Color MenuItemSelected=>Drawing.Color.FromArgb(232,241,252);
-        public override Drawing.Color MenuItemSelectedGradientBegin=>Drawing.Color.FromArgb(232,241,252);
-        public override Drawing.Color MenuItemSelectedGradientEnd=>Drawing.Color.FromArgb(232,241,252);
-        public override Drawing.Color SeparatorDark=>Drawing.Color.FromArgb(224,226,229);
-        public override Drawing.Color ToolStripBorder=>Drawing.Color.FromArgb(211,216,223);
+        value.Validate();var previous=preferences.Value;
+        if(!testing&&refreshShortcuts&&value.TextShortcut!=previous.TextShortcut)ApplyShortcuts(value);
+        try{preferences.Save(value);}catch{if(!testing&&refreshShortcuts)ApplyShortcuts(previous);throw;}
+        collectImages=value.CollectImages;ignoredClipboard=GetClipboardSequenceNumber();clipboardRequest++;lastError=null;
+        if(settingsWeb is not null)SendPreferences(settingsWeb);State();
     }
     private async void CollectSelectedText()
     {
-        if(collectingText||busy)return;collectingText=true;
+        if(collectingText)return;collectingText=true;
         try {
             string text=await SelectedText.ReadAsync();
             if(string.IsNullOrWhiteSpace(text))throw new InvalidOperationException("Select text first.");
@@ -324,49 +289,23 @@ public sealed class RailWindow : Window
     {
         dragging=true;dismiss.Stop();
         try{var data=new DataObject();data.SetFileDropList(new StringCollection{item.ExportPath});DragDrop.DoDragDrop(web,data,DragDropEffects.Copy);}
-        finally{dragging=false;pinned=false;ScheduleDismiss();}
-    }
-    private void Paste()
-    {
-        if(!expanded)screen=Forms.Screen.FromPoint(Forms.Cursor.Position);
-        if(Clipboard.ContainsImage()&&Clipboard.GetImage() is BitmapSource image)Add(new InboxItem("PNG",image));
-        else if(Clipboard.ContainsText()&&!string.IsNullOrWhiteSpace(Clipboard.GetText())){var text=Clipboard.GetText();Add(new InboxItem(text.Split('\n')[0].Trim()[..Math.Min(text.Split('\n')[0].Trim().Length,30)],text));}
-        else{Error(Strings.Get("clipboard"));return;}Arrived();
-    }
-    private void AddImages()
-    {
-        if(!expanded)screen=Forms.Screen.FromPoint(Forms.Cursor.Position);
-        var picker=new Microsoft.Win32.OpenFileDialog{Filter="Images|*.png;*.jpg;*.jpeg;*.bmp;*.tif;*.tiff",Multiselect=true};busy=true;dismiss.Stop();
-        try{if(picker.ShowDialog()==true){foreach(var path in picker.FileNames)Add(InboxItem.FromFile(path));Arrived();}}
-        finally{busy=false;ScheduleDismiss();}
-    }
-    private async void Capture()
-    {
-        if(busy)return;if(!expanded)screen=Forms.Screen.FromPoint(Forms.Cursor.Position);busy=true;Collapse();
-        try{await Task.Delay(280);var picker=new CaptureWindow(screen);if(picker.ShowDialog()==true&&picker.Result is BitmapSource image){Add(new InboxItem(Label("Screenshot"),image));Arrived();}}
-        catch(Exception ex){Error(ex.Message);}finally{busy=false;ScheduleDismiss();}
+        finally{dragging=false;ScheduleDismiss();}
     }
     private async void OpenSettings(string mode)
     {
-        dismiss.Stop();hover.Stop();if(!expanded)screen=Forms.Screen.FromPoint(Forms.Cursor.Position);if(settings is not null){if(settingsMode==mode){settings.Activate();return;}settings.Close();}
-        var preferencesMode=mode=="preferences";var trayMode=mode=="tray";var floatingMode=preferencesMode||trayMode;
-        var window=new Window{Title=Label(mode=="settings"?"Appearance":preferencesMode?"Settings":trayMode?"SnapSlot":"Add text"),Width=mode=="settings"?1080:preferencesMode?480:trayMode?320:520,Height=mode=="settings"?790:preferencesMode?700:trayMode?306:360,MinWidth=mode=="settings"?650:preferencesMode?480:trayMode?320:360,MinHeight=mode=="settings"?560:preferencesMode?700:trayMode?306:280,WindowStartupLocation=trayMode?WindowStartupLocation.Manual:WindowStartupLocation.CenterScreen,Background=floatingMode?Brushes.Transparent:Brushes.White,WindowStyle=floatingMode?WindowStyle.None:WindowStyle.SingleBorderWindow,AllowsTransparency=floatingMode,ResizeMode=floatingMode?ResizeMode.NoResize:ResizeMode.CanResize,ShowInTaskbar=!trayMode,Topmost=trayMode};
-        var view=new WebView{DefaultBackgroundColor=floatingMode?Drawing.Color.Transparent:Drawing.Color.White};
-        if(floatingMode){
-            window.Content=new Border{Margin=new Thickness(15),CornerRadius=new CornerRadius(16),Background=Brushes.White,ClipToBounds=true,Child=view,Effect=new System.Windows.Media.Effects.DropShadowEffect{BlurRadius=26,ShadowDepth=8,Opacity=.22,Color=Color.FromRgb(24,62,107)}};
-        }else window.Content=view;
+        dismiss.Stop();hover.Stop();if(!expanded)screen=Forms.Screen.FromPoint(Forms.Cursor.Position);
+        if(settings is not null){if(settingsMode==mode){settings.Activate();return;}settings.Close();}
+        bool menu=mode=="tray";
+        var window=new Window{Title=Label(menu?"SnapSlot":"Settings"),Width=menu?244:420,Height=menu?170:442,WindowStartupLocation=menu?WindowStartupLocation.Manual:WindowStartupLocation.CenterScreen,Background=Brushes.Transparent,WindowStyle=WindowStyle.None,AllowsTransparency=true,ResizeMode=ResizeMode.NoResize,ShowInTaskbar=!menu,ShowActivated=!menu,Topmost=menu};
+        var view=new WebView{DefaultBackgroundColor=Drawing.Color.Transparent};window.Content=view;
         settings=window;settingsMode=mode;settingsWeb=view;
-        if(mode=="preferences"){
-            window.Activated+=(_,_)=>{shortcutsSuspended=true;ClearShortcuts();};
-            window.Deactivated+=(_,_)=>{shortcutsSuspended=false;if(!disposed&&!testing)Safe(()=>ApplyShortcuts(preferences.Value));};
+        if(menu){
+            window.SourceInitialized+=(_,_)=>PositionTrayMenu(window);
+            window.Deactivated+=(_,_)=>window.Close();
         }
-        if(trayMode)window.SourceInitialized+=(_,_)=>PositionTrayMenu(window);
-        window.Closed+=(_,_)=>{ready.Remove(view);sentItems.Remove(view);sentSkins.Remove(view);view.Dispose();settings=null;settingsWeb=null;settingsMode="";shortcutsSuspended=false;if(!disposed&&!testing)Safe(()=>ApplyShortcuts(preferences.Value));ScheduleDismiss();};window.Show();
+        window.Closed+=(_,_)=>{ready.Remove(view);sentItems.Remove(view);view.Dispose();settings=null;settingsWeb=null;settingsMode="";ScheduleDismiss();};
+        window.Show();
         try{await InitializeWeb(view,mode);}catch(Exception ex){Error(ex.Message);window.Close();}
-    }
-    private void ExportSkin(string source)
-    {
-        var picker=new Microsoft.Win32.SaveFileDialog{FileName="skin.json",Filter="JSON|*.json",DefaultExt=".json"};if(picker.ShowDialog(settings)==true)File.WriteAllText(picker.FileName,source,new UTF8Encoding(false));
     }
     private static void PositionTrayMenu(Window window)
     {
@@ -377,44 +316,58 @@ public sealed class RailWindow : Window
     }
     private void SetupTray()
     {
-        tray??=new Forms.NotifyIcon{Text="SnapSlot"};
-        if(icon is null){var small=Forms.SystemInformation.SmallIconSize;var file=Path.Combine(AppContext.BaseDirectory,"SnapSlot.ico");using var fallback=File.Exists(file)||Environment.ProcessPath is not string exe?null:Drawing.Icon.ExtractAssociatedIcon(exe);icon=File.Exists(file)?new Drawing.Icon(file,small):fallback is null?(Drawing.Icon)Drawing.SystemIcons.Application.Clone():new Drawing.Icon(fallback,small);tray.Icon=icon;tray.DoubleClick+=(_,_)=>Reveal(true);}
-        tray.ContextMenuStrip?.Dispose();
-        var menu=new Forms.ContextMenuStrip{ShowImageMargin=false,ShowCheckMargin=false,Font=new Drawing.Font("Microsoft YaHei UI",10f)};
-        void Entry(string title,Action action)=>menu.Items.Add(title,null,(_,_)=>Dispatcher.Invoke(()=>Safe(action)));
-        Entry(Label("Open notes"),()=>Reveal(true));
-        Entry(Label("Take a screenshot")+"    "+preferences.Value.CaptureShortcut.Display,Capture);
-        menu.Items.Add(new Forms.ToolStripSeparator());
-        var pinItem=new Forms.ToolStripMenuItem();
-        void UpdatePinItem(){pinItem.Text=Label(pinned?"Unpin":"Pin");}
-        UpdatePinItem();pinItem.Click+=(_,_)=>Dispatcher.Invoke(()=>Safe(()=>{if(pinned)Unpin();else Pin();}));menu.Items.Add(pinItem);
-        var intake=new Forms.ToolStripMenuItem(Label("Automatically collect screenshots and images"));
-        var intakeOn=new Forms.ToolStripMenuItem(Label("On")){Checked=collectImages};
-        var intakeOff=new Forms.ToolStripMenuItem(Label("Off")){Checked=!collectImages};
-        intakeOn.Click+=(_,_)=>Dispatcher.Invoke(()=>Safe(()=>SetImageIntake(true)));
-        intakeOff.Click+=(_,_)=>Dispatcher.Invoke(()=>Safe(()=>SetImageIntake(false)));
-        intake.DropDownItems.Add(intakeOn);intake.DropDownItems.Add(intakeOff);menu.Items.Add(intake);
-        menu.Items.Add(new Forms.ToolStripSeparator());
-        Entry(Label("Settings"),()=>OpenSettings("preferences"));
-        menu.Items.Add(new Forms.ToolStripSeparator());
-        Entry(Label("Quit SnapSlot"),()=>Application.Current.Shutdown());
-        menu.Opening+=(_,_)=>{UpdatePinItem();intakeOn.Checked=collectImages;intakeOff.Checked=!collectImages;};
-        tray.ContextMenuStrip=menu;tray.Visible=true;
+        tray=new Forms.NotifyIcon{Text="SnapSlot"};
+        var small=Forms.SystemInformation.SmallIconSize;var file=Path.Combine(AppContext.BaseDirectory,"SnapSlot.ico");
+        icon=File.Exists(file)?new Drawing.Icon(file,small):(Drawing.Icon)Drawing.SystemIcons.Application.Clone();tray.Icon=icon;
+        tray.MouseClick+=(_,eventArgs)=>Dispatcher.Invoke(()=>Safe(()=>{
+            if(eventArgs.Button==Forms.MouseButtons.Right){if(settingsMode=="tray")settings?.Close();else OpenSettings("tray");}
+            else if(eventArgs.Button==Forms.MouseButtons.Left){if(expanded)Collapse();else Reveal(true);}
+        }));
+        UpdateTrayIcon();tray.Visible=true;
+    }
+    private void UpdateTrayIcon()
+    {
+        if(tray is null||icon is null||iconState==(pinned,collectImages))return;
+        var size=Forms.SystemInformation.SmallIconSize;
+        using var bitmap=new Drawing.Bitmap(size.Width,size.Height);
+        using(var graphics=Drawing.Graphics.FromImage(bitmap)){
+            graphics.SmoothingMode=Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            using var original=icon.ToBitmap();
+            if(collectImages)graphics.DrawImage(original,new Drawing.Rectangle(Drawing.Point.Empty,size));
+            else{
+                using var attributes=new Drawing.Imaging.ImageAttributes();
+                attributes.SetColorMatrix(new Drawing.Imaging.ColorMatrix(new[]{
+                    new[]{.2126f,.2126f,.2126f,0f,0f},new[]{.7152f,.7152f,.7152f,0f,0f},new[]{.0722f,.0722f,.0722f,0f,0f},new[]{0f,0f,0f,.55f,0f},new[]{0f,0f,0f,0f,1f}}));
+                graphics.DrawImage(original,new Drawing.Rectangle(Drawing.Point.Empty,size),0,0,original.Width,original.Height,Drawing.GraphicsUnit.Pixel,attributes);
+            }
+            if(pinned){
+                // Website Windows marker: 7 px, right/bottom 4 px, 1.5 px light ring on a 32 px button.
+                float scale=size.Width/32f;
+                var dot=new Drawing.RectangleF(21*scale,21*scale,7*scale,7*scale);
+                using var ring=new Drawing.Pen(Drawing.Color.FromArgb(238,240,246),3*scale);
+                using var fill=new Drawing.SolidBrush(Drawing.Color.FromArgb(0,103,192));
+                graphics.DrawEllipse(ring,dot);graphics.FillEllipse(fill,dot);
+            }
+        }
+        var handle=bitmap.GetHicon();Drawing.Icon next;
+        try{next=(Drawing.Icon)Drawing.Icon.FromHandle(handle).Clone();}finally{DestroyIcon(handle);}
+        var previous=stateIcon;tray.Icon=next;stateIcon=next;iconState=(pinned,collectImages);previous?.Dispose();
     }
     private void OnSource(object? sender,EventArgs e)
     {
         source=(HwndSource)PresentationSource.FromVisual(this);source.AddHook(WndProc);if(testing)return;
         ignoredClipboard=GetClipboardSequenceNumber();AddClipboardFormatListener(source.Handle);
         try{ApplyShortcuts(preferences.Value);}catch(Exception ex){startupShortcutError=ex.Message;Error(ex.Message);}
-        watcher=new EdgeWatcher();watcher.Entered+=()=>{if(!expanded&&!busy&&settings is null)hover.Start();};watcher.Left+=()=>{hover.Stop();if(expanded&&!KeepOpen())ScheduleDismiss();};
-        watcher.Moved+=()=>{if(!expanded)return;if(KeepOpen())dismiss.Stop();else if(!dismiss.IsEnabled)ScheduleDismiss();};
-        edgeProbe.Tick+=(_,_)=>{if(expanded||busy||settings is not null){edgeDwell.Reset();return;}if(edgeDwell.Update(EdgeWatcher.IsAtEdge(),EdgeWatcher.CanReveal(source.Handle),DateTime.UtcNow))Reveal(false);};edgeProbe.Start();
+        watcher=new EdgeWatcher();watcher.Entered+=()=>{if(!expanded&&settings is null){arming=true;screen=EdgeWatcher.TargetScreen;Position();Show();SetInteractive(false);State();hover.Start();}};watcher.Left+=()=>{hover.Stop();if(arming&&!expanded){arming=false;State();Hide();}if(expanded&&!KeepOpen())ScheduleDismiss();};
+        watcher.Moved+=()=>{UpdatePointers();if(!expanded)return;if(KeepOpen())dismiss.Stop();else if(!dismiss.IsEnabled)ScheduleDismiss();};
+        watcher.Clicked+=()=>{if(settingsMode=="tray"&&settings is not null){var point=Forms.Cursor.Position;var local=settings.PointFromScreen(new Point(point.X,point.Y));if(local.X<0||local.Y<0||local.X>=settings.ActualWidth||local.Y>=settings.ActualHeight)settings.Close();}};
+        edgeProbe.Tick+=(_,_)=>{if(expanded||settings is not null){edgeDwell.Reset();return;}if(edgeDwell.Update(EdgeWatcher.IsAtEdge(),EdgeWatcher.CanReveal(source.Handle),DateTime.UtcNow))Reveal(false);};edgeProbe.Start();
         SystemParameters.StaticPropertyChanged+=ParametersChanged;
     }
     private void ParametersChanged(object? sender,System.ComponentModel.PropertyChangedEventArgs e){if(e.PropertyName==nameof(SystemParameters.ClientAreaAnimation))State();}
     private IntPtr WndProc(IntPtr hwnd,int message,IntPtr wParam,IntPtr lParam,ref bool handled)
     {
-        if(message==0x0312){if(wParam.ToInt32()==2)Capture();else if(wParam.ToInt32()==3)CollectSelectedText();else if(expanded)Collapse();else Reveal(true);handled=true;}
+        if(message==0x0312){if(wParam.ToInt32()==3)CollectSelectedText();else if(expanded)Collapse();else Reveal(true);handled=true;}
         if(message==0x031D){ReceiveClipboardImage();handled=true;}
         if(message==0x0021&&!pinned){handled=true;return new IntPtr(3);}
         if(message==0x007E&&expanded){screen=Forms.Screen.FromPoint(Forms.Cursor.Position);Position();State();}
@@ -428,16 +381,17 @@ public sealed class RailWindow : Window
         if(!ready.Contains(web))throw new InvalidOperationException("Offline UI did not become ready");
         if(items.Count==0)Seed();var file=items[0].ExportPath;items.RemoveAt(0);
         if(!File.Exists(file))throw new InvalidOperationException("Removing a note deleted its export");
-        for(int i=0;i<20;i++)Add(new InboxItem("Note "+i,"Note "+i));Reveal(false);await Task.Delay(500);
+        for(int i=0;i<35;i++)Add(new InboxItem("Note "+i,"Note "+i));Reveal(false);await Task.Delay(900);if(items.Count!=30)throw new InvalidOperationException("Note capacity must be 30");
         using(var stream=File.Create(Path.Combine(output,"windows-notes.png")))await web.CoreWebView2.CapturePreviewAsync(CoreWebView2CapturePreviewImageFormat.Png,stream);
-        File.WriteAllText(Path.Combine(output,"desktop-smoke.txt"),"PASS: Offline native UI loaded\nPASS: 21+ continuous notes\nPASS: removal keeps export alive\n");
+        File.WriteAllText(Path.Combine(output,"desktop-smoke.txt"),"PASS: Offline native UI loaded\nPASS: 30-note capacity with website fan\nPASS: removal keeps export alive\n");
     }
     private void Dispose()
     {
-        disposed=true;hover.Stop();edgeProbe.Stop();dismiss.Stop();hide.Stop();watcher?.Dispose();skins.Dispose();SystemParameters.StaticPropertyChanged-=ParametersChanged;
-        if(source is not null){if(!testing)RemoveClipboardFormatListener(source.Handle);ClearShortcuts();source.RemoveHook(WndProc);}settings?.Close();web.Dispose();tray?.Dispose();icon?.Dispose();
+        disposed=true;hover.Stop();edgeProbe.Stop();dismiss.Stop();hide.Stop();watcher?.Dispose();SystemParameters.StaticPropertyChanged-=ParametersChanged;
+        if(source is not null){if(!testing)RemoveClipboardFormatListener(source.Handle);ClearShortcuts();source.RemoveHook(WndProc);}settings?.Close();web.Dispose();tray?.Dispose();stateIcon?.Dispose();icon?.Dispose();
     }
     [DllImport("user32.dll")]private static extern bool AddClipboardFormatListener(IntPtr window);
+    [DllImport("user32.dll")]private static extern bool DestroyIcon(IntPtr icon);
     [DllImport("user32.dll")]private static extern bool RemoveClipboardFormatListener(IntPtr window);
     [DllImport("user32.dll")]private static extern uint GetClipboardSequenceNumber();
     [DllImport("user32.dll")]private static extern bool RegisterHotKey(IntPtr window,int id,uint modifiers,uint key);

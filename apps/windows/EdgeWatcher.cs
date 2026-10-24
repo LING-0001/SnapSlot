@@ -5,19 +5,6 @@ using System.Windows.Forms;
 
 namespace SnapSlot;
 
-internal sealed class EdgeDwell
-{
-    private DateTime? started;
-    internal bool Update(bool atEdge, bool canReveal, DateTime now)
-    {
-        if (!atEdge || !canReveal) { started=null; return false; }
-        started??=now;
-        if (now-started.Value<TimeSpan.FromMilliseconds(500)) return false;
-        started=null;return true;
-    }
-    internal void Reset()=>started=null;
-}
-
 // Passive mouse observation: never intercept or modify another application's input.
 // This lets the rail HWND be completely hidden rather than cover a clickable top strip.
 internal sealed class EdgeWatcher : IDisposable
@@ -30,6 +17,7 @@ internal sealed class EdgeWatcher : IDisposable
     public event Action? Entered;
     public event Action? Moved;
     public event Action? Left;
+    public event Action? Clicked;
     public EdgeWatcher()
     {
         callback = OnMouse;
@@ -41,10 +29,8 @@ internal sealed class EdgeWatcher : IDisposable
         GetCursorPos(out var point);
         TargetScreen=Screen.FromPoint(new System.Drawing.Point(point.X,point.Y));
         var bounds = TargetScreen.Bounds;
-        return IsAtTopEdge(point.X,point.Y,bounds.Left,bounds.Top,bounds.Right);
+        return NotesGeometry.IsAtTopEdge(point.X,point.Y,bounds.Left,bounds.Top,bounds.Right);
     }
-    internal static bool IsAtTopEdge(int x,int y,int left,int top,int right)
-        => x>=left&&x<right&&y>=top&&y<=top+1;
     public static bool CanReveal(IntPtr ownWindow)
     {
         if ((GetAsyncKeyState(1) & 0x8000) != 0 || (GetAsyncKeyState(2) & 0x8000) != 0 || (GetAsyncKeyState(4) & 0x8000) != 0) return false;
@@ -54,14 +40,11 @@ internal sealed class EdgeWatcher : IDisposable
         if (name.ToString() is "Progman" or "WorkerW" or "Shell_TrayWnd") return true;
         if (!GetWindowRect(foreground, out var rect)) return true;
         var screen = TargetScreen.Bounds;
-        return !ShouldSuppressReveal(rect.Left, rect.Top, rect.Right, rect.Bottom, screen.Left, screen.Top, screen.Right, screen.Bottom, IsZoomed(foreground));
+        return !NotesGeometry.ShouldSuppressReveal(rect.Left, rect.Top, rect.Right, rect.Bottom, screen.Left, screen.Top, screen.Right, screen.Bottom, IsZoomed(foreground));
     }
-    internal static bool ShouldSuppressReveal(int left, int top, int right, int bottom, int screenLeft, int screenTop, int screenRight, int screenBottom, bool isMaximized)
-        => !isMaximized && left <= screenLeft && top <= screenTop && right >= screenRight && bottom >= screenBottom;
-    internal static bool IsPointerWithinRail(int x, int y, int left, int top, int width, int physicalHeight)
-        => x >= left && x < left + width && y >= top && y < top + physicalHeight;
     private IntPtr OnMouse(int code, IntPtr message, IntPtr data)
     {
+        if (code >= 0 && message.ToInt32() is 0x0201 or 0x0204) Clicked?.Invoke();
         if (code >= 0 && message.ToInt32() == 0x0200)
         {
             var point = Marshal.PtrToStructure<MouseData>(data).Point;
@@ -69,7 +52,7 @@ internal sealed class EdgeWatcher : IDisposable
             if(target.DeviceName!=TargetScreen.DeviceName){if(atEdge)Left?.Invoke();atEdge=false;previousY=int.MaxValue;}
             TargetScreen=target;
             var screen = target.Bounds;
-            bool now = IsAtTopEdge(point.X,point.Y,screen.Left,screen.Top,screen.Right);
+            bool now = NotesGeometry.IsAtTopEdge(point.X,point.Y,screen.Left,screen.Top,screen.Right);
             if (now && !atEdge && point.Y <= previousY) Entered?.Invoke();
             if (!now && atEdge) Left?.Invoke();
             Moved?.Invoke();

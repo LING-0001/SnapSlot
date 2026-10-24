@@ -30,15 +30,25 @@ public enum PreferencesError: LocalizedError {
     }
 }
 public struct AppPreferences: Codable, Equatable {
-    public var collectScreenshots: Bool
-    public var captureShortcut: Shortcut
+    public var collectImages: Bool
     public var textShortcut: Shortcut
-    public init(collectScreenshots:Bool=true,captureShortcut:Shortcut=Shortcut(key:"KeyS"),textShortcut:Shortcut=Shortcut(key:"KeyT")) {
-        self.collectScreenshots=collectScreenshots;self.captureShortcut=captureShortcut;self.textShortcut=textShortcut
+    public init(collectImages:Bool=true,textShortcut:Shortcut=Shortcut(key:"KeyT")) {
+        self.collectImages=collectImages;self.textShortcut=textShortcut
+    }
+    private enum CodingKeys:String,CodingKey {case collectImages,collectScreenshots,textShortcut}
+    public init(from decoder:Decoder) throws {
+        let values=try decoder.container(keyedBy:CodingKeys.self)
+        guard values.contains(.collectImages) || values.contains(.collectScreenshots) else{throw DecodingError.keyNotFound(CodingKeys.collectImages,.init(codingPath:decoder.codingPath,debugDescription:"Missing image intake preference"))}
+        collectImages=try values.decodeIfPresent(Bool.self,forKey:.collectImages) ?? values.decodeIfPresent(Bool.self,forKey:.collectScreenshots) ?? true
+        textShortcut=try values.decodeIfPresent(Shortcut.self,forKey:.textShortcut) ?? Shortcut(key:"KeyT")
+    }
+    public func encode(to encoder:Encoder) throws {
+        var values=encoder.container(keyedBy:CodingKeys.self)
+        try values.encode(collectImages,forKey:.collectImages);try values.encode(textShortcut,forKey:.textShortcut)
     }
     public func validate() throws {
-        try captureShortcut.validate();try textShortcut.validate()
-        guard captureShortcut != textShortcut,captureShortcut != .open,textShortcut != .open else{throw PreferencesError.duplicateShortcut}
+        try textShortcut.validate()
+        guard textShortcut != .open else{throw PreferencesError.duplicateShortcut}
     }
 }
 public final class PreferencesStore {
@@ -47,7 +57,7 @@ public final class PreferencesStore {
     public init(url:URL,legacyCollection:Bool=true) {
         self.url=url
         if let data=try? Data(contentsOf:url),let value=try? JSONDecoder().decode(AppPreferences.self,from:data),(try? value.validate()) != nil {self.value=value}
-        else {value=AppPreferences(collectScreenshots:legacyCollection)}
+        else {value=AppPreferences(collectImages:legacyCollection)}
     }
     public func save(_ next:AppPreferences) throws {
         try next.validate();try FileManager.default.createDirectory(at:url.deletingLastPathComponent(),withIntermediateDirectories:true)

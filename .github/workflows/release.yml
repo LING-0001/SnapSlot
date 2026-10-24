@@ -1,0 +1,64 @@
+name: Publish release
+on:
+  push:
+    tags:
+      - 'v*'
+permissions:
+  contents: read
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  verify-windows-installer:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: ./scripts/installers/check-windows.ps1
+        shell: pwsh
+  verify-macos-package:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/verify-release.mjs
+      - name: Verify the mounted universal app
+        run: |
+          set -euo pipefail
+          version="$(node -p "require('./release.json').version")"
+          image="apps/website/public/downloads/v$version/SnapSlot-$version-macOS-universal.dmg"
+          volume="$(mktemp -d "$RUNNER_TEMP/snapslot-release.XXXXXX")"
+          trap 'hdiutil detach "$volume" >/dev/null 2>&1 || true; rmdir "$volume" 2>/dev/null || true' EXIT
+          hdiutil verify "$image"
+          hdiutil attach -readonly -nobrowse -mountpoint "$volume" "$image"
+          codesign --verify --deep --strict "$volume/SnapSlot.app"
+          lipo "$volume/SnapSlot.app/Contents/MacOS/SnapSlot" -verify_arch arm64 x86_64
+          test "$(readlink "$volume/Applications")" = /Applications
+  publish:
+    needs: [verify-windows-installer, verify-macos-package]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify the committed packages and tag
+        run: node scripts/verify-release.mjs
+      - name: Publish the same files served by the website
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          directory="apps/website/public/downloads/$RELEASE_TAG"
+          notes="docs/releases/$RELEASE_TAG.md"
+          test -f "$notes"
+          gh release create "$RELEASE_TAG" \
+            "$directory"/*.dmg "$directory"/*-setup.exe "$directory/SHA256SUMS.txt" "$directory/manifest.json" \
+            --verify-tag --title "SnapSlot $RELEASE_TAG" --notes-file "$notes"

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { locales, type Locale } from "@/lib/messages";
+import { locales, type Locale } from "@/lib/locales";
 import { homeCopy } from "@/lib/home-copy";
 import { Home } from "@/components/home";
 

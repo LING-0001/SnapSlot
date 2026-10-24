@@ -38,11 +38,4 @@ internal sealed class InboxItem
         using var stream = File.Create(ExportPath);
         encoder.Save(stream);
     }
-    public static InboxItem FromFile(string path)
-    {
-        var image = new BitmapImage();
-        image.BeginInit(); image.CacheOption = BitmapCacheOption.OnLoad;
-        image.UriSource = new Uri(path); image.EndInit(); image.Freeze();
-        return new InboxItem(Path.GetFileNameWithoutExtension(path), image);
-    }
 }

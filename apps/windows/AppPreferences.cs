@@ -19,14 +19,14 @@ internal sealed record Shortcut(string Key,bool Control=true,bool Alt=true,bool 
         if(Key=="KeyC"&&!Alt&&!Shift&&Control!=Meta)throw new ArgumentException("Keep Ctrl+C available for ordinary Copy. Choose another shortcut.");
     }
 }
-internal sealed record AppPreferences(bool CollectScreenshots,Shortcut CaptureShortcut,Shortcut TextShortcut)
+internal sealed record AppPreferences(bool CollectImages,Shortcut TextShortcut)
 {
-    public static AppPreferences Default=>new(true,new("KeyS",Control:true,Alt:false,Shift:true),new("KeyT"));
+    public static AppPreferences Default=>new(true,new("KeyT"));
     public void Validate()
     {
-        if(CaptureShortcut is null||TextShortcut is null)throw new ArgumentException("Both shortcuts are required.");
-        CaptureShortcut.Validate();TextShortcut.Validate();
-        if(CaptureShortcut==TextShortcut||CaptureShortcut==Shortcut.Open||TextShortcut==Shortcut.Open)throw new ArgumentException("Shortcuts must be different. Ctrl+Alt+Space is reserved for opening notes.");
+        if(TextShortcut is null)throw new ArgumentException("The text shortcut is required.");
+        TextShortcut.Validate();
+        if(TextShortcut==Shortcut.Open)throw new ArgumentException("Ctrl+Alt+Space is reserved for opening notes.");
     }
 }
 internal sealed class PreferencesStore
@@ -36,9 +36,14 @@ internal sealed class PreferencesStore
     public AppPreferences Value {get;private set;}
     public PreferencesStore(string path,bool legacyCollection=true)
     {
-        this.path=path;Value=AppPreferences.Default with{CollectScreenshots=legacyCollection};
-        try{var value=JsonSerializer.Deserialize<AppPreferences>(File.ReadAllText(path),Json);if(value is not null){value.Validate();Value=value;}}
-        catch(Exception ex) when(ex is IOException or UnauthorizedAccessException or JsonException or ArgumentException){}
+        this.path=path;Value=AppPreferences.Default with{CollectImages=legacyCollection};
+        try{
+            using var document=JsonDocument.Parse(File.ReadAllText(path));var root=document.RootElement;
+            bool intake=root.TryGetProperty("collectImages",out var current)?current.GetBoolean():root.TryGetProperty("collectScreenshots",out var legacy)?legacy.GetBoolean():legacyCollection;
+            var text=root.TryGetProperty("textShortcut",out var binding)?JsonSerializer.Deserialize<Shortcut>(binding.GetRawText(),Json):null;
+            var value=new AppPreferences(intake,text??AppPreferences.Default.TextShortcut);value.Validate();Value=value;
+        }
+        catch(Exception ex) when(ex is IOException or UnauthorizedAccessException or JsonException or ArgumentException or InvalidOperationException){}
     }
     public void Save(AppPreferences value)
     {

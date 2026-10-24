@@ -6,10 +6,7 @@ The product names, app marks and visual brand assets in `assets/brand` and
 `apps/website/public/icon.svg` are reserved brand materials, not included in
 the MIT source-code grant.
 
-Earlier Dryline, clothesline, pegboard and tension-ribbon directions are not
-approved release artwork.
-
 The app mark is `apps/website/public/icon.svg`: a fan of notes hanging from the
 screen's top edge, the front one held by a blue pin. `assets/brand/SnapSlot.ico`
-(Windows, 16–256 px) and `scripts/make-icon.swift` (macOS iconset) reproduce it;
+(Windows, 16–256 px) matches it; `scripts/make-icon.swift` generates the macOS iconset from the master render;
 `assets/brand/snapslot-icon-1024.png` is the 1024 px master render.
