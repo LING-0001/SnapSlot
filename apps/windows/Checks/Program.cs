@@ -29,5 +29,7 @@ try
     Check(!dwell.Update(true,true,start.AddMilliseconds(499)),"Top-edge dwell waits the full 500 ms");
     Check(dwell.Update(true,true,start.AddMilliseconds(500)),"Top-edge dwell reveals after 500 ms");
     Check(!dwell.Update(false,true,start.AddMilliseconds(550))&&!dwell.Update(true,true,start.AddMilliseconds(600)),"Leaving the edge resets the dwell timer");
+    var closeOnce=new CloseOnce();
+    Check(closeOnce.TryBegin()&&!closeOnce.TryBegin(),"A deactivated tray window can request Close only once");
 }
 finally{Directory.Delete(root,true);}

@@ -28,6 +28,13 @@ public sealed class RailWindow : Window
     private readonly WebView web=new(){DefaultBackgroundColor=Drawing.Color.Transparent};
     private WebView? settingsWeb;
     private Window? settings;
+    private Action? closeSettings;
+    private Window? trayMenu;
+    private WebView? trayMenuWeb;
+    private Task? trayMenuPreparation;
+    private Window? preferencesWindow;
+    private WebView? preferencesWeb;
+    private Task? preferencesPreparation;
     private string settingsMode="";
     private PreferencesStore preferences=null!;
     private AppPreferences? registeredPreferences;
@@ -80,7 +87,7 @@ public sealed class RailWindow : Window
         hide.Tick+=(_,_)=>{hide.Stop();if(!expanded)Hide();};
         SourceInitialized+=OnSource;
         DpiChanged+=(_,_)=>Dispatcher.BeginInvoke(Position);
-        Loaded+=async(_,_)=>{Hide();try{await InitializeWeb(web,"rail");if(testing){Seed();Reveal(false);}else if(startupShortcutError is not null){OpenSettings("preferences");}}catch(Exception ex){System.Windows.MessageBox.Show(ex.Message+"\nInstall Microsoft Edge WebView2 Runtime to run SnapSlot.","SnapSlot");Application.Current.Shutdown(1);}};
+        Loaded+=async(_,_)=>{Hide();try{await InitializeWeb(web,"rail");if(!testing){_=PrepareTrayMenuAsync();_=PreparePreferencesAsync();}if(testing){Seed();Reveal(false);}else if(startupShortcutError is not null){OpenSettings("preferences");}}catch(Exception ex){System.Windows.MessageBox.Show(ex.Message+"\nInstall Microsoft Edge WebView2 Runtime to run SnapSlot.","SnapSlot");Application.Current.Shutdown(1);}};
         Closed+=(_,_)=>Dispose();
         if(!testing)SetupTray();
     }
@@ -132,12 +139,12 @@ public sealed class RailWindow : Window
         {
             case "ready":ready.Add(view);sentItems[view]=new();State();if(view==settingsWeb&&(settingsMode=="preferences"||settingsMode=="tray"))SendPreferences(view);if(lastError is not null)Post(view,new{type="error",message=lastError});break;
             case "collapse":Collapse();break;
-            case "toggleRail":if(settingsMode=="tray")settings?.Close();if(expanded)Collapse();else Reveal(true);break;
+            case "toggleRail":if(settingsMode=="tray")CloseSettings();if(expanded)Collapse();else Reveal(true);break;
             case "pin":Pin();break;
             case "unpin":Unpin();break;
             case "openPreferences":OpenSettings("preferences");break;
             case "quit":if(view==settingsWeb&&settingsMode=="tray")Application.Current.Shutdown();break;
-            case "close":settings?.Close();break;
+            case "close":CloseSettings();break;
             case "savePreferences":if(view==settingsWeb&&value.TryGetProperty("value",out var next)){var preference=JsonSerializer.Deserialize<AppPreferences>(next.GetRawText(),PreferencesStore.Json)??throw new ArgumentException("Invalid settings");SavePreferences(preference);}break;
             case "setAppearance":if(Get("value") is string look&&new[]{"glass","paper","graphite"}.Contains(look)){appearance=look;Directory.CreateDirectory(appData);File.WriteAllText(Path.Combine(appData,"appearance.txt"),look);State();}break;
             case "setLocale":if(Get("value") is string language&&Strings.Locales.Contains(language)){locale=language;Strings.Locale=language;Directory.CreateDirectory(appData);File.WriteAllText(Path.Combine(appData,"locale.txt"),language);State();}break;
@@ -291,21 +298,69 @@ public sealed class RailWindow : Window
         try{var data=new DataObject();data.SetFileDropList(new StringCollection{item.ExportPath});DragDrop.DoDragDrop(web,data,DragDropEffects.Copy);}
         finally{dragging=false;ScheduleDismiss();}
     }
+    private void CloseSettings()=>closeSettings?.Invoke();
     private async void OpenSettings(string mode)
     {
         dismiss.Stop();hover.Stop();if(!expanded)screen=Forms.Screen.FromPoint(Forms.Cursor.Position);
-        if(settings is not null){if(settingsMode==mode){settings.Activate();return;}settings.Close();}
-        bool menu=mode=="tray";
-        var window=new Window{Title=Label(menu?"SnapSlot":"Settings"),Width=menu?244:420,Height=menu?170:442,WindowStartupLocation=menu?WindowStartupLocation.Manual:WindowStartupLocation.CenterScreen,Background=Brushes.Transparent,WindowStyle=WindowStyle.None,AllowsTransparency=true,ResizeMode=ResizeMode.NoResize,ShowInTaskbar=!menu,ShowActivated=!menu,Topmost=menu};
+        if(mode=="tray"){await ShowTrayMenuAsync();return;}
+        await ShowPreferencesAsync();
+    }
+    private Task PreparePreferencesAsync()=>preferencesPreparation??=PreparePreferencesCoreAsync();
+    private async Task PreparePreferencesCoreAsync()
+    {
+        var window=new Window{Title=Label("Settings"),Width=420,Height=442,WindowStartupLocation=WindowStartupLocation.CenterScreen,Background=Brushes.Transparent,WindowStyle=WindowStyle.None,AllowsTransparency=true,ResizeMode=ResizeMode.NoResize,ShowInTaskbar=true,ShowActivated=false,Topmost=false};
         var view=new WebView{DefaultBackgroundColor=Drawing.Color.Transparent};window.Content=view;
-        settings=window;settingsMode=mode;settingsWeb=view;
-        if(menu){
-            window.SourceInitialized+=(_,_)=>PositionTrayMenu(window);
-            window.Deactivated+=(_,_)=>window.Close();
-        }
-        window.Closed+=(_,_)=>{ready.Remove(view);sentItems.Remove(view);view.Dispose();settings=null;settingsWeb=null;settingsMode="";ScheduleDismiss();};
-        window.Show();
-        try{await InitializeWeb(view,mode);}catch(Exception ex){Error(ex.Message);window.Close();}
+        preferencesWindow=window;preferencesWeb=view;
+        window.Closed+=(_,_)=>{ready.Remove(view);sentItems.Remove(view);view.Dispose();if(ReferenceEquals(preferencesWindow,window)){preferencesWindow=null;preferencesWeb=null;preferencesPreparation=null;}if(ReferenceEquals(settings,window)){settings=null;settingsWeb=null;settingsMode="";closeSettings=null;ScheduleDismiss();}};
+        window.Show();window.Hide();
+        try{await InitializeWeb(view,"preferences");}catch(Exception ex){Error(ex.Message);window.Close();}
+    }
+    private async Task ShowPreferencesAsync()
+    {
+        await PreparePreferencesAsync();
+        if(disposed||preferencesWindow is null||preferencesWeb is null)return;
+        if(ReferenceEquals(settings,preferencesWindow)){preferencesWindow.Activate();return;}
+        if(settings is not null)CloseSettings();
+        var window=preferencesWindow;var view=preferencesWeb;var closeOnce=new CloseOnce();
+        void HideWindow(){if(closeOnce.TryBegin())HidePreferences(window);}
+        settings=window;settingsMode="preferences";settingsWeb=view;closeSettings=HideWindow;
+        window.ShowActivated=true;window.Show();window.Activate();view.Focus();SendPreferences(view);State();
+    }
+    private void HidePreferences(Window window)
+    {
+        if(!ReferenceEquals(preferencesWindow,window))return;
+        if(window.IsVisible)window.Hide();
+        window.ShowActivated=false;
+        if(ReferenceEquals(settings,window)){settings=null;settingsWeb=null;settingsMode="";closeSettings=null;ScheduleDismiss();}
+    }
+    private Task PrepareTrayMenuAsync()=>trayMenuPreparation??=PrepareTrayMenuCoreAsync();
+    private async Task PrepareTrayMenuCoreAsync()
+    {
+        var window=new Window{Title=Label("SnapSlot"),Width=244,Height=170,WindowStartupLocation=WindowStartupLocation.Manual,Background=Brushes.Transparent,WindowStyle=WindowStyle.None,AllowsTransparency=true,ResizeMode=ResizeMode.NoResize,ShowInTaskbar=false,ShowActivated=false,Topmost=true};
+        var view=new WebView{DefaultBackgroundColor=Drawing.Color.Transparent};window.Content=view;
+        trayMenu=window;trayMenuWeb=view;
+        window.SourceInitialized+=(_,_)=>PositionTrayMenu(window);
+        window.Deactivated+=(_,_)=>{if(ReferenceEquals(settings,window))CloseSettings();};
+        window.Closed+=(_,_)=>{ready.Remove(view);sentItems.Remove(view);view.Dispose();if(ReferenceEquals(trayMenu,window)){trayMenu=null;trayMenuWeb=null;trayMenuPreparation=null;}if(ReferenceEquals(settings,window)){settings=null;settingsWeb=null;settingsMode="";closeSettings=null;ScheduleDismiss();}};
+        window.Show();window.Hide();
+        try{await InitializeWeb(view,"tray");}catch(Exception ex){Error(ex.Message);window.Close();}
+    }
+    private async Task ShowTrayMenuAsync()
+    {
+        await PrepareTrayMenuAsync();
+        if(disposed||trayMenu is null||trayMenuWeb is null)return;
+        if(ReferenceEquals(settings,trayMenu))return;
+        if(settings is not null)CloseSettings();
+        var window=trayMenu;var view=trayMenuWeb;var closeOnce=new CloseOnce();
+        void HideWindow(){if(closeOnce.TryBegin())HideTrayMenu(window);}
+        settings=window;settingsMode="tray";settingsWeb=view;closeSettings=HideWindow;
+        PositionTrayMenu(window);window.Show();SendPreferences(view);State();
+    }
+    private void HideTrayMenu(Window window)
+    {
+        if(!ReferenceEquals(trayMenu,window))return;
+        if(window.IsVisible)window.Hide();
+        if(ReferenceEquals(settings,window)){settings=null;settingsWeb=null;settingsMode="";closeSettings=null;ScheduleDismiss();}
     }
     private static void PositionTrayMenu(Window window)
     {
@@ -320,7 +375,7 @@ public sealed class RailWindow : Window
         var small=Forms.SystemInformation.SmallIconSize;var file=Path.Combine(AppContext.BaseDirectory,"SnapSlot.ico");
         icon=File.Exists(file)?new Drawing.Icon(file,small):(Drawing.Icon)Drawing.SystemIcons.Application.Clone();tray.Icon=icon;
         tray.MouseClick+=(_,eventArgs)=>Dispatcher.Invoke(()=>Safe(()=>{
-            if(eventArgs.Button==Forms.MouseButtons.Right){if(settingsMode=="tray")settings?.Close();else OpenSettings("tray");}
+            if(eventArgs.Button==Forms.MouseButtons.Right){if(settingsMode=="tray")CloseSettings();else OpenSettings("tray");}
             else if(eventArgs.Button==Forms.MouseButtons.Left){if(expanded)Collapse();else Reveal(true);}
         }));
         UpdateTrayIcon();tray.Visible=true;
@@ -360,7 +415,7 @@ public sealed class RailWindow : Window
         try{ApplyShortcuts(preferences.Value);}catch(Exception ex){startupShortcutError=ex.Message;Error(ex.Message);}
         watcher=new EdgeWatcher();watcher.Entered+=()=>{if(!expanded&&settings is null){arming=true;screen=EdgeWatcher.TargetScreen;Position();Show();SetInteractive(false);State();hover.Start();}};watcher.Left+=()=>{hover.Stop();if(arming&&!expanded){arming=false;State();Hide();}if(expanded&&!KeepOpen())ScheduleDismiss();};
         watcher.Moved+=()=>{UpdatePointers();if(!expanded)return;if(KeepOpen())dismiss.Stop();else if(!dismiss.IsEnabled)ScheduleDismiss();};
-        watcher.Clicked+=()=>{if(settingsMode=="tray"&&settings is not null){var point=Forms.Cursor.Position;var local=settings.PointFromScreen(new Point(point.X,point.Y));if(local.X<0||local.Y<0||local.X>=settings.ActualWidth||local.Y>=settings.ActualHeight)settings.Close();}};
+        watcher.Clicked+=()=>{if(settingsMode=="tray"&&settings is not null){var point=Forms.Cursor.Position;var local=settings.PointFromScreen(new Point(point.X,point.Y));if(local.X<0||local.Y<0||local.X>=settings.ActualWidth||local.Y>=settings.ActualHeight)CloseSettings();}};
         edgeProbe.Tick+=(_,_)=>{if(expanded||settings is not null){edgeDwell.Reset();return;}if(edgeDwell.Update(EdgeWatcher.IsAtEdge(),EdgeWatcher.CanReveal(source.Handle),DateTime.UtcNow))Reveal(false);};edgeProbe.Start();
         SystemParameters.StaticPropertyChanged+=ParametersChanged;
     }
@@ -388,7 +443,7 @@ public sealed class RailWindow : Window
     private void Dispose()
     {
         disposed=true;hover.Stop();edgeProbe.Stop();dismiss.Stop();hide.Stop();watcher?.Dispose();SystemParameters.StaticPropertyChanged-=ParametersChanged;
-        if(source is not null){if(!testing)RemoveClipboardFormatListener(source.Handle);ClearShortcuts();source.RemoveHook(WndProc);}settings?.Close();web.Dispose();tray?.Dispose();stateIcon?.Dispose();icon?.Dispose();
+        if(source is not null){if(!testing)RemoveClipboardFormatListener(source.Handle);ClearShortcuts();source.RemoveHook(WndProc);}CloseSettings();trayMenu?.Close();preferencesWindow?.Close();web.Dispose();tray?.Dispose();stateIcon?.Dispose();icon?.Dispose();
     }
     [DllImport("user32.dll")]private static extern bool AddClipboardFormatListener(IntPtr window);
     [DllImport("user32.dll")]private static extern bool DestroyIcon(IntPtr icon);

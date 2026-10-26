@@ -493,7 +493,8 @@
   border-radius: 8px;
   background: #f9f9f9f2;
   backdrop-filter: blur(30px) saturate(1.6);
-  box-shadow: 0 0 0 1px #0000001a, 0 8px 24px #00000033;
+  border: 1px solid #00000012;
+  box-shadow: none;
   font-size: 13px;
   animation: menuIn 160ms var(--ease);
 }
