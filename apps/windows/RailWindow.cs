@@ -40,6 +40,7 @@ public sealed class RailWindow : Window
     private GlobalShortcuts shortcuts=null!;
     private readonly List<ShortcutChange> shortcutChanges=new();
     private bool recordingShortcut;
+    private readonly ShortcutRecording shortcutRecording=new();
     private bool collectingText;
     private string? lastError,startupShortcutError;
     private readonly HashSet<WebView> ready=new();
@@ -148,7 +149,10 @@ public sealed class RailWindow : Window
             case "quit":if(view==settingsWeb&&settingsMode=="tray")Application.Current.Shutdown();break;
             case "close":CloseSettings();break;
             case "savePreferences":if(view==settingsWeb&&value.TryGetProperty("value",out var next)){var preference=JsonSerializer.Deserialize<AppPreferences>(next.GetRawText(),PreferencesStore.Json)??throw new ArgumentException("Invalid settings");SavePreferences(preference,Get("editingShortcut"));}break;
-            case "beginShortcutRecording":if(view==settingsWeb&&settingsMode=="preferences"){shortcuts.Suspend();recordingShortcut=true;}break;
+            case "beginShortcutRecording":if(view==settingsWeb&&settingsMode=="preferences"){
+                try{shortcutRecording.Begin(new WindowInteropHelper(settings!).Handle,key=>Dispatcher.BeginInvoke(()=>{if(recordingShortcut&&settingsWeb is not null)Post(settingsWeb,JsonSerializer.SerializeToElement(key,PreferencesStore.Json));}));shortcuts.Suspend();recordingShortcut=true;Post(view,new{type="recordingReady"});}
+                catch{Post(view,new{type="recordingCancelled"});throw;}
+            }break;
             case "endShortcutRecording":if(view==settingsWeb)FinishShortcutRecording(false);break;
             case "minimizePreferences":if(view==settingsWeb&&settingsMode=="preferences"){FinishShortcutRecording();settings!.WindowState=WindowState.Minimized;}break;
             case "resizePreferences":if(view==settingsWeb&&settingsMode=="preferences"&&value.TryGetProperty("height",out var height)&&height.TryGetDouble(out var h)&&double.IsFinite(h)){settings!.Height=Math.Clamp(h,350,Math.Max(350,SystemParameters.WorkArea.Height-40));}break;
@@ -280,7 +284,7 @@ public sealed class RailWindow : Window
         bool refresh=recordingShortcut||value.TextShortcut!=previous.TextShortcut||value.OpenShortcut!=previous.OpenShortcut;
         var resolution=refresh?shortcuts.Resolve(value,editing):new ShortcutResolution(value,Array.Empty<ShortcutChange>());
         try{preferences.Save(resolution.Preferences);}catch{if(refresh)shortcuts.Apply(previous);throw;}
-        recordingShortcut=false;
+        recordingShortcut=false;shortcutRecording.End();
         shortcutChanges.RemoveAll(change=>change.Target==editing||resolution.Changes.Any(next=>next.Target==change.Target));
         shortcutChanges.AddRange(resolution.Changes);
         collectImages=resolution.Preferences.CollectImages;ignoredClipboard=GetClipboardSequenceNumber();clipboardRequest++;lastError=null;
@@ -289,7 +293,8 @@ public sealed class RailWindow : Window
     private void FinishShortcutRecording(bool cancelled=true)
     {
         if(!recordingShortcut||disposed)return;
-        try{SavePreferences(preferences.Value);}catch(Exception ex){Error(ex.Message);return;}
+        try{SavePreferences(preferences.Value);}catch(Exception ex){Error(ex.Message);}
+        finally{recordingShortcut=false;shortcutRecording.End();}
         if(cancelled&&settingsWeb is not null)Post(settingsWeb,new{type="recordingCancelled"});
     }
     private async void CollectSelectedText()
@@ -322,10 +327,22 @@ public sealed class RailWindow : Window
     private async Task PreparePreferencesCoreAsync()
     {
         var window=new Window{Title=Label("Settings"),Width=420,Height=442,WindowStartupLocation=WindowStartupLocation.CenterScreen,Background=Brushes.Transparent,WindowStyle=WindowStyle.None,AllowsTransparency=true,ResizeMode=ResizeMode.NoResize,ShowInTaskbar=true,ShowActivated=false,Topmost=false};
-        var view=new WebView{DefaultBackgroundColor=Drawing.Color.Transparent};window.Content=view;
+        var view=new WebView{DefaultBackgroundColor=Drawing.Color.Transparent};var surface=new Grid();surface.Children.Add(view);window.Content=surface;
+        void DragArea(double width,double height,HorizontalAlignment horizontal,VerticalAlignment vertical,Thickness margin){
+            var handle=new Border{Background=Brushes.Transparent,HorizontalAlignment=horizontal,VerticalAlignment=vertical,Margin=margin};
+            if(width>0)handle.Width=width;if(height>0)handle.Height=height;
+            handle.MouseLeftButtonDown+=(_,e)=>{FinishShortcutRecording();if(System.Windows.Input.Mouse.LeftButton==System.Windows.Input.MouseButtonState.Pressed)window.DragMove();e.Handled=true;};surface.Children.Add(handle);
+        }
+        DragArea(0,36,HorizontalAlignment.Stretch,VerticalAlignment.Top,new Thickness(0,0,80,0));
+        DragArea(0,4,HorizontalAlignment.Stretch,VerticalAlignment.Top,new Thickness(0,36,0,0));
+        DragArea(12,0,HorizontalAlignment.Left,VerticalAlignment.Stretch,new Thickness(0,40,0,14));
+        DragArea(12,0,HorizontalAlignment.Right,VerticalAlignment.Stretch,new Thickness(0,40,0,14));
+        DragArea(0,14,HorizontalAlignment.Stretch,VerticalAlignment.Bottom,new Thickness(0));
         preferencesWindow=window;preferencesWeb=view;
         window.Closed+=(_,_)=>{ready.Remove(view);sentItems.Remove(view);view.Dispose();if(ReferenceEquals(preferencesWindow,window)){preferencesWindow=null;preferencesWeb=null;preferencesPreparation=null;}if(ReferenceEquals(settings,window)){settings=null;settingsWeb=null;settingsMode="";closeSettings=null;ScheduleDismiss();}};
-        window.Deactivated+=(_,_)=>{if(ReferenceEquals(settings,window)){FinishShortcutRecording();ScheduleDismiss();}};
+        window.Activated+=(_,_)=>window.Topmost=true;
+        window.Deactivated+=(_,_)=>{window.Topmost=false;if(ReferenceEquals(settings,window)){FinishShortcutRecording();ScheduleDismiss();}};
+        view.SizeChanged+=(_,_)=>view.Clip=new RectangleGeometry(new Rect(0,0,view.ActualWidth,view.ActualHeight),10,10);
         window.Show();window.Hide();
         try{await InitializeWeb(view,"preferences");}catch(Exception ex){Error(ex.Message);window.Close();}
     }
@@ -343,7 +360,7 @@ public sealed class RailWindow : Window
     private void PresentPreferences()
     {
         if(preferencesWindow is null)return;
-        preferencesWindow.ShowActivated=true;
+        preferencesWindow.Topmost=true;preferencesWindow.ShowActivated=true;
         if(preferencesWindow.WindowState==WindowState.Minimized)preferencesWindow.WindowState=WindowState.Normal;
         preferencesWindow.Show();preferencesWindow.Activate();preferencesWeb?.Focus();ScheduleDismiss();
     }
@@ -493,7 +510,7 @@ public sealed class RailWindow : Window
     }
     private void Dispose()
     {
-        disposed=true;hover.Stop();edgeProbe.Stop();dismiss.Stop();hide.Stop();watcher?.Dispose();SystemParameters.StaticPropertyChanged-=ParametersChanged;
+        disposed=true;shortcutRecording.Dispose();hover.Stop();edgeProbe.Stop();dismiss.Stop();hide.Stop();watcher?.Dispose();SystemParameters.StaticPropertyChanged-=ParametersChanged;
         if(source is not null){if(!testing)RemoveClipboardFormatListener(source.Handle);ClearShortcuts();source.RemoveHook(WndProc);}CloseSettings();trayMenu?.Close();preferencesWindow?.Close();web.Dispose();tray?.Dispose();stateIcon?.Dispose();icon?.Dispose();
     }
     [DllImport("user32.dll")]private static extern bool AddClipboardFormatListener(IntPtr window);

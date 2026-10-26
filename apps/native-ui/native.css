@@ -5,7 +5,7 @@ html, body, #root { margin: 0; width: 100%; height: 100%; overflow: hidden; back
 body { user-select: none; -webkit-user-select: none; }
 .native-page { width: 100%; height: 100%; background: transparent; }
 .native-page .native-surface { --top: 0px; width: 100%; height: 100%; min-height: 0; margin: 0; border-radius: 0; box-shadow: none; background: transparent; }
-.native-page .native-window { position: relative; inset: auto; width: 420px; height: fit-content; max-height: 100%; margin: 0; translate: none; box-shadow: none; }
+.native-page .native-window { position: relative; inset: auto; width: 420px; height: fit-content; max-height: 100%; margin: 0; translate: none; box-shadow: none; animation: none; }
 .native-page .native-surface .native-menu { inset: 6px; min-width: 0; margin: 0; }
 .native-page .native-surface[data-os="mac"] .native-menu button:is(:hover, :focus-visible, .host-hover) { background: #0a84ff; color: #fff; outline: none; }
 .native-page .native-surface .native-menu button:is(:hover, :focus-visible, .host-hover) > span { color: inherit; }
@@ -25,3 +25,6 @@ body { user-select: none; -webkit-user-select: none; }
 .native-window-controls { display: flex; align-items: center; margin-left: auto; gap: 4px; }
 .native-page .native-minimize { width: 30px; height: 24px; border-radius: 4px; font-size: 20px; line-height: 1; }
 .native-page .native-minimize:hover { background: #0000000d; }
+
+.native-page .native-surface[data-mode="preferences"] { border-radius: 10px; overflow: hidden; }
+.native-page .native-surface[data-os="mac"][data-mode="preferences"] { border-radius: 12px; }

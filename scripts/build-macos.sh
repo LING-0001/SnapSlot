@@ -18,6 +18,7 @@ trap 'rm -rf "$snapslot_temporary"' EXIT
 if [[ ! -d apps/website/node_modules ]]; then npm ci --prefix apps/website; fi
 SNAPSLOT_UI_OUTPUT="$snapslot_temporary/NativeUI" node apps/native-ui/build.mjs
 swift run --package-path apps/macos SnapSlotCoreChecks
+bash scripts/check-macos-hotkeys.sh
 if $snapslot_universal; then
   for snapslot_arch in arm64 x86_64; do
     swift build --package-path apps/macos -c release --product SnapSlot --triple "$snapslot_arch-apple-macosx13.0" --scratch-path "$snapslot_temporary/$snapslot_arch"

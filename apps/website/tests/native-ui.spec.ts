@@ -17,7 +17,8 @@ async function host(page: Page, mode = "rail", count = 8, platform: "macos" | "w
     const postMessage = (command: any) => {
       w.commands.push(command);
       if (command.type === "surfaces" || command.type === "moveWindow" || command.type === "drag" || command.type === "close") return;
-      if (["beginShortcutRecording", "endShortcutRecording", "resizePreferences", "minimizePreferences"].includes(command.type)) return;
+      if (command.type === "beginShortcutRecording") { if (!w.deferRecordingReady) w.emit({ type: "recordingReady" }); return; }
+      if (["endShortcutRecording", "resizePreferences", "minimizePreferences"].includes(command.type)) return;
       if (command.type === "setAppearance") w.state.appearance = command.value;
       if (command.type === "setLocale") w.state.locale = command.value;
       if (command.type === "pin") { w.state.pinned = true; w.state.expanded = true; }
@@ -263,3 +264,27 @@ test("Quit is separated, fully visible and sends only the native quit command", 
     expect(await page.evaluate(()=>(window as any).commands.some((command:any)=>command.type==="clearNotes"))).toBe(false);
   }
 });
+
+for (const platform of ["macos", "windows"] as const) {
+  test(`${platform}: recording waits for native protection, accepts native key events and restores on cancel`, async ({ page }) => {
+    await host(page, "preferences", 3, platform);
+    await page.evaluate(() => { (window as any).deferRecordingReady = true; });
+    const row = page.locator('[data-shortcut-row=text]');
+    await row.getByRole("button").click(); await page.keyboard.press("Control+Alt+y");
+    expect(await page.evaluate(() => (window as any).commands.some((c: any) => c.type === "savePreferences"))).toBe(false);
+    await page.evaluate(() => { const w = window as any; w.emit({ type: "recordingReady" }); for (const down of [true, false]) w.emit({ type: "shortcutKey", code: "KeyY", key: "Y", down, control: true, alt: true, shift: true, meta: false, repeat: false }); });
+    await expect(row.locator("kbd").last()).toHaveText("Y");
+    expect(await page.evaluate(() => (window as any).commands.some((c: any) => c.type === "endShortcutRecording"))).toBe(true);
+  });
+  test(`${platform}: blank title and settings margins drag, interactive controls do not`, async ({ page }) => {
+    await page.setViewportSize({ width: 420, height: 500 });await host(page, "preferences", 3, platform);
+    await page.locator("header").dispatchEvent("pointerdown", { button: 0 });
+    await page.locator(".native-window").dispatchEvent("pointerdown", { button: 0 });
+    await page.mouse.click(414, 90);
+    expect(await page.evaluate(() => (window as any).commands.filter((c: any) => c.type === "moveWindow").length)).toBe(3);
+    await page.getByRole("switch").first().click();
+    expect(await page.evaluate(() => (window as any).commands.filter((c: any) => c.type === "moveWindow").length)).toBe(3);
+    await expect(page.locator(".native-window")).toHaveCSS("animation-name", "none");
+    await expect(page.locator('[data-mode=preferences]')).toHaveCSS("overflow", "hidden");
+  });
+}

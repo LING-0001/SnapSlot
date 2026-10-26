@@ -9,6 +9,38 @@ final class NotePanel: NSPanel {
     override var canBecomeKey: Bool { keyboardAccess }
     override var canBecomeMain: Bool { false }
 }
+final class SettingsSurface: NSVisualEffectView {
+    var onDragBegan: (() -> Void)?
+    var onDragEnded: ((NSPoint,NSPoint) -> Void)?
+    private var dragAnchor:NSPoint?
+    private var dragOrigin:NSPoint?
+    override func hitTest(_ point:NSPoint) -> NSView? {
+        let local=convert(point,from:superview),top=bounds.maxY-local.y
+        guard bounds.contains(local) else{return nil}
+        let lights=top>=6 && top<=30 && local.x>=6 && local.x<=70
+        if (top<40 && !lights) || (top>=40 && (local.x<12 || local.x>bounds.width-12 || local.y<14)) {return self}
+        return super.hitTest(point)
+    }
+    override func mouseDown(with event:NSEvent) {
+        guard let window else{return}
+        onDragBegan?();dragAnchor=event.locationInWindow;dragOrigin=window.frame.origin
+    }
+    override func mouseDragged(with event:NSEvent) {
+        guard let window,let dragAnchor else{return}
+        let pointer=window.convertPoint(toScreen:event.locationInWindow)
+        var origin=NSPoint(x:pointer.x-dragAnchor.x,y:pointer.y-dragAnchor.y)
+        if let screen=NSScreen.screens.first(where:{$0.frame.contains(pointer)}) ?? window.screen {
+            let work=screen.visibleFrame
+            origin.x=min(max(origin.x,work.minX-window.frame.width+80),work.maxX-80)
+            origin.y=min(max(origin.y,work.minY-window.frame.height+40),work.maxY-window.frame.height)
+        }
+        window.setFrameOrigin(origin)
+    }
+    override func mouseUp(with event:NSEvent) {
+        if let before=dragOrigin,let window {onDragEnded?(before,window.frame.origin)}
+        dragAnchor=nil;dragOrigin=nil
+    }
+}
 final class StatusPinIndicator: NSView {
     override func draw(_ dirtyRect:NSRect) {
         NSColor.labelColor.setFill()
@@ -56,6 +88,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
     var hotkeys: HotKeys?
     var shortcutChanges: [ShortcutChange] = []
     var recordingShortcut = false
+    let shortcutRecording = ShortcutRecording()
+    var settingsMouseDown: NSEvent?
     var preferences: PreferencesStore!
     var settingsMode = ""
     var collectingText = false
@@ -302,7 +336,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
             let result=try hotkeys.resolve(next,editing:editing);effective=result.preferences;changes=result.changes
         } else {try next.validate()}
         do{try preferences.save(effective)}catch{try? hotkeys?.apply(old);throw error}
-        recordingShortcut=false
+        recordingShortcut=false;shortcutRecording.end()
         shortcutChanges.removeAll {change in change.target==editing || changes.contains(where:{$0.target==change.target}) || (change.target == .text && next.textShortcut != old.textShortcut) || (change.target == .open && next.openShortcut != old.openShortcut)}
         shortcutChanges.append(contentsOf:changes)
         configureClipboardIntake();lastError=nil;if !testing{setupMenu()}
@@ -310,9 +344,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         state()
     }
     func finishShortcutRecording(cancelled:Bool=true) {
-        guard recordingShortcut else{return}
+        guard recordingShortcut else{shortcutRecording.end();return}
         if cancelled,let settingsWeb {send(["type":"recordingCancelled"],to:settingsWeb)}
-        do {try savePreferences(preferences.value)}catch{recordingShortcut=false;self.error(error)}
+        do {try savePreferences(preferences.value)}catch{recordingShortcut=false;shortcutRecording.end();self.error(error)}
     }
     func restoreUpdateHandoff(appData:URL,from supplied:String?=nil) throws {
         guard let path=supplied ?? argument("--restore-session") else{return}
@@ -335,7 +369,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         globalMonitor=NSEvent.addGlobalMonitorForEvents(matching:[.mouseMoved,.leftMouseDragged,.rightMouseDragged,.leftMouseDown,.rightMouseDown]){ [weak self] event in
             if event.type == .leftMouseDown || event.type == .rightMouseDown {self?.closeTray();self?.scheduleDismiss()}else{self?.pointerMoved(event)}
         }
-        localMonitor=NSEvent.addLocalMonitorForEvents(matching:[.mouseMoved,.leftMouseDown,.leftMouseDragged,.rightMouseDragged,.keyDown]){ [weak self] event in
+        startLocalObservation()
+    }
+    func startLocalObservation() {
+        guard localMonitor==nil else{return}
+        localMonitor=NSEvent.addLocalMonitorForEvents(matching:[.mouseMoved,.leftMouseDown,.leftMouseUp,.leftMouseDragged,.rightMouseDragged,.keyDown,.keyUp,.flagsChanged]){ [weak self] event in
+            if let self,self.recordingShortcut,self.settings?.isKeyWindow==true,event.window===self.settings {
+                if event.type == .keyDown || event.type == .keyUp {if let view=self.settingsWeb {self.send(self.shortcutRecording.keyMessage(event),to:view)};return nil}
+                if event.type == .flagsChanged {return nil}
+            }
+            if event.type == .leftMouseDown,event.window===self?.settings {self?.settingsMouseDown=event}
+            if event.type == .leftMouseUp {self?.settingsMouseDown=nil}
             if let self,let tray=self.trayPanel,event.type == .leftMouseDown,event.window !== tray {self.closeTray()}
             if event.type == .keyDown {self?.dismiss?.invalidate()}else{self?.pointerMoved(event)};return event
         }
@@ -360,10 +404,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
                 locale=next;if !testing {UserDefaults.standard.set(next,forKey:"locale");setupMenu()};state()
             case "clearNotes":store.clear();previews.removeAll();state()
             case "surfaces":if view===web,let surfaces=value["surfaces"] as? [[String:Any]] {updateMaterials(surfaces)}
-            case "moveWindow":if view===settingsWeb,let event=lastMouse,event.type == .leftMouseDown {settings?.performDrag(with:event)}
+            case "moveWindow":if view===settingsWeb,let event=settingsMouseDown,NSEvent.pressedMouseButtons & 1 != 0,let settings {
+                let before=settings.frame.origin;settings.performDrag(with:event)
+                if testing {print("CHECK: settings drag \(NSStringFromPoint(before)) -> \(NSStringFromPoint(settings.frame.origin))");fflush(stdout)}
+            }
             case "close":if view===trayWeb {closeTray()}else{closeSettings()}
             case "savePreferences":guard view===settingsWeb || view===trayWeb,let settings=value["value"] else{return};let next=try JSONDecoder().decode(AppPreferences.self,from:JSONSerialization.data(withJSONObject:settings));try savePreferences(next,editing:ShortcutTarget(rawValue:value["editingShortcut"] as? String ?? ""))
-            case "beginShortcutRecording":if view===settingsWeb,!recordingShortcut {recordingShortcut=true;hotkeys?.suspend()}
+            case "beginShortcutRecording":if view===settingsWeb,!recordingShortcut {
+                do {try shortcutRecording.begin();recordingShortcut=true;hotkeys?.suspend();send(["type":"recordingReady"],to:view)}
+                catch {send(["type":"recordingCancelled"],to:view);throw error}
+            }
             case "endShortcutRecording":if view===settingsWeb {finishShortcutRecording(cancelled:false)}
             case "minimizePreferences":if view===settingsWeb {settings?.miniaturize(nil)}
             case "resizePreferences":if view===settingsWeb,let height=value["height"] as? Double,height.isFinite,height>=350,height<=700 {resizeSettings(height:height)}
@@ -454,6 +504,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
     }
     func selectionError(_ message:String){arrived();error(NSError(domain:"SnapSlot.Selection",code:1,userInfo:[NSLocalizedDescriptionKey:message]))}
     func openSettings(mode:String) {
+        startLocalObservation()
         dismiss?.invalidate();hover?.invalidate();chooseScreenIfHidden()
         if settings != nil {if settingsMode==mode {presentSettings();return};closeSettings()}
         previousApplication=NSWorkspace.shared.frontmostApplication
@@ -463,15 +514,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         window.backgroundColor = .clear;window.isOpaque=false;window.hasShadow=true;window.appearance=NSAppearance(named:.aqua)
         window.title=label("Settings","设置");window.isReleasedWhenClosed=false
         window.delegate=self;settings=window;settingsMode="preferences";settingsWeb=makeWebView(mode:"preferences")
-        let background=NSVisualEffectView(frame:NSRect(origin:.zero,size:size));background.material = .popover;background.blendingMode = .behindWindow;background.state = .active
+        let background=SettingsSurface(frame:NSRect(origin:.zero,size:size));background.material = .popover;background.blendingMode = .behindWindow;background.state = .active
+        background.onDragBegan={ [weak self] in self?.finishShortcutRecording() }
+        background.onDragEnded={ [weak self] before,after in if self?.testing==true {print("CHECK: native settings drag \(NSStringFromPoint(before)) -> \(NSStringFromPoint(after))");fflush(stdout)} }
         background.wantsLayer=true;background.layer?.cornerRadius=12;background.layer?.masksToBounds=true
+        let mask=NSImage(size:NSSize(width:25,height:25),flipped:false){rect in NSColor.black.setFill();NSBezierPath(roundedRect:rect,xRadius:12,yRadius:12).fill();return true}
+        mask.capInsets=NSEdgeInsets(top:12,left:12,bottom:12,right:12);mask.resizingMode = .stretch;background.maskImage=mask
         settingsWeb!.frame=background.bounds;settingsWeb!.autoresizingMask=[.width,.height];background.addSubview(settingsWeb!);window.contentView=background
+        settingsWeb!.wantsLayer=true;settingsWeb!.layer?.cornerRadius=12;settingsWeb!.layer?.masksToBounds=true
         window.center();presentSettings()
     }
     func presentSettings() {
         guard let settings else{return}
         NSApp.activate(ignoringOtherApps:true)
         if settings.isMiniaturized {settings.deminiaturize(nil)}
+        settings.level=NSWindow.Level(rawValue:panel.level.rawValue+1)
         settings.makeKeyAndOrderFront(nil)
         if let settingsWeb {settings.makeFirstResponder(settingsWeb)}
         scheduleDismiss()
@@ -486,8 +543,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         settings.setFrame(frame,display:true)
     }
     func closeSettings() {settings?.close()}
+    func windowDidBecomeKey(_ notification:Notification) {
+        if let window=notification.object as? NSWindow,window===settings {window.level=NSWindow.Level(rawValue:panel.level.rawValue+1)}
+    }
     func windowDidResignKey(_ notification:Notification) {
-        if let window=notification.object as? NSWindow,window===settings {finishShortcutRecording()}
+        if let window=notification.object as? NSWindow,window===settings {window.level = .normal;finishShortcutRecording()}
         if let window=notification.object as? NSWindow,window===panel {panel.keyboardAccess=false;scheduleDismiss()}
     }
     func windowWillClose(_ notification:Notification) {
@@ -692,6 +752,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
                 try await Task.sleep(nanoseconds:350_000_000)
                 let controls=try await settingsView.evaluateJavaScript("document.querySelectorAll('[role=switch]').length===2 && document.querySelectorAll('[data-swatch]').length===3 && document.querySelectorAll('select option').length===6") as? Bool
                 try check(controls==true && settings!.frame.width==420,"Compact website settings expose two switches, three appearances and six languages")
+                try check(settings!.level.rawValue>panel.level.rawValue,"Foreground Settings stays above the pinned note panel")
+                try check(settingsView.layer?.masksToBounds==true && (settings!.contentView as? NSVisualEffectView)?.maskImage != nil,"Settings clips both web content and native material to the rounded window")
                 let originalSettings=settings!
                 _ = try await settingsView.evaluateJavaScript("document.querySelectorAll('header button')[1].click()")
                 try await Task.sleep(nanoseconds:500_000_000)
@@ -714,9 +776,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
                 _ = try await settingsView.evaluateJavaScript("document.querySelector('[data-shortcut-row=text] button').click()")
                 try await Task.sleep(nanoseconds:150_000_000)
                 try check(recordingShortcut,"The text shortcut row starts native shortcut recording")
+                try check(shortcutRecording.active && GetSymbolicHotKeyMode()==OptionBits(kHIHotKeyModeAllDisabledExceptUniversalAccess),"Recording pauses global hotkeys while preserving accessibility shortcuts")
                 _ = try await settingsView.evaluateJavaScript("dispatchEvent(new KeyboardEvent('keydown',{code:'KeyY',key:'Y',ctrlKey:true,altKey:true,shiftKey:true,bubbles:true}));dispatchEvent(new KeyboardEvent('keyup',{code:'KeyY',key:'Y',ctrlKey:true,altKey:true,shiftKey:true,bubbles:true}))")
                 try await Task.sleep(nanoseconds:250_000_000)
                 try check(!recordingShortcut && preferences.value.textShortcut==Shortcut(key:"KeyY",shift:true),"Recording a text shortcut persists the actual combination after key release")
+                try check(!shortcutRecording.active && GetSymbolicHotKeyMode()==0,"Committing a shortcut restores global hotkeys")
                 _ = try await settingsView.evaluateJavaScript("document.querySelector('[data-shortcut-row=open] button').click()")
                 try await Task.sleep(nanoseconds:100_000_000)
                 _ = try await settingsView.evaluateJavaScript("dispatchEvent(new KeyboardEvent('keydown',{code:'KeyO',key:'O',ctrlKey:true,altKey:true,shiftKey:true,bubbles:true}));dispatchEvent(new KeyboardEvent('keyup',{code:'KeyO',key:'O',ctrlKey:true,altKey:true,shiftKey:true,bubbles:true}))")
@@ -847,7 +911,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
     }
     func fatal(_ error:Error){startupFailed=true;fputs("SnapSlot: \(error)\n",stderr);if testing{exit(1)};let alert=NSAlert(error:error);alert.runModal();NSApp.terminate(nil)}
     func applicationWillTerminate(_ notification:Notification){
-        hover?.invalidate();dismiss?.invalidate();hideWork?.cancel();clipboardIntake?.stop();
+        shortcutRecording.end();hover?.invalidate();dismiss?.invalidate();hideWork?.cancel();clipboardIntake?.stop();
         if let globalMonitor{NSEvent.removeMonitor(globalMonitor)};if let localMonitor{NSEvent.removeMonitor(localMonitor)}
         web?.configuration.userContentController.removeScriptMessageHandler(forName:"snapslot");settingsWeb?.configuration.userContentController.removeScriptMessageHandler(forName:"snapslot")
         hotkeys=nil;store?.cleanup();if !startupFailed,let web,readyViews.contains(ObjectIdentifier(web)),let restoredHandoff {try? FileManager.default.removeItem(at:restoredHandoff)};if let testingDataRoot {try? FileManager.default.removeItem(at:testingDataRoot)}

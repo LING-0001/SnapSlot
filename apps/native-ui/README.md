@@ -13,9 +13,15 @@ bridge uses WebView2 messages and native cursor coordinates.
 
 Both desktop shortcut settings record both combinations, show registered conflict replacements,
 and report their content height to their host so explanations fit. The bridge suspends
-this app's shortcuts during recording and restores them on commit, cancel or blur.
+this app's shortcuts during recording. The UI waits for native recording protection
+before accepting keys; Mac pauses system-registered hotkeys while foreground,
+and Windows captures them with a temporary keyboard hook. Both restore normal
+handling on commit, cancel, close or blur. Mac requires existing Accessibility
+permission for this protection and refuses unprotected recording.
 Settings never suppresses unpinned pointer dismissal or top-edge reveal. Temporary arrival
 markers change CSS animation parameters rather than restarting the animation.
+Settings owns its rounded clipping and can be dragged from non-interactive blank
+areas; buttons and shortcut rows keep their own interaction.
 
 ```sh
 npm run build:native --prefix apps/website

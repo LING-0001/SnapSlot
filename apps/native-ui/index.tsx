@@ -28,6 +28,7 @@ function App() {
   const [narrow, setNarrow] = useState(() => matchMedia("(max-width: 760px)").matches);
   const [fresh, setFresh] = useState<string[]>([]), [copied, setCopied] = useState(""), [notice, setNotice] = useState("");
   const [shortcutChanges, setShortcutChanges] = useState<ShortcutChange[]>([]);
+  const recordingReady = useRef(false);
   const [recording, setRecording] = useState<ShortcutTarget | null>(null), [recordError, setRecordError] = useState("");
   const settingsPanel = useRef<HTMLElement>(null), settingsHeight = useRef(0);
   const dial = useRef<HTMLDivElement>(null), known = useRef(new Map<string, NativeItem>()), initialized = useRef(false);
@@ -67,7 +68,9 @@ function App() {
         initialized.current = true; known.current = new Map(next.map(item => [item.id, item]));
         if (message.focus) setFocusRequest(value => value + 1);
       } else if (message.type === "preferences") { setPreferences(message.value); setPlatform(message.platform); setShortcutChanges(message.shortcutChanges || []); }
-      else if (message.type === "recordingCancelled") { setRecording(null); }
+      else if (message.type === "recordingCancelled") { recordingReady.current = false; setRecording(null); }
+      else if (message.type === "recordingReady") { recordingReady.current = true; }
+      else if (message.type === "shortcutKey") { window.dispatchEvent(new KeyboardEvent(message.down ? "keydown" : "keyup", { code: message.code, key: message.key, ctrlKey: message.control, altKey: message.alt, shiftKey: message.shift, metaKey: message.meta, repeat: message.repeat, bubbles: true })); }
       else if (message.type === "copied") { setCopied(message.id); later("copied", () => setCopied(""), 1400); }
       else if (message.type === "pointer") {
         hostPointer.current = message.x !== null && message.y !== null ? { x: message.x, y: message.y } : null;
@@ -136,10 +139,12 @@ function App() {
   }, [mode, recording]);
   useEffect(() => {
     if (!recording) return;
+    recordingReady.current = false;
     let candidate: Shortcut | null = null;
     const copy = shortcutCopy[locale];
     const down = (event: KeyboardEvent) => {
       event.preventDefault(); event.stopImmediatePropagation();
+      if (!recordingReady.current) return;
       if (event.key === "Escape") { setRecording(null); return; }
       if (event.repeat || /^(Control|Alt|Shift|Meta)(Left|Right)$/.test(event.code)) return;
       candidate = null;
@@ -159,7 +164,7 @@ function App() {
     const outside = (event: PointerEvent) => { if (!(event.target as HTMLElement).closest(`[data-shortcut-row="${recording}"]`)) cancel(); };
     send({ type: "beginShortcutRecording" });
     addEventListener("keydown", down, true); addEventListener("keyup", up, true); addEventListener("blur", cancel); addEventListener("pointerdown", outside, true);
-    return () => { removeEventListener("keydown", down, true); removeEventListener("keyup", up, true); removeEventListener("blur", cancel); removeEventListener("pointerdown", outside, true); send({ type: "endShortcutRecording" }); };
+    return () => { recordingReady.current = false; removeEventListener("keydown", down, true); removeEventListener("keyup", up, true); removeEventListener("blur", cancel); removeEventListener("pointerdown", outside, true); send({ type: "endShortcutRecording" }); };
   }, [recording, platform]);
   useLayoutEffect(() => {
     if (!settingsPanel.current) return;
@@ -199,8 +204,8 @@ function App() {
         <button role="menuitemcheckbox" aria-checked={pinned} onClick={() => { togglePin(); closeMenu(); }}><span className={s.check}>{pinned ? "✓" : ""}</span>{a.menu.pin}</button>
         <hr/>
         <button role="menuitem" onClick={() => send({ type: "quit" })}><span className={s.check}/>{a.menu.quit}</button>
-      </div> : mode !== "rail" ? <section ref={settingsPanel} className={`${s.window} native-window`} role="dialog" aria-label={a.settings.title}>
-        <header className={s.windowBar} data-drag-region onPointerDown={event => { if (!(event.target as HTMLElement).closest("button")) send({ type: "moveWindow" }); }}>
+      </div> : mode !== "rail" ? <section ref={settingsPanel} className={`${s.window} native-window`} onPointerDown={event => { if (event.button === 0 && !(event.target as HTMLElement).closest("button, select, input, a, [role=switch], [data-swatch], [data-shortcut-row]")) send({ type: "moveWindow" }); }} role="dialog" aria-label={a.settings.title}>
+        <header className={s.windowBar} data-drag-region>
           {mac ? <span className={s.lights}><button onClick={() => send({ type: "close" })} aria-label={a.settings.close}/><button onClick={() => send({ type: "minimizePreferences" })} aria-label={shortcutCopy[locale].minimize}/><i/></span> : <img src="icon.svg" width="16" height="16" alt=""/>}
           <span>{a.settings.title}</span>
           {!mac && <span className="native-window-controls"><button className="native-minimize" onClick={() => send({ type: "minimizePreferences" })} aria-label={shortcutCopy[locale].minimize}>−</button><button className={s.windowClose} onClick={() => send({ type: "close" })} aria-label={a.settings.close}>×</button></span>}

@@ -1,5 +1,6 @@
 import AppKit
 import Carbon
+import ApplicationServices
 import SnapSlotCore
 
 enum ShortcutTarget: String, Codable { case text, open }
@@ -11,6 +12,38 @@ struct ShortcutChange: Codable {
 struct ShortcutResolution {
     let preferences: AppPreferences
     let changes: [ShortcutChange]
+}
+
+/// Scoped to the foreground recorder; always restore the previous system mode.
+final class ShortcutRecording {
+    private var token: UnsafeMutableRawPointer?
+    var active: Bool {token != nil}
+    func begin() throws {
+        guard token == nil else{return}
+        guard NSApp.isActive,AXIsProcessTrusted() else {
+            throw NSError(domain:"SnapSlot.Recording",code:1,userInfo:[NSLocalizedDescriptionKey:Locale.preferredLanguages.first?.hasPrefix("zh")==true ? "请先允许 SnapSlot 的辅助功能权限，再录入快捷键，以免触发其他应用。":"Allow SnapSlot in Accessibility before recording, so other apps do not handle the shortcut."])
+        }
+        let mode=OptionBits(kHIHotKeyModeAllDisabledExceptUniversalAccess)
+        token=PushSymbolicHotKeyMode(mode)
+        guard token != nil,GetSymbolicHotKeyMode()==mode else {
+            end()
+            throw NSError(domain:"SnapSlot.Recording",code:2,userInfo:[NSLocalizedDescriptionKey:"Could not pause global shortcuts. Try recording again."])
+        }
+    }
+    func end() {if let token {PopSymbolicHotKeyMode(token);self.token=nil}}
+    func keyMessage(_ event:NSEvent) -> [String:Any] {
+        let letters:[UInt16]=[0,11,8,2,14,3,5,4,34,38,40,37,46,45,31,35,12,15,1,17,32,9,13,7,16,6]
+        let digits:[UInt16]=[29,18,19,20,21,23,22,26,28,25]
+        let functions:[UInt16]=[122,120,99,118,96,97,98,100,101,109,103]
+        let key=event.keyCode,code:String
+        if let index=letters.firstIndex(of:key) {code="Key"+String(UnicodeScalar(65+index)!)}
+        else if let index=digits.firstIndex(of:key) {code="Digit\(index)"}
+        else if let index=functions.firstIndex(of:key) {code="F\(index+1)"}
+        else {code=key==49 ? "Space":key==53 ? "Escape":"Unknown"}
+        let flags=event.modifierFlags
+        return ["type":"shortcutKey","code":code,"key":code,"down":event.type == .keyDown,"control":flags.contains(.control),"alt":flags.contains(.option),"shift":flags.contains(.shift),"meta":flags.contains(.command),"repeat":event.type == .keyDown && event.isARepeat]
+    }
+    deinit {end()}
 }
 
 final class HotKeys {
@@ -40,7 +73,9 @@ final class HotKeys {
         else {throw PreferencesError.invalidShortcut}
         let modifiers=UInt32((shortcut.control ? controlKey:0) | (shortcut.alt ? optionKey:0) | (shortcut.shift ? shiftKey:0) | (shortcut.meta ? cmdKey:0))
         var reference:EventHotKeyRef?
-        let result=RegisterEventHotKey(key,modifiers,EventHotKeyID(signature:0x53534c54,id:id),GetApplicationEventTarget(),0,&reference)
+        // Shared registration can succeed even when another app owns this key.
+        // Request exclusivity so unavailable combinations reach the fallback path.
+        let result=RegisterEventHotKey(key,modifiers,EventHotKeyID(signature:0x53534c54,id:id),GetApplicationEventTarget(),OptionBits(kEventHotKeyExclusive),&reference)
         guard result==noErr,let reference else {throw NSError(domain:"SnapSlot.HotKey",code:Int(result),userInfo:[NSLocalizedDescriptionKey:"\(shortcut.display) — "+(Locale.preferredLanguages.first?.hasPrefix("zh")==true ? "快捷键不可用，请换一个组合。":"Shortcut unavailable. Choose another combination.")])}
         references.append(reference)
     }

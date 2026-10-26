@@ -36,6 +36,12 @@ A successful compile or browser run does not establish physical-machine behavior
    Click either row to record a new combination; confirm the other action stays
    registered, standard Copy is rejected and Escape cancels without closing settings.
    Cancel, close or switch apps during recording and confirm both shortcuts resume.
+   With QQ running, record its screenshot combination: no screenshot should start.
+   Verify global shortcuts work again after commit, Escape, close and app switching.
+   Without Mac Accessibility permission, recording must stop with an explanation
+   rather than accepting keys without protection. Open settings over pinned images;
+   it must stay above them while active. Drag the title and blank margins; controls
+   must remain clickable. Check all four window corners against a dark background.
    Minimize settings, then open Settings from the status menu: the same window must
    restore, become key and activate the app. A fresh image must not replay its
    entrance or drop opacity when its temporary arrival marker expires.
@@ -56,6 +62,7 @@ npm run build --prefix apps/website
 npm run build:native --prefix apps/website
 npm test --prefix apps/website
 ./scripts/build-macos.sh
+bash scripts/check-macos-hotkeys.sh
 artifacts/macos/SnapSlot.app/Contents/MacOS/SnapSlot --smoke-test /tmp/snapslot-qa
 ```
 
@@ -68,6 +75,12 @@ preferences. They verify real WKWebView/AppKit behavior without reading selectio
 from other apps, requesting screen capture or changing the general clipboard.
 Windows logical checks exercise preferences and edge rules; Windows smoke rendering
 and actual file drops must run on Windows.
+
+The focused Mac shortcut check runs a separate process holding exclusive shortcuts.
+It reproduces the shared-registration false success, then verifies rejection,
+automatic replacements, notices, rollback and recording with the production code.
+The Mac build runs this check automatically. Same-process registration tests alone
+cannot cover the cross-app conflict reported with QQ.
 
 Keep generated QA output outside `artifacts` when retaining only the latest package.
 The Mac build is ad-hoc signed. Public signing/notarization and an installer are not

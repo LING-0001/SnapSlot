@@ -8,6 +8,8 @@ export type Message =
   | { type: "state"; items: NativeItem[]; locale: string; expanded: boolean; reducedMotion: boolean; focus?: boolean; pinned: boolean; arming: boolean; appearance: Appearance; count: number; platform?: "macos" | "windows" }
   | { type: "preferences"; value: AppPreferences; platform: "macos" | "windows"; shortcutChanges?: ShortcutChange[] }
   | { type: "recordingCancelled" }
+  | { type: "recordingReady" }
+  | { type: "shortcutKey"; code: string; key: string; down: boolean; control: boolean; alt: boolean; shift: boolean; meta: boolean; repeat: boolean }
   | { type: "copied"; id: string }
   | { type: "pointer"; x: number | null; y: number | null }
   | { type: "error"; message: string };
