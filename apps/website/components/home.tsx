@@ -400,7 +400,7 @@ export function Home({ locale }: { locale: Locale }) {
       return;
     }
     if (edgeArmed.current) { edgeArmed.current = false; cancel("dwell"); setArming(false); }
-    if (!open || pinned || settings || menu || coach === "drag") return;
+    if (!open || pinned || menu || coach === "drag") return;
     if (y > dialBottom) {
       if (!leaving.current) { leaving.current = true; later("leave", GRACE_MS, close); }
     } else if (leaving.current) { leaving.current = false; cancel("leave"); }

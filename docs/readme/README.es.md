@@ -58,7 +58,7 @@ Las mismas notas y gestos en ambos; cada uno usa las funciones de su sistema de 
 | Fijar texto seleccionado | <kbd>Ctrl</kbd> <kbd>Alt</kbd> <kbd>T</kbd> | <kbd>⌃</kbd> <kbd>⌥</kbd> <kbd>T</kbd> |
 | Elegir / copiar / quitar / ocultar | <kbd>←</kbd> <kbd>→</kbd> / <kbd>Enter</kbd> / <kbd>Delete</kbd> / <kbd>Esc</kbd> | <kbd>←</kbd> <kbd>→</kbd> / <kbd>Enter</kbd> / <kbd>Delete</kbd> / <kbd>Esc</kbd> |
 
-Ajustes muestra los atajos actuales.
+La tabla muestra los valores predeterminados. En macOS y Windows, pulsa un atajo en Ajustes para cambiarlo. Si está en uso, se registra y muestra una combinación disponible.
 
 ## Privacidad
 

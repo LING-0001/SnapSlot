@@ -5,11 +5,13 @@ import { locales, localeNames, type Locale } from "../website/lib/locales";
 import { navigateMenu } from "../website/lib/menu-navigation";
 import s from "../website/components/home.module.css";
 import "../website/assets/fonts/fonts.css";
-import { send, type Appearance, type AppPreferences, type Message, type NativeItem, type Surface } from "./protocol";
+import { send, type Appearance, type AppPreferences, type Message, type NativeItem, type Surface, type Shortcut, type ShortcutTarget, type ShortcutChange } from "./protocol";
+import { shortcutCopy } from "./shortcut-copy";
 import "./native.css";
 
 const appearances: Appearance[] = ["glass", "paper", "graphite"];
-const defaults: AppPreferences = { collectImages: true, textShortcut: { key: "KeyT", control: true, alt: true, shift: false, meta: false } };
+const openShortcut: Shortcut = { key: "Space", control: true, alt: true, shift: false, meta: false };
+const defaults: AppPreferences = { collectImages: true, textShortcut: { ...openShortcut, key: "KeyT" }, openShortcut };
 function Toggle({ on, label, onChange }: { on: boolean; label: string; onChange: () => void }) {
   return <button className={`${s.toggle} ${on ? s.toggleOn : ""}`} role="switch" aria-checked={on} aria-label={label} onClick={onChange}><span/></button>;
 }
@@ -25,6 +27,9 @@ function App() {
   const [count, setCount] = useState(0), [focus, setFocus] = useState(0), [focusRequest, setFocusRequest] = useState(0);
   const [narrow, setNarrow] = useState(() => matchMedia("(max-width: 760px)").matches);
   const [fresh, setFresh] = useState<string[]>([]), [copied, setCopied] = useState(""), [notice, setNotice] = useState("");
+  const [shortcutChanges, setShortcutChanges] = useState<ShortcutChange[]>([]);
+  const [recording, setRecording] = useState<ShortcutTarget | null>(null), [recordError, setRecordError] = useState("");
+  const settingsPanel = useRef<HTMLElement>(null), settingsHeight = useRef(0);
   const dial = useRef<HTMLDivElement>(null), known = useRef(new Map<string, NativeItem>()), initialized = useRef(false);
   const focusId = useRef(""), timers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const focusAfterRemoval = useRef(false);
@@ -61,7 +66,8 @@ function App() {
         }
         initialized.current = true; known.current = new Map(next.map(item => [item.id, item]));
         if (message.focus) setFocusRequest(value => value + 1);
-      } else if (message.type === "preferences") { setPreferences(message.value); setPlatform(message.platform); }
+      } else if (message.type === "preferences") { setPreferences(message.value); setPlatform(message.platform); setShortcutChanges(message.shortcutChanges || []); }
+      else if (message.type === "recordingCancelled") { setRecording(null); }
       else if (message.type === "copied") { setCopied(message.id); later("copied", () => setCopied(""), 1400); }
       else if (message.type === "pointer") {
         hostPointer.current = message.x !== null && message.y !== null ? { x: message.x, y: message.y } : null;
@@ -125,14 +131,57 @@ function App() {
     return () => node.removeEventListener("wheel", onWheel);
   }, []);
   useEffect(() => {
-    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") send({ type: mode === "rail" ? "collapse" : "close" }); };
+    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape" && !recording) send({ type: mode === "rail" ? "collapse" : "close" }); };
     addEventListener("keydown", onKey); return () => removeEventListener("keydown", onKey);
-  }, [mode]);
+  }, [mode, recording]);
+  useEffect(() => {
+    if (!recording) return;
+    let candidate: Shortcut | null = null;
+    const copy = shortcutCopy[locale];
+    const down = (event: KeyboardEvent) => {
+      event.preventDefault(); event.stopImmediatePropagation();
+      if (event.key === "Escape") { setRecording(null); return; }
+      if (event.repeat || /^(Control|Alt|Shift|Meta)(Left|Right)$/.test(event.code)) return;
+      candidate = null;
+      if (!/^(Key[A-Z]|Digit[0-9]|Space|F([1-9]|10|11))$/.test(event.code) || !(event.ctrlKey || event.altKey || event.metaKey)) { setRecordError(copy.invalid.replaceAll("Control", platform === "windows" ? "Ctrl" : "Control").replaceAll("Option", platform === "windows" ? "Alt" : "Option").replaceAll("Command", platform === "windows" ? "Win" : "Command")); return; }
+      const value = { key: event.code, control: event.ctrlKey, alt: event.altKey, shift: event.shiftKey, meta: event.metaKey };
+      if (value.key === "KeyC" && !value.alt && !value.shift && value.control !== value.meta) { setRecordError(copy.copyReserved); return; }
+      setRecordError(""); candidate = value;
+    };
+    const up = (event: KeyboardEvent) => {
+      if (!candidate || event.code !== candidate.key) return;
+      event.preventDefault(); event.stopImmediatePropagation();
+      // Register after the key is released, so recording does not trigger its action.
+      send({ type: "savePreferences", value: { ...preferences, [recording === "text" ? "textShortcut" : "openShortcut"]: candidate }, editingShortcut: recording });
+      candidate = null; setRecording(null);
+    };
+    const cancel = () => setRecording(null);
+    const outside = (event: PointerEvent) => { if (!(event.target as HTMLElement).closest(`[data-shortcut-row="${recording}"]`)) cancel(); };
+    send({ type: "beginShortcutRecording" });
+    addEventListener("keydown", down, true); addEventListener("keyup", up, true); addEventListener("blur", cancel); addEventListener("pointerdown", outside, true);
+    return () => { removeEventListener("keydown", down, true); removeEventListener("keyup", up, true); removeEventListener("blur", cancel); removeEventListener("pointerdown", outside, true); send({ type: "endShortcutRecording" }); };
+  }, [recording, platform]);
+  useLayoutEffect(() => {
+    if (!settingsPanel.current) return;
+    const body = settingsPanel.current.querySelector<HTMLElement>(`.${s.windowBody}`)!;
+    const header = settingsPanel.current.querySelector<HTMLElement>("header")!;
+    const height = Math.ceil(header.offsetHeight + body.scrollHeight);
+    if (height !== settingsHeight.current) { settingsHeight.current = height; send({ type: "resizePreferences", height }); }
+  }, [platform, shortcutChanges, recording, recordError, locale]);
   const savePreferences = (next: AppPreferences) => send({ type: "savePreferences", value: next });
   const togglePin = () => send({ type: pinned ? "unpin" : "pin" });
   const closeMenu = () => send({ type: "close" });
   const mac = platform === "macos";
   const keys = (value: AppPreferences["textShortcut"]) => [value.control ? (mac ? "⌃" : "Ctrl") : "", value.alt ? (mac ? "⌥" : "Alt") : "", value.shift ? (mac ? "⇧" : "Shift") : "", value.meta ? (mac ? "⌘" : "Win") : "", value.key.replace(/^Key|^Digit/, "")].filter(Boolean);
+  const shortcutRow = (target: ShortcutTarget, title: string, value: Shortcut) => {
+    const copy = shortcutCopy[locale], change = shortcutChanges.find(change => change.target === target);
+    const hint = recording === target ? recordError || copy.hint : change ? copy.conflict.replace("{old}", keys(change.requested).join(" + ")).replace("{new}", keys(change.replacement).join(" + ")) : "";
+    return <div className="native-shortcut-row" data-shortcut-row={target}><div className={s.row}><span>{title}</span>
+      {<button className="native-shortcut" aria-label={`${title} · ${copy.change}`} aria-pressed={recording === target} title={copy.change} onClick={() => { setRecordError(""); setRecording(recording === target ? null : target); }}>
+        {recording === target ? <span>{copy.record}</span> : <><Keys keys={keys(value)}/><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="m10.5 2.5 3 3M3 10l7-7a2.12 2.12 0 0 1 3 3l-7 7-4 1 1-4Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/></svg></>}
+      </button>}
+    </div>{hint && <p className="native-shortcut-hint" role="status" aria-live="polite">{hint}</p>}</div>;
+  };
   const remove = (item: NativeItem, index: number) => {
     const next = items[index - 1] || items[index + 1]; focusId.current = next?.id || "";
     focusAfterRemoval.current = !!document.activeElement?.closest("[data-arm]");
@@ -150,19 +199,19 @@ function App() {
         <button role="menuitemcheckbox" aria-checked={pinned} onClick={() => { togglePin(); closeMenu(); }}><span className={s.check}>{pinned ? "✓" : ""}</span>{a.menu.pin}</button>
         <hr/>
         <button role="menuitem" onClick={() => send({ type: "quit" })}><span className={s.check}/>{a.menu.quit}</button>
-      </div> : mode !== "rail" ? <section className={`${s.window} native-window`} role="dialog" aria-label={a.settings.title}>
+      </div> : mode !== "rail" ? <section ref={settingsPanel} className={`${s.window} native-window`} role="dialog" aria-label={a.settings.title}>
         <header className={s.windowBar} data-drag-region onPointerDown={event => { if (!(event.target as HTMLElement).closest("button")) send({ type: "moveWindow" }); }}>
-          {mac ? <span className={s.lights}><button onClick={() => send({ type: "close" })} aria-label={a.settings.close}/><i/><i/></span> : <img src="icon.svg" width="16" height="16" alt=""/>}
+          {mac ? <span className={s.lights}><button onClick={() => send({ type: "close" })} aria-label={a.settings.close}/><button onClick={() => send({ type: "minimizePreferences" })} aria-label={shortcutCopy[locale].minimize}/><i/></span> : <img src="icon.svg" width="16" height="16" alt=""/>}
           <span>{a.settings.title}</span>
-          {!mac && <button className={s.windowClose} onClick={() => send({ type: "close" })} aria-label={a.settings.close}>×</button>}
+          {!mac && <span className="native-window-controls"><button className="native-minimize" onClick={() => send({ type: "minimizePreferences" })} aria-label={shortcutCopy[locale].minimize}>−</button><button className={s.windowClose} onClick={() => send({ type: "close" })} aria-label={a.settings.close}>×</button></span>}
         </header>
         <div className={s.windowBody}>
           <div className={s.row}><span>{a.menu.intake}<small>{a.settings.intakeHint}</small></span><Toggle on={preferences.collectImages} label={a.menu.intake} onChange={() => savePreferences({ ...preferences, collectImages: !preferences.collectImages })}/></div>
           <div className={s.row}><span>{a.menu.pin}<small>{a.settings.pinHint}</small></span><Toggle on={pinned} label={a.menu.pin} onChange={togglePin}/></div>
           <div className={s.row}><span>{a.settings.look}</span><span className={s.miniSkins}>{appearances.map((option, index) => <button key={option} className={`${s.miniSkin} ${appearance === option ? s.miniSkinOn : ""}`} data-swatch={option} onClick={() => send({ type: "setAppearance", value: option })} aria-label={a.skins[index]} aria-pressed={appearance === option}/>)}</span></div>
           <label className={s.row}><span>{a.settings.language}</span><select className={s.select} value={locale} onChange={event => send({ type: "setLocale", value: event.target.value })}>{locales.map(value => <option key={value} value={value} lang={value}>{localeNames[value]}</option>)}</select></label>
-          <div className={s.row}><span>{a.settings.pinText}</span><Keys keys={keys(preferences.textShortcut)}/></div>
-          <div className={s.row}><span>{a.settings.openNotes}</span><Keys keys={keys({key:"Space",control:true,alt:true,shift:false,meta:false})}/></div>
+          {shortcutRow("text", a.settings.pinText, preferences.textShortcut)}
+          {shortcutRow("open", a.settings.openNotes, preferences.openShortcut || openShortcut)}
           <div className={s.row}><span>{fill(a.settings.count, count)}</span><button className={s.danger} disabled={!count} onClick={() => send({ type: "clearNotes" })}>{a.settings.clear}</button></div>
         </div>
       </section> : <>

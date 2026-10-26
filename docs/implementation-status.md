@@ -5,8 +5,12 @@ bundle imports website styles and six-language copy directly. Windows and macOS
 implement their own clipboard, shortcut, selected-text, window and drag operations.
 
 Implemented product controls are automatic clipboard-image collection, pinning,
-glass/paper/graphite appearance, language, shortcut labels and clearing the session.
-The session limit is 30. There is no separate JSON appearance system or manual
+glass/paper/graphite appearance, language, shortcuts and clearing the session.
+Both desktop settings can record both shortcuts, automatically register available replacements
+for occupied combinations and show a persistent explanation beside the changed action.
+Minimized desktop settings restore to the foreground when opened from the status menu.
+Unpinned notes dismiss on pointer departure even with settings foreground, background
+or minimized. The session limit is 30. There is no separate JSON appearance system or manual
 image/text import UI. The app does not start screen capture or monitor image folders.
 
 Tests and acceptance commands are maintained in `CONTRIBUTING.md` and

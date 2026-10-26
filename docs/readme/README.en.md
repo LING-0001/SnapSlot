@@ -58,7 +58,7 @@ Same notes and gestures on both; each uses its own system features natively. The
 | Pin selected text | <kbd>Ctrl</kbd> <kbd>Alt</kbd> <kbd>T</kbd> | <kbd>⌃</kbd> <kbd>⌥</kbd> <kbd>T</kbd> |
 | Choose / copy / remove / hide | <kbd>←</kbd> <kbd>→</kbd> / <kbd>Enter</kbd> / <kbd>Delete</kbd> / <kbd>Esc</kbd> | <kbd>←</kbd> <kbd>→</kbd> / <kbd>Enter</kbd> / <kbd>Delete</kbd> / <kbd>Esc</kbd> |
 
-Settings shows the current shortcuts.
+The table shows defaults. On macOS and Windows, click either shortcut in Settings to change it. If a combination is in use, an available replacement is registered and shown.
 
 ## Privacy
 

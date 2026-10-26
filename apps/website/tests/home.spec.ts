@@ -385,3 +385,17 @@ for (const platform of ["mac", "win"] as const) test(`${platform}: demo stays co
   }
   await context.close();
 });
+
+for (const os of ["mac", "win"] as const) {
+  test(`${os}: unpinned notes still dismiss while Settings remains open`, async ({ page }) => {
+    await page.goto("/en/"); await skipCoach(page);
+    await page.getByRole("button", { name: os === "mac" ? "macOS" : "Windows", exact: true }).click();
+    await edge(page, 5); await expect.poll(() => fanOpacity(page)).toBe(1);
+    await page.getByRole("button", { name: os === "mac" ? homeCopy.en.menu.trayMac : homeCopy.en.menu.trayWin }).click({ button: "right" });
+    await page.getByRole("menuitem", { name: homeCopy.en.menu.settings }).click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await edge(page, 420);
+    await expect.poll(() => fanOpacity(page)).toBe(0);
+    await expect(page.getByRole("dialog")).toBeVisible();
+  });
+}

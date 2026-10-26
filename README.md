@@ -58,7 +58,7 @@ Windows 右键托盘图标，Mac 单击菜单栏图标：**设置…**、**自�
 | 收取选中文字 | <kbd>Ctrl</kbd> <kbd>Alt</kbd> <kbd>T</kbd> | <kbd>⌃</kbd> <kbd>⌥</kbd> <kbd>T</kbd> |
 | 挑选 / 复制 / 移除 / 收起 | <kbd>←</kbd> <kbd>→</kbd> / <kbd>Enter</kbd> / <kbd>Delete</kbd> / <kbd>Esc</kbd> | <kbd>←</kbd> <kbd>→</kbd> / <kbd>Enter</kbd> / <kbd>Delete</kbd> / <kbd>Esc</kbd> |
 
-设置中可查看当前快捷键。
+表中为默认快捷键。Mac 和 Windows 设置中均可点击组合键修改；遇到占用时会自动选择可用组合，并显示实际生效的快捷键。
 
 ## 隐私
 

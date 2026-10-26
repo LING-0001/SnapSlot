@@ -30,9 +30,20 @@ A successful compile or browser run does not establish physical-machine behavior
    dot to the status/tray icon; unpinning, Escape and hiding notes clear it. Check
    both menu and settings switches and retain the dot after receiving/copying notes.
 9. Settings is the compact website window: collection, pinning, three appearances,
-   language, two shortcut labels, count and Clear all. Changes apply immediately.
+   language, two shortcuts, count and Clear all. Changes apply immediately.
+   On both platforms, occupy both preferred combinations before startup: each receives an
+   actually registered replacement and a persistent explanation in its settings row.
+   Click either row to record a new combination; confirm the other action stays
+   registered, standard Copy is rejected and Escape cancels without closing settings.
+   Cancel, close or switch apps during recording and confirm both shortcuts resume.
+   Minimize settings, then open Settings from the status menu: the same window must
+   restore, become key and activate the app. A fresh image must not replay its
+   entrance or drop opacity when its temporary arrival marker expires.
    Appearance/language/collection survive restart; session notes do not. Closing
    settings, receiving notes and dragging preserve pinning.
+   With settings foreground, background and minimized, move below the unpinned fan:
+   notes must dismiss while settings remains available. Repeat while pinned to
+   confirm notes remain visible. Reveal again at the edge while settings exists.
 10. Check all six locales, reduced motion, screen-reader/keyboard access, two
     monitors, mixed DPI, negative origins, hotplug, sleep/wake and full-screen apps.
     Measure performance separately; no refresh-rate or idle-cost guarantee is made.

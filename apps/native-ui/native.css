@@ -16,3 +16,12 @@ body { user-select: none; -webkit-user-select: none; }
 .native-page .host-hover button[aria-label]:last-child { opacity: 1; transform: none; }
 .reduce-motion .native-page *, .reduce-motion .native-page *::before, .reduce-motion .native-page *::after { transition: none !important; animation: none !important; }
 .native-page { --font-latin: "Inter Tight"; --font-han: "Noto Sans SC"; }
+.native-page .native-shortcut { display: flex; align-items: center; justify-content: flex-end; gap: 7px; flex: none; max-width: 58%; min-height: 32px; padding: 3px 4px; border-radius: 6px; transition: background 120ms; }
+.native-page .native-shortcut:hover, .native-page .native-shortcut[aria-pressed="true"] { background: #0a84ff14; }
+.native-page .native-shortcut svg { flex: none; opacity: .6; }
+.native-page .native-shortcut[aria-pressed="true"] { color: #0656a8; box-shadow: 0 0 0 1px #0a84ff66; padding: 5px 8px; }
+.native-page .native-shortcut-hint { margin: 5px 14px 8px; color: #815000; font-size: 11px; line-height: 1.55; overflow-wrap: anywhere; }
+
+.native-window-controls { display: flex; align-items: center; margin-left: auto; gap: 4px; }
+.native-page .native-minimize { width: 30px; height: 24px; border-radius: 4px; font-size: 20px; line-height: 1; }
+.native-page .native-minimize:hover { background: #0000000d; }

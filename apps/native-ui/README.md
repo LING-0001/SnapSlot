@@ -11,6 +11,12 @@ IDs and validated commands; it cannot authorize arbitrary file paths or processe
 Mac supplies behind-window materials and always-active pointer tracking. The Windows
 bridge uses WebView2 messages and native cursor coordinates.
 
+Both desktop shortcut settings record both combinations, show registered conflict replacements,
+and report their content height to their host so explanations fit. The bridge suspends
+this app's shortcuts during recording and restores them on commit, cancel or blur.
+Settings never suppresses unpinned pointer dismissal or top-edge reveal. Temporary arrival
+markers change CSS animation parameters rather than restarting the animation.
+
 ```sh
 npm run build:native --prefix apps/website
 apps/website/node_modules/.bin/tsc -p apps/native-ui/tsconfig.json

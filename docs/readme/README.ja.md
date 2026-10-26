@@ -58,7 +58,7 @@ Windows はトレイアイコンを右クリック、Mac はメニューバー�
 | 選択テキストをピン留め | <kbd>Ctrl</kbd> <kbd>Alt</kbd> <kbd>T</kbd> | <kbd>⌃</kbd> <kbd>⌥</kbd> <kbd>T</kbd> |
 | 選ぶ / コピー / 削除 / 閉じる | <kbd>←</kbd> <kbd>→</kbd> / <kbd>Enter</kbd> / <kbd>Delete</kbd> / <kbd>Esc</kbd> | <kbd>←</kbd> <kbd>→</kbd> / <kbd>Enter</kbd> / <kbd>Delete</kbd> / <kbd>Esc</kbd> |
 
-設定で現在のショートカットを確認できます。
+表は初期設定です。macOS と Windows の設定でキーをクリックして変更できます。使用中の場合は利用可能な組み合わせに切り替え、実際のキーを表示します。
 
 ## プライバシー
 

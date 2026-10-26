@@ -11,19 +11,21 @@ async function host(page: Page, mode = "rail", count = 8, platform: "macos" | "w
     const w = window as any;
     w.commands = [];
     w.state = { type: "state", items: Array.from({ length: count }, (_, i) => ({ id: `note-${i}`, kind: "text", title: `Note ${i}`, text: `周五前：\n· 定下图标\n· 更新截图\n· 发给设计组看\n${i}` })), expanded: true, arming: false, pinned: false, appearance: "glass", count, locale: "zh-Hans", reducedMotion: false, platform };
-    w.preferences = { collectImages: true, textShortcut: { key: "KeyT", control: true, alt: true, shift: false, meta: false } };
+    w.preferences = { collectImages: true, textShortcut: { key: "KeyT", control: true, alt: true, shift: false, meta: false }, openShortcut: { key: "Space", control: true, alt: true, shift: false, meta: false } };
+    w.shortcutChanges = [];
     w.emit = (message: any) => platform === "windows" ? w.hostListener({ data: message }) : w.snapslotReceive(message);
     const postMessage = (command: any) => {
       w.commands.push(command);
       if (command.type === "surfaces" || command.type === "moveWindow" || command.type === "drag" || command.type === "close") return;
+      if (["beginShortcutRecording", "endShortcutRecording", "resizePreferences", "minimizePreferences"].includes(command.type)) return;
       if (command.type === "setAppearance") w.state.appearance = command.value;
       if (command.type === "setLocale") w.state.locale = command.value;
       if (command.type === "pin") { w.state.pinned = true; w.state.expanded = true; }
       if (command.type === "unpin" || command.type === "collapse") { w.state.pinned = false; w.state.expanded = false; }
       if (command.type === "clearNotes") { w.state.items = []; w.state.count = 0; }
       if (command.type === "remove") { w.state.items = w.state.items.filter((item: any) => item.id !== command.id); w.state.count = w.state.items.length; }
-      if (command.type === "savePreferences") w.preferences = command.value;
-      w.emit(w.state); w.emit({ type: "preferences", value: w.preferences, platform });
+      if (command.type === "savePreferences") { w.preferences = command.value; if (command.editingShortcut) w.shortcutChanges = w.shortcutChanges.filter((change: any) => change.target !== command.editingShortcut); }
+      w.emit(w.state); w.emit({ type: "preferences", value: w.preferences, platform, shortcutChanges: w.shortcutChanges });
       if (command.type === "copy") w.emit({ type: "copied", id: command.id });
     };
     if (platform === "windows") w.chrome = { ...w.chrome, webview: { postMessage, addEventListener: (_: string, listener: any) => { w.hostListener = listener; }, removeEventListener: () => {} } };
@@ -154,6 +156,64 @@ test("arrivals animate, reduced motion disables animation, collapsed cards canno
   await focused(page).press("Escape");
   await expect(page.locator("[role=list]")).toHaveAttribute("inert", "");
 });
+
+for (const platform of ["macos", "windows"] as const) {
+test(`${platform}: a new image never replays its entrance or flashes when its fresh marker expires`, async ({ page }) => {
+  await host(page, "rail", 1, platform);
+  await page.evaluate(() => {
+    const w = window as any; w.arrivalStarts = []; w.arrivalOpacity = [];
+    document.addEventListener("animationstart", event => { const e = event as AnimationEvent; if ((e.target as HTMLElement).matches('[data-arm="new-image"] > div')) w.arrivalStarts.push(e.animationName); });
+    w.state.items.push({ id: "new-image", kind: "image", title: "New image", preview: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="skyblue"/></svg>' });
+    w.state.count = 2; w.emit(w.state);
+    const start = performance.now();
+    const sample = () => { const elapsed = performance.now() - start; const card = document.querySelector('[data-arm="new-image"] > div'); if (elapsed > 700 && card) w.arrivalOpacity.push(Number(getComputedStyle(card).opacity)); if (elapsed < 2050) requestAnimationFrame(sample); };
+    requestAnimationFrame(sample);
+  });
+  await expect(focused(page)).toHaveAttribute("data-note", "new-image");
+  await page.waitForTimeout(2150);
+  expect(await page.evaluate(() => (window as any).arrivalStarts)).toHaveLength(1);
+  expect(await page.evaluate(() => Math.min(...(window as any).arrivalOpacity))).toBeGreaterThan(.99);
+});
+
+test(`${platform}: occupied shortcuts show persistent replacements and both actions can be rebound`, async ({ page }) => {
+  await page.setViewportSize({ width: 420, height: 560 }); await host(page, "preferences", 8, platform);
+  await page.evaluate(platform => {
+    const w = window as any, oldText = w.preferences.textShortcut, oldOpen = w.preferences.openShortcut;
+    w.preferences = { ...w.preferences, textShortcut: { ...oldText, shift: true }, openShortcut: { ...oldOpen, shift: true } };
+    w.shortcutChanges = [{ target: "text", requested: oldText, replacement: w.preferences.textShortcut }, { target: "open", requested: oldOpen, replacement: w.preferences.openShortcut }];
+    w.emit({ type: "preferences", value: w.preferences, platform, shortcutChanges: w.shortcutChanges });
+  }, platform);
+  const text = page.locator('[data-shortcut-row="text"]'), open = page.locator('[data-shortcut-row="open"]');
+  await expect(text.getByRole("status")).toContainText("被占用，已修改为");
+  await expect(open.getByRole("status")).toContainText("被占用，已修改为");
+  await expect(open.locator("kbd")).toContainText(platform === "macos" ? ["⌃", "⌥", "⇧", "Space"] : ["Ctrl", "Alt", "Shift", "Space"]);
+  await text.getByRole("button").click(); await page.keyboard.press("Control+Alt+y");
+  await expect(text.locator("kbd")).toContainText(platform === "macos" ? ["⌃", "⌥", "Y"] : ["Ctrl", "Alt", "Y"]);
+  await expect(text.getByRole("status")).toHaveCount(0);
+  await expect(open.getByRole("status")).toContainText("被占用，已修改为");
+  await open.getByRole("button").click(); await page.keyboard.press("Control+Alt+Shift+o");
+  await expect(open.locator("kbd")).toContainText(platform === "macos" ? ["⌃", "⌥", "⇧", "O"] : ["Ctrl", "Alt", "Shift", "O"]);
+  expect(await page.evaluate(() => (window as any).commands.filter((c: any) => c.type === "savePreferences").map((c: any) => c.editingShortcut))).toEqual(["text", "open"]);
+  await page.screenshot({ path: path.join(output, `${platform}-editable-shortcuts.png`), omitBackground: true });
+});
+
+test(`${platform}: shortcut recording rejects invalid Copy, Escape cancels without closing, and minimizing uses its own command`, async ({ page }) => {
+  await host(page, "preferences", 8, platform);
+  const row = page.locator('[data-shortcut-row="text"]');
+  await row.getByRole("button").click(); await page.keyboard.press("Meta+c");
+  await expect(row.getByRole("status")).toContainText("复制");
+  await page.keyboard.press("Escape"); await expect(row.getByRole("button")).toHaveAttribute("aria-pressed", "false");
+  await expect(page.getByRole("dialog")).toBeVisible();
+  expect(await page.evaluate(() => (window as any).commands.some((c: any) => c.type === "close" || c.type === "savePreferences"))).toBe(false);
+  await row.getByRole("button").click();
+  await page.evaluate(() => dispatchEvent(new Event("blur")));
+  await expect(row.getByRole("button")).toHaveAttribute("aria-pressed", "false");
+  expect(await page.evaluate(() => (window as any).commands.some((c: any) => c.type === "endShortcutRecording"))).toBe(true);
+  await page.getByRole("button", { name: "最小化设置", exact: true }).click();
+  expect(await page.evaluate(() => (window as any).commands.filter((c: any) => c.type === "minimizePreferences").length)).toBe(1);
+});
+
+}
 
 test("the entire native interface loads offline without network requests or missing fonts", async ({ page }) => {
   const requests: string[] = [], errors: string[] = [];

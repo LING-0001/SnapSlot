@@ -19,14 +19,19 @@ internal sealed record Shortcut(string Key,bool Control=true,bool Alt=true,bool 
         if(Key=="KeyC"&&!Alt&&!Shift&&Control!=Meta)throw new ArgumentException("Keep Ctrl+C available for ordinary Copy. Choose another shortcut.");
     }
 }
-internal sealed record AppPreferences(bool CollectImages,Shortcut TextShortcut)
+internal sealed record AppPreferences
 {
+    public bool CollectImages {get;init;}
+    public Shortcut TextShortcut {get;init;}
+    public Shortcut OpenShortcut {get;init;}
+    [JsonConstructor]public AppPreferences(bool collectImages,Shortcut textShortcut,Shortcut? openShortcut=null)
+    {CollectImages=collectImages;TextShortcut=textShortcut;OpenShortcut=openShortcut??Shortcut.Open;}
     public static AppPreferences Default=>new(true,new("KeyT"));
     public void Validate()
     {
         if(TextShortcut is null)throw new ArgumentException("The text shortcut is required.");
-        TextShortcut.Validate();
-        if(TextShortcut==Shortcut.Open)throw new ArgumentException("Ctrl+Alt+Space is reserved for opening notes.");
+        TextShortcut.Validate();OpenShortcut.Validate();
+        if(TextShortcut==OpenShortcut)throw new ArgumentException("Use a different shortcut for each action.");
     }
 }
 internal sealed class PreferencesStore
@@ -41,7 +46,8 @@ internal sealed class PreferencesStore
             using var document=JsonDocument.Parse(File.ReadAllText(path));var root=document.RootElement;
             bool intake=root.TryGetProperty("collectImages",out var current)?current.GetBoolean():root.TryGetProperty("collectScreenshots",out var legacy)?legacy.GetBoolean():legacyCollection;
             var text=root.TryGetProperty("textShortcut",out var binding)?JsonSerializer.Deserialize<Shortcut>(binding.GetRawText(),Json):null;
-            var value=new AppPreferences(intake,text??AppPreferences.Default.TextShortcut);value.Validate();Value=value;
+            var opening=root.TryGetProperty("openShortcut",out var open)?JsonSerializer.Deserialize<Shortcut>(open.GetRawText(),Json):null;
+            var value=new AppPreferences(intake,text??AppPreferences.Default.TextShortcut,opening);value.Validate();Value=value;
         }
         catch(Exception ex) when(ex is IOException or UnauthorizedAccessException or JsonException or ArgumentException or InvalidOperationException){}
     }

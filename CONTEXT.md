@@ -8,8 +8,8 @@ hosts use `apps/native-ui`; there is no second note renderer or appearance edito
 
 SnapSlot / 快照贴 / 快照貼 is a local, temporary clipboard transfer tool. New image
 bytes written by another application become notes when automatic collection is
-on. Selected text becomes a note only when the user presses Control+Option+T
-(macOS) or Ctrl+Alt+T (Windows). Ordinary copied text and launch clipboard content
+on. Selected text becomes a note only when the user presses its shortcut (default
+Control+Option+T on macOS or Ctrl+Alt+T on Windows). Ordinary copied text and launch clipboard content
 are ignored. Copying an existing note does not add it again.
 
 The app does not capture the screen, scan screenshot folders, import arbitrary
@@ -55,13 +55,23 @@ six-language selector, selected-text shortcut, open-notes shortcut and note coun
 with Clear all. These are the only settings controls. Pinning opens the fan; closing
 settings, copying, receiving new notes and dragging preserve the pinned state.
 
+On macOS and Windows, both shortcut combinations are editable by clicking their keys. Occupied
+combinations receive alternatives only after successful system registration; settings
+shows the old combination and actual replacement until the user changes that action.
+Recording temporarily releases this app's registrations and restores them on cancel,
+focus loss or closing settings. Escape cancels recording without closing the window.
+Reopening a minimized settings window restores that same window and activates it.
+Unpinned notes still dismiss on pointer departure while settings is foreground,
+background or minimized; settings does not suppress top-edge reveal.
+
 macOS shows a Dock icon and menu-bar icon. Both use the current brand render;
 Windows uses the matching ICO. Pinning adds the website's lower-right status marker:
 5 px in the Mac label color; Windows uses a 7 px blue dot with a light ring (scaled
 to its system tray image). Unpinning, Escape and hiding notes clear it immediately.
 Windows dims/desaturates the mark when automatic collection is off, as on the site.
 Quit is available from the status/tray popup and the operating-system application menu.
-No installer, auto-start preference, update service or account is implemented.
+Distribution uses a Mac DMG and a Windows Setup installer. No auto-start preference,
+update service or account is implemented.
 
 ## Hosts and validation
 

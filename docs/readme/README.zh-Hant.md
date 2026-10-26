@@ -58,7 +58,7 @@ Windows 在工作列圖示上按右鍵，Mac 點選單列圖示：**設定…**�
 | 收取選取的文字 | <kbd>Ctrl</kbd> <kbd>Alt</kbd> <kbd>T</kbd> | <kbd>⌃</kbd> <kbd>⌥</kbd> <kbd>T</kbd> |
 | 挑選 / 複製 / 移除 / 收起 | <kbd>←</kbd> <kbd>→</kbd> / <kbd>Enter</kbd> / <kbd>Delete</kbd> / <kbd>Esc</kbd> | <kbd>←</kbd> <kbd>→</kbd> / <kbd>Enter</kbd> / <kbd>Delete</kbd> / <kbd>Esc</kbd> |
 
-設定中可查看目前的快速鍵。
+表中為預設快速鍵。Mac 和 Windows 設定中均可點選組合鍵修改；遇到佔用時會自動選擇可用組合，並顯示實際生效的快速鍵。
 
 ## 隱私
 

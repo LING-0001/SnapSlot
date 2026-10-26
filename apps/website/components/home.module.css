@@ -238,9 +238,9 @@
   transition: transform 520ms var(--ease);
   animation: drop 520ms var(--ease) both;
 }
-.fresh .card { animation: arrive 520ms var(--ease) both; }
-@keyframes drop { from { translate: 0 -30px; opacity: 0; } }
-@keyframes arrive { from { translate: 0 -64px; scale: .94; opacity: 0; } }
+.fresh .card { --drop-distance: -64px; --drop-scale: .94; }
+/* Keep the same animation name when the temporary fresh marker expires. */
+@keyframes drop { from { translate: 0 var(--drop-distance, -30px); scale: var(--drop-scale, 1); opacity: 0; } }
 .face {
   position: relative;
   display: block;

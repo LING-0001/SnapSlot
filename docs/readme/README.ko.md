@@ -58,7 +58,7 @@ Windows는 트레이 아이콘을 오른쪽 클릭, Mac은 메뉴 막대 아이�
 | 선택한 텍스트 고정 | <kbd>Ctrl</kbd> <kbd>Alt</kbd> <kbd>T</kbd> | <kbd>⌃</kbd> <kbd>⌥</kbd> <kbd>T</kbd> |
 | 선택 / 복사 / 삭제 / 숨기기 | <kbd>←</kbd> <kbd>→</kbd> / <kbd>Enter</kbd> / <kbd>Delete</kbd> / <kbd>Esc</kbd> | <kbd>←</kbd> <kbd>→</kbd> / <kbd>Enter</kbd> / <kbd>Delete</kbd> / <kbd>Esc</kbd> |
 
-설정에서 현재 단축키를 확인할 수 있어요.
+표는 기본 단축키입니다. macOS와 Windows 설정에서 키를 눌러 변경할 수 있어요. 사용 중인 조합은 사용 가능한 조합으로 바꾸고 실제 적용된 키를 표시해요.
 
 ## 개인정보
 

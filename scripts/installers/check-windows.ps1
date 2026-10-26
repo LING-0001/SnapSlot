@@ -38,6 +38,11 @@ try {
     foreach ($Link in @($DesktopLink, $StartLink)) {
         if (-not (Test-Path $Link) -or $Shell.CreateShortcut($Link).TargetPath -ne (Join-Path $Stage "SnapSlot.exe")) { throw "Shortcut is missing or points to the wrong app: $Link" }
     }
+    $SmokeOutput = Join-Path $env:RUNNER_TEMP ("SnapSlot UI Check " + [guid]::NewGuid().ToString("N"))
+    $Smoke = Start-Process -FilePath (Join-Path $Stage "SnapSlot.exe") -ArgumentList "--smoke-test `"$SmokeOutput`"" -PassThru
+    if (-not $Smoke.WaitForExit(90000)) { $Smoke.Kill(); throw "Native UI smoke check timed out" }
+    if ($Smoke.ExitCode -ne 0 -or -not (Test-Path (Join-Path $SmokeOutput "desktop-smoke.txt"))) { throw "Native UI smoke check failed: $($Smoke.ExitCode)" }
+    Get-Content (Join-Path $SmokeOutput "desktop-smoke.txt")
     # Uninstall must preserve files it did not install.
     $Sentinel = Join-Path $Stage "user-kept.txt"
     Set-Content -Path $Sentinel -Value "Keep this user file"

@@ -37,17 +37,17 @@ final class StoreChecks {
         let directory=root();defer{try? FileManager.default.removeItem(at:directory)}
         let url=directory.appendingPathComponent("preferences.json"),store=PreferencesStore(url:url)
         expectTrue(store.value.collectImages)
-        var value=store.value;value.collectImages=false;value.textShortcut=Shortcut(key:"KeyC",shift:true)
+        var value=store.value;value.collectImages=false;value.textShortcut=Shortcut(key:"KeyC",shift:true);value.openShortcut=Shortcut(key:"KeyO",shift:true)
         try store.save(value);expectEqual(PreferencesStore(url:url).value,value)
-        var conflict=value;conflict.textShortcut = .open;expectThrows(try store.save(conflict))
+        var conflict=value;conflict.textShortcut = value.openShortcut;expectThrows(try store.save(conflict))
         conflict=value;conflict.textShortcut=Shortcut(key:"KeyT",control:false,alt:false,shift:true);expectThrows(try store.save(conflict))
         conflict=value;conflict.textShortcut=Shortcut(key:"KeyC",control:false,alt:false,meta:true);expectThrows(try store.save(conflict))
         try Data("{}".utf8).write(to:url);expectFalse(PreferencesStore(url:url,legacyCollection:false).value.collectImages)
         let legacy="{\"collectScreenshots\":false,\"captureShortcut\":{\"key\":\"KeyS\",\"control\":true,\"alt\":true,\"shift\":false,\"meta\":false},\"textShortcut\":{\"key\":\"KeyT\",\"control\":true,\"alt\":true,\"shift\":false,\"meta\":false}}"
         try Data(legacy.utf8).write(to:url)
-        let migrated=PreferencesStore(url:url);expectFalse(migrated.value.collectImages);expectEqual(migrated.value.textShortcut,Shortcut(key:"KeyT"))
+        let migrated=PreferencesStore(url:url);expectFalse(migrated.value.collectImages);expectEqual(migrated.value.textShortcut,Shortcut(key:"KeyT"));expectEqual(migrated.value.openShortcut,.open)
         try migrated.save(migrated.value)
-        let saved=try String(contentsOf:url,encoding:.utf8);expectFalse(saved.contains("captureShortcut"));expectFalse(saved.contains("collectScreenshots"))
+        let saved=try String(contentsOf:url,encoding:.utf8);expectFalse(saved.contains("captureShortcut"));expectFalse(saved.contains("collectScreenshots"));expectTrue(saved.contains("openShortcut"))
     }
 }
 
@@ -60,4 +60,4 @@ let checks=StoreChecks()
 try checks.testTextRoundTripRemovalAndSessionCleanup();print("PASS: full text, removal and cleanup")
 try checks.testCapacityAndClearPreserveExports();print("PASS: 30-note capacity, oldest eviction, clear and export lifetime")
 try checks.testCleanupDoesNotTouchUnownedFolders();print("PASS: original files and unowned directories preserved")
-try checks.testPreferencesPersistAndRejectConflicts();print("PASS: preferences persist; reserved and modifier-free shortcuts rejected")
+try checks.testPreferencesPersistAndRejectConflicts();print("PASS: both shortcuts persist; legacy opening defaults migrate; duplicate, Copy and modifier-free shortcuts rejected")
