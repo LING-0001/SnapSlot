@@ -16,9 +16,10 @@
 
 <p align="center"><a href="../../README.md">简体中文</a> · <a href="README.en.md">English</a> · <a href="README.zh-Hant.md">繁體中文</a> · <b>日本語</b> · <a href="README.ko.md">한국어</a> · <a href="README.es.md">Español</a></p>
 
-<p align="center">v1.0.0 · <a href="http://101.200.239.135/downloads/v1.0.0/SnapSlot-1.0.0-macOS-universal.dmg">macOS · DMG · Apple Silicon / Intel</a> · <a href="http://101.200.239.135/downloads/v1.0.0/SnapSlot-1.0.0-windows-x64-setup.exe">Windows x64 · Setup</a></p>
+<p align="center">v1.1.0 · <a href="http://101.200.239.135/downloads/v1.1.0/SnapSlot-1.1.0-macOS-universal.dmg">macOS · DMG · Apple Silicon / Intel</a> · <a href="http://101.200.239.135/downloads/v1.1.0/SnapSlot-1.1.0-windows-x64-setup.exe">Windows x64 · Setup</a></p>
 
 <p align="center"><img src="../../docs/media/ja/demo.gif" width="760" alt="SnapSlot のデモ：上端で止まるとメモが下りてくる、コピーした画像が自動でピン留め、書類へドラッグ"></p>
+<p align="center"><a href="../../docs/media/ja/demo.mp4">MP4 · v1.1.0</a></p>
 
 ## 使いかた
 
@@ -58,7 +59,7 @@ Windows はトレイアイコンを右クリック、Mac はメニューバー�
 | 選択テキストをピン留め | <kbd>Ctrl</kbd> <kbd>Alt</kbd> <kbd>T</kbd> | <kbd>⌃</kbd> <kbd>⌥</kbd> <kbd>T</kbd> |
 | 選ぶ / コピー / 削除 / 閉じる | <kbd>←</kbd> <kbd>→</kbd> / <kbd>Enter</kbd> / <kbd>Delete</kbd> / <kbd>Esc</kbd> | <kbd>←</kbd> <kbd>→</kbd> / <kbd>Enter</kbd> / <kbd>Delete</kbd> / <kbd>Esc</kbd> |
 
-表は初期設定です。macOS と Windows の設定でキーをクリックして変更できます。使用中の場合は利用可能な組み合わせに切り替え、実際のキーを表示します。
+表は初期設定です。設定でショートカットをクリックし、新しいキーの組み合わせを押すと変更できます。起動時と設定を開いたときに両方の競合を確認し、検出した競合と代替キーを先に表示します。記録中も他のアプリは動作します。Mac でアクセシビリティ権限が必要なのは選択テキストの収集時だけです。一部の共有登録は検出できない場合があります。
 
 ## プライバシー
 

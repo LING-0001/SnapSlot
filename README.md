@@ -16,9 +16,10 @@
 
 <p align="center"><b>简体中文</b> · <a href="docs/readme/README.en.md">English</a> · <a href="docs/readme/README.zh-Hant.md">繁體中文</a> · <a href="docs/readme/README.ja.md">日本語</a> · <a href="docs/readme/README.ko.md">한국어</a> · <a href="docs/readme/README.es.md">Español</a></p>
 
-<p align="center">v1.0.0 · <a href="http://101.200.239.135/downloads/v1.0.0/SnapSlot-1.0.0-macOS-universal.dmg">macOS · DMG · Apple Silicon / Intel</a> · <a href="http://101.200.239.135/downloads/v1.0.0/SnapSlot-1.0.0-windows-x64-setup.exe">Windows x64 · Setup</a></p>
+<p align="center">v1.1.0 · <a href="http://101.200.239.135/downloads/v1.1.0/SnapSlot-1.1.0-macOS-universal.dmg">macOS · DMG · Apple Silicon / Intel</a> · <a href="http://101.200.239.135/downloads/v1.1.0/SnapSlot-1.1.0-windows-x64-setup.exe">Windows x64 · Setup</a></p>
 
 <p align="center"><img src="docs/media/zh-Hans/demo.gif" width="760" alt="SnapSlot 演示：鼠标移到上沿，便签落下；复制图片后自动钉上；拖进文档"></p>
+<p align="center"><a href="docs/media/zh-Hans/demo.mp4">MP4 · v1.1.0</a></p>
 
 ## 怎么用
 
@@ -58,7 +59,7 @@ Windows 右键托盘图标，Mac 单击菜单栏图标：**设置…**、**自�
 | 收取选中文字 | <kbd>Ctrl</kbd> <kbd>Alt</kbd> <kbd>T</kbd> | <kbd>⌃</kbd> <kbd>⌥</kbd> <kbd>T</kbd> |
 | 挑选 / 复制 / 移除 / 收起 | <kbd>←</kbd> <kbd>→</kbd> / <kbd>Enter</kbd> / <kbd>Delete</kbd> / <kbd>Esc</kbd> | <kbd>←</kbd> <kbd>→</kbd> / <kbd>Enter</kbd> / <kbd>Delete</kbd> / <kbd>Esc</kbd> |
 
-表中为默认快捷键。Mac 和 Windows 设置中均可点击组合键修改；遇到占用时会自动选择可用组合，并显示实际生效的快捷键。
+表中为默认快捷键。Mac 和 Windows 均可在设置中点击组合键，再按下新组合。启动和打开设置时会同时检查两组快捷键，提前显示检测到的冲突及可用替代组合。录入不屏蔽其他应用；Mac 录入无需辅助功能权限，收取选中文字时才需要。部分共享注册的快捷键可能无法检测。
 
 ## 隐私
 

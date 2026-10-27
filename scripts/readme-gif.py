@@ -2,13 +2,14 @@
 
     python scripts/readme-gif.py [locale ...]
 
-Run after `node apps/website/scripts/readme-media.mjs`. Needs Pillow.
-- frames/ (a timestamped screencast) becomes demo.gif, cropped to the demo desktop
+Run after `node apps/website/scripts/readme-media.mjs`. Needs Pillow and FFmpeg.
+- frames/ (a timestamped screencast) becomes demo.gif and demo.mp4, cropped to the demo desktop
   and resampled to a steady frame rate.
 - PNG stills become WebP: the gradient wallpaper bands visibly in a 256-colour PNG.
 """
 import json
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -43,6 +44,18 @@ for locale in locales:
                 im = im.crop(box)
                 cache[name] = im.resize((WIDTH, round(im.height * WIDTH / im.width)), Image.LANCZOS)
             frames.append(cache[name])
+        # Keep a full-colour recording alongside the smaller README GIF.
+        video = subprocess.Popen([
+            "ffmpeg", "-y", "-loglevel", "error", "-f", "rawvideo", "-pixel_format", "rgb24",
+            "-video_size", f"{WIDTH}x{frames[0].height}", "-framerate", str(FPS), "-i", "-", "-an",
+            "-vf", "pad=ceil(iw/2)*2:ceil(ih/2)*2", "-c:v", "libx264", "-crf", "20",
+            "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(folder / "demo.mp4")
+        ], stdin=subprocess.PIPE)
+        for frame in frames:
+            video.stdin.write(frame.tobytes())
+        video.stdin.close()
+        if video.wait() != 0:
+            raise RuntimeError(f"Failed to encode {locale} demo recording")
         # One shared palette keeps the gradient wallpaper from flickering between frames.
         sample = Image.new("RGB", (WIDTH, frames[0].height * 3))
         for row, f in enumerate([frames[0], frames[len(frames) // 2], frames[-1]]):

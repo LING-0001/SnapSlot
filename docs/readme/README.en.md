@@ -16,9 +16,10 @@
 
 <p align="center"><a href="../../README.md">简体中文</a> · <b>English</b> · <a href="README.zh-Hant.md">繁體中文</a> · <a href="README.ja.md">日本語</a> · <a href="README.ko.md">한국어</a> · <a href="README.es.md">Español</a></p>
 
-<p align="center">v1.0.0 · <a href="http://101.200.239.135/downloads/v1.0.0/SnapSlot-1.0.0-macOS-universal.dmg">macOS · DMG · Apple Silicon / Intel</a> · <a href="http://101.200.239.135/downloads/v1.0.0/SnapSlot-1.0.0-windows-x64-setup.exe">Windows x64 · Setup</a></p>
+<p align="center">v1.1.0 · <a href="http://101.200.239.135/downloads/v1.1.0/SnapSlot-1.1.0-macOS-universal.dmg">macOS · DMG · Apple Silicon / Intel</a> · <a href="http://101.200.239.135/downloads/v1.1.0/SnapSlot-1.1.0-windows-x64-setup.exe">Windows x64 · Setup</a></p>
 
 <p align="center"><img src="../../docs/media/en/demo.gif" width="760" alt="SnapSlot demo: rest at the top edge and notes drop down; copied images pin themselves; drag one into a document"></p>
+<p align="center"><a href="../../docs/media/en/demo.mp4">MP4 · v1.1.0</a></p>
 
 ## How it works
 
@@ -58,7 +59,7 @@ Same notes and gestures on both; each uses its own system features natively. The
 | Pin selected text | <kbd>Ctrl</kbd> <kbd>Alt</kbd> <kbd>T</kbd> | <kbd>⌃</kbd> <kbd>⌥</kbd> <kbd>T</kbd> |
 | Choose / copy / remove / hide | <kbd>←</kbd> <kbd>→</kbd> / <kbd>Enter</kbd> / <kbd>Delete</kbd> / <kbd>Esc</kbd> | <kbd>←</kbd> <kbd>→</kbd> / <kbd>Enter</kbd> / <kbd>Delete</kbd> / <kbd>Esc</kbd> |
 
-The table shows defaults. On macOS and Windows, click either shortcut in Settings to change it. If a combination is in use, an available replacement is registered and shown.
+These are the defaults. Click a shortcut in Settings and press a new combination. Both bindings are checked at startup and when Settings opens, showing detected conflicts and available replacements before editing. Recording leaves other apps active and needs no Accessibility permission on Mac; collecting selected text does. Some shared shortcut registrations may not be detectable.
 
 ## Privacy
 

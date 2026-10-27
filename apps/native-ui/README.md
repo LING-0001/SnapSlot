@@ -11,13 +11,16 @@ IDs and validated commands; it cannot authorize arbitrary file paths or processe
 Mac supplies behind-window materials and always-active pointer tracking. The Windows
 bridge uses WebView2 messages and native cursor coordinates.
 
-Both desktop shortcut settings record both combinations, show registered conflict replacements,
-and report their content height to their host so explanations fit. The bridge suspends
-this app's shortcuts during recording. The UI waits for native recording protection
-before accepting keys; Mac pauses system-registered hotkeys while foreground,
-and Windows captures them with a temporary keyboard hook. Both restore normal
-handling on commit, cancel, close or blur. Mac requires existing Accessibility
-permission for this protection and refuses unprotected recording.
+Both desktop shortcut settings record combinations and show registered conflict
+replacements. Both bindings are checked at startup, when opening Settings, and
+before recording begins, so existing conflicts appear together before editing.
+Warnings remain visible during recording. macOS checks enabled system shortcuts and
+exclusive registrations; shared third-party registrations may not report a conflict.
+The bridge suspends only SnapSlot's own shortcuts and signals readiness before accepting foreground key events. Other apps
+and system shortcuts continue to work during recording; Mac recording requires no
+Accessibility permission. Both restore this app's shortcuts on commit, cancel,
+close or blur. Selected-text collection separately requires Accessibility on Mac.
+Settings reports its content height to the host so explanations fit.
 Settings never suppresses unpinned pointer dismissal or top-edge reveal. Temporary arrival
 markers change CSS animation parameters rather than restarting the animation.
 Settings owns its rounded clipping and can be dragged from non-interactive blank

@@ -21,6 +21,22 @@ if CommandLine.arguments.contains("--peer") {
     } catch {fputs("Peer failed: \(error)\n",stderr);exit(1)}
 }
 
+// Another app can claim our bindings while our own registrations are suspended.
+// Reopening settings must discover both conflicts before the user edits one.
+if CommandLine.arguments.contains("--late-peer") {
+    var refs:[EventHotKeyRef]=[]
+    for (id,key) in [(UInt32(1),UInt32(99)),(UInt32(2),UInt32(122))] {
+        var ref:EventHotKeyRef?
+        let status=RegisterEventHotKey(key,UInt32(controlKey|optionKey|shiftKey|cmdKey),EventHotKeyID(signature:0x53535052,id:id),GetApplicationEventTarget(),OptionBits(kEventHotKeyExclusive),&ref)
+        guard status==noErr,let ref else{exit(1)}
+        refs.append(ref)
+    }
+    FileHandle.standardOutput.write(Data("ready\n".utf8))
+    _ = FileHandle.standardInput.readData(ofLength:1)
+    refs.forEach{UnregisterEventHotKey($0)}
+    exit(0)
+}
+
 let peer=Process(),input=Pipe(),output=Pipe()
 peer.executableURL=URL(fileURLWithPath:CommandLine.arguments[0])
 peer.arguments=["--peer"];peer.standardInput=input;peer.standardOutput=output
@@ -55,5 +71,23 @@ do {
     let editing=try keys.resolve(AppPreferences(textShortcut:result.preferences.textShortcut,openShortcut:result.preferences.textShortcut),editing:.open)
     try check(editing.preferences.textShortcut==result.preferences.textShortcut && editing.changes.count==1 && editing.changes[0].target == .open,"Editing the opening action preserves the text action")
     keys.suspend();try probe.apply(editing.preferences);probe.suspend();try keys.apply(editing.preferences)
-    try check(true,"Recording releases and restores the exclusive registrations")
+    try check(true,"Recording releases and restores only this app's registrations")
+    keys.suspend();probe.suspend();try keys.apply(previous);keys.suspend()
+    let late=Process(),lateInput=Pipe(),lateOutput=Pipe()
+    late.executableURL=URL(fileURLWithPath:CommandLine.arguments[0]);late.arguments=["--late-peer"]
+    late.standardInput=lateInput;late.standardOutput=lateOutput
+    try late.run()
+    defer{try? lateInput.fileHandleForWriting.write(contentsOf:Data([0]));late.waitUntilExit()}
+    try check(String(data:lateOutput.fileHandleForReading.readData(ofLength:6),encoding:.utf8)=="ready\n","Another app claims both bindings while SnapSlot recording has released them")
+    let refreshed=try keys.resolve(previous)
+    try check(refreshed.changes.count==2,"Settings preflight detects both late conflicts before either shortcut is edited")
+    keys.suspend()
+    var symbolic:Unmanaged<CFArray>?
+    _ = CopySymbolicHotKeys(&symbolic)
+    let systemKeys=symbolic?.takeRetainedValue() as? [[String:Any]] ?? []
+    if systemKeys.contains(where:{ ($0[kHISymbolicHotKeyEnabled as String] as? NSNumber)?.boolValue==true && ($0[kHISymbolicHotKeyCode as String] as? NSNumber)?.uint32Value==21 && ($0[kHISymbolicHotKeyModifiers as String] as? NSNumber)?.uint32Value==UInt32(shiftKey|cmdKey) }) {
+        rejected=false
+        do {try keys.apply(AppPreferences(textShortcut:Shortcut(key:"Digit4",control:false,alt:false,shift:true,meta:true),openShortcut:binding(2)))}catch{rejected=true}
+        try check(rejected,"Enabled system screenshot shortcuts are detected without pressing them")
+    }
 } catch {fputs("FAIL: \(error)\n",stderr);exit(1)}

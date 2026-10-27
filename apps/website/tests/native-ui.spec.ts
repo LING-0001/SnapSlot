@@ -188,7 +188,12 @@ test(`${platform}: occupied shortcuts show persistent replacements and both acti
   await expect(text.getByRole("status")).toContainText("被占用，已修改为");
   await expect(open.getByRole("status")).toContainText("被占用，已修改为");
   await expect(open.locator("kbd")).toContainText(platform === "macos" ? ["⌃", "⌥", "⇧", "Space"] : ["Ctrl", "Alt", "Shift", "Space"]);
-  await text.getByRole("button").click(); await page.keyboard.press("Control+Alt+y");
+  await text.getByRole("button").click();
+  await expect(text.getByRole("status")).toContainText("被占用，已修改为");
+  await expect(open.getByRole("status")).toContainText("被占用，已修改为");
+  await expect(text.locator(".native-shortcut-warning")).toBeVisible();
+  await expect(open.locator(".native-shortcut-warning")).toBeVisible();
+  await page.keyboard.press("Control+Alt+y");
   await expect(text.locator("kbd")).toContainText(platform === "macos" ? ["⌃", "⌥", "Y"] : ["Ctrl", "Alt", "Y"]);
   await expect(text.getByRole("status")).toHaveCount(0);
   await expect(open.getByRole("status")).toContainText("被占用，已修改为");
@@ -266,7 +271,7 @@ test("Quit is separated, fully visible and sends only the native quit command", 
 });
 
 for (const platform of ["macos", "windows"] as const) {
-  test(`${platform}: recording waits for native protection, accepts native key events and restores on cancel`, async ({ page }) => {
+  test(`${platform}: recording waits for this app to suspend its shortcuts and accepts foreground key events`, async ({ page }) => {
     await host(page, "preferences", 3, platform);
     await page.evaluate(() => { (window as any).deferRecordingReady = true; });
     const row = page.locator('[data-shortcut-row=text]');
@@ -286,5 +291,25 @@ for (const platform of ["macos", "windows"] as const) {
     expect(await page.evaluate(() => (window as any).commands.filter((c: any) => c.type === "moveWindow").length)).toBe(3);
     await expect(page.locator(".native-window")).toHaveCSS("animation-name", "none");
     await expect(page.locator('[data-mode=preferences]')).toHaveCSS("overflow", "hidden");
+  });
+}
+
+
+for (const platform of ["macos", "windows"] as const) {
+  test(`${platform}: conflict refresh during recording preserves the other shortcut when saving`, async ({ page }) => {
+    await host(page, "preferences", 3, platform);
+    const row = page.locator('[data-shortcut-row=text]');
+    await row.getByRole("button").click();
+    await page.evaluate(platform => {
+      const w = window as any, old = w.preferences.openShortcut;
+      w.preferences = { ...w.preferences, openShortcut: { ...old, shift: true } };
+      w.shortcutChanges = [{ target: "open", requested: old, replacement: w.preferences.openShortcut }];
+      w.emit({ type: "preferences", value: w.preferences, platform, shortcutChanges: w.shortcutChanges });
+    }, platform);
+    await expect(page.locator('[data-shortcut-row=open]').getByRole("status")).toContainText("被占用");
+    expect(await page.evaluate(() => (window as any).commands.some((c: any) => c.type === "savePreferences"))).toBe(false);
+    await page.keyboard.press("Control+Alt+y");
+    expect(await page.evaluate(() => (window as any).preferences.openShortcut.shift)).toBe(true);
+    await expect(page.locator('[data-shortcut-row=open]').getByRole("status")).toContainText("被占用");
   });
 }

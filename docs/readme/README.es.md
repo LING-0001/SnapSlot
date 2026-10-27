@@ -16,9 +16,10 @@
 
 <p align="center"><a href="../../README.md">简体中文</a> · <a href="README.en.md">English</a> · <a href="README.zh-Hant.md">繁體中文</a> · <a href="README.ja.md">日本語</a> · <a href="README.ko.md">한국어</a> · <b>Español</b></p>
 
-<p align="center">v1.0.0 · <a href="http://101.200.239.135/downloads/v1.0.0/SnapSlot-1.0.0-macOS-universal.dmg">macOS · DMG · Apple Silicon / Intel</a> · <a href="http://101.200.239.135/downloads/v1.0.0/SnapSlot-1.0.0-windows-x64-setup.exe">Windows x64 · Setup</a></p>
+<p align="center">v1.1.0 · <a href="http://101.200.239.135/downloads/v1.1.0/SnapSlot-1.1.0-macOS-universal.dmg">macOS · DMG · Apple Silicon / Intel</a> · <a href="http://101.200.239.135/downloads/v1.1.0/SnapSlot-1.1.0-windows-x64-setup.exe">Windows x64 · Setup</a></p>
 
 <p align="center"><img src="../../docs/media/es/demo.gif" width="760" alt="Demostración de SnapSlot: al detenerte en el borde superior bajan las notas, las imágenes copiadas se fijan solas, arrastra una a un documento"></p>
+<p align="center"><a href="../../docs/media/es/demo.mp4">MP4 · v1.1.0</a></p>
 
 ## Cómo funciona
 
@@ -58,7 +59,7 @@ Las mismas notas y gestos en ambos; cada uno usa las funciones de su sistema de 
 | Fijar texto seleccionado | <kbd>Ctrl</kbd> <kbd>Alt</kbd> <kbd>T</kbd> | <kbd>⌃</kbd> <kbd>⌥</kbd> <kbd>T</kbd> |
 | Elegir / copiar / quitar / ocultar | <kbd>←</kbd> <kbd>→</kbd> / <kbd>Enter</kbd> / <kbd>Delete</kbd> / <kbd>Esc</kbd> | <kbd>←</kbd> <kbd>→</kbd> / <kbd>Enter</kbd> / <kbd>Delete</kbd> / <kbd>Esc</kbd> |
 
-La tabla muestra los valores predeterminados. En macOS y Windows, pulsa un atajo en Ajustes para cambiarlo. Si está en uso, se registra y muestra una combinación disponible.
+Estos son los atajos predeterminados. Haz clic en uno en Ajustes y pulsa una nueva combinación. Ambos se comprueban al iniciar y al abrir Ajustes, mostrando los conflictos detectados y las alternativas antes de editar. La grabación permite que otras apps sigan respondiendo. En Mac, Accesibilidad solo se necesita para recoger texto seleccionado. Algunos registros compartidos pueden no detectarse.
 
 ## Privacidad
 

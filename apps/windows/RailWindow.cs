@@ -40,7 +40,6 @@ public sealed class RailWindow : Window
     private GlobalShortcuts shortcuts=null!;
     private readonly List<ShortcutChange> shortcutChanges=new();
     private bool recordingShortcut;
-    private readonly ShortcutRecording shortcutRecording=new();
     private bool collectingText;
     private string? lastError,startupShortcutError;
     private readonly HashSet<WebView> ready=new();
@@ -150,7 +149,7 @@ public sealed class RailWindow : Window
             case "close":CloseSettings();break;
             case "savePreferences":if(view==settingsWeb&&value.TryGetProperty("value",out var next)){var preference=JsonSerializer.Deserialize<AppPreferences>(next.GetRawText(),PreferencesStore.Json)??throw new ArgumentException("Invalid settings");SavePreferences(preference,Get("editingShortcut"));}break;
             case "beginShortcutRecording":if(view==settingsWeb&&settingsMode=="preferences"){
-                try{shortcutRecording.Begin(new WindowInteropHelper(settings!).Handle,key=>Dispatcher.BeginInvoke(()=>{if(recordingShortcut&&settingsWeb is not null)Post(settingsWeb,JsonSerializer.SerializeToElement(key,PreferencesStore.Json));}));shortcuts.Suspend();recordingShortcut=true;Post(view,new{type="recordingReady"});}
+                try{RefreshShortcutAvailability();shortcuts.Suspend();recordingShortcut=true;Post(view,new{type="recordingReady"});}
                 catch{Post(view,new{type="recordingCancelled"});throw;}
             }break;
             case "endShortcutRecording":if(view==settingsWeb)FinishShortcutRecording(false);break;
@@ -278,13 +277,25 @@ public sealed class RailWindow : Window
         if(error==1409)return false;
         throw new InvalidOperationException(binding.Display+" — "+new System.ComponentModel.Win32Exception(error).Message);
     }
+    private void RefreshShortcutAvailability()
+    {
+        if(testing||source is null)return;
+        var previous=preferences.Value;
+        try{
+            var resolution=shortcuts.Resolve(previous);
+            try{preferences.Save(resolution.Preferences);}catch{shortcuts.Apply(previous);throw;}
+            shortcutChanges.RemoveAll(change=>resolution.Changes.Any(next=>next.Target==change.Target));
+            shortcutChanges.AddRange(resolution.Changes);
+            if(settingsWeb is not null)SendPreferences(settingsWeb);
+        }catch(Exception ex){Error(ex.Message);}
+    }
     private void SavePreferences(AppPreferences value,string? editing=null)
     {
         var previous=preferences.Value;
         bool refresh=recordingShortcut||value.TextShortcut!=previous.TextShortcut||value.OpenShortcut!=previous.OpenShortcut;
         var resolution=refresh?shortcuts.Resolve(value,editing):new ShortcutResolution(value,Array.Empty<ShortcutChange>());
         try{preferences.Save(resolution.Preferences);}catch{if(refresh)shortcuts.Apply(previous);throw;}
-        recordingShortcut=false;shortcutRecording.End();
+        recordingShortcut=false;
         shortcutChanges.RemoveAll(change=>change.Target==editing||resolution.Changes.Any(next=>next.Target==change.Target));
         shortcutChanges.AddRange(resolution.Changes);
         collectImages=resolution.Preferences.CollectImages;ignoredClipboard=GetClipboardSequenceNumber();clipboardRequest++;lastError=null;
@@ -294,7 +305,7 @@ public sealed class RailWindow : Window
     {
         if(!recordingShortcut||disposed)return;
         try{SavePreferences(preferences.Value);}catch(Exception ex){Error(ex.Message);}
-        finally{recordingShortcut=false;shortcutRecording.End();}
+        finally{recordingShortcut=false;}
         if(cancelled&&settingsWeb is not null)Post(settingsWeb,new{type="recordingCancelled"});
     }
     private async void CollectSelectedText()
@@ -321,6 +332,7 @@ public sealed class RailWindow : Window
     {
         dismiss.Stop();hover.Stop();if(!expanded)screen=Forms.Screen.FromPoint(Forms.Cursor.Position);
         if(mode=="tray"){await ShowTrayMenuAsync();return;}
+        if(!recordingShortcut)RefreshShortcutAvailability();
         await ShowPreferencesAsync();
     }
     private Task PreparePreferencesAsync()=>preferencesPreparation??=PreparePreferencesCoreAsync();
@@ -510,7 +522,7 @@ public sealed class RailWindow : Window
     }
     private void Dispose()
     {
-        disposed=true;shortcutRecording.Dispose();hover.Stop();edgeProbe.Stop();dismiss.Stop();hide.Stop();watcher?.Dispose();SystemParameters.StaticPropertyChanged-=ParametersChanged;
+        disposed=true;hover.Stop();edgeProbe.Stop();dismiss.Stop();hide.Stop();watcher?.Dispose();SystemParameters.StaticPropertyChanged-=ParametersChanged;
         if(source is not null){if(!testing)RemoveClipboardFormatListener(source.Handle);ClearShortcuts();source.RemoveHook(WndProc);}CloseSettings();trayMenu?.Close();preferencesWindow?.Close();web.Dispose();tray?.Dispose();stateIcon?.Dispose();icon?.Dispose();
     }
     [DllImport("user32.dll")]private static extern bool AddClipboardFormatListener(IntPtr window);

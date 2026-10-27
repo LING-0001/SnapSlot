@@ -16,9 +16,10 @@
 
 <p align="center"><a href="../../README.md">简体中文</a> · <a href="README.en.md">English</a> · <a href="README.zh-Hant.md">繁體中文</a> · <a href="README.ja.md">日本語</a> · <b>한국어</b> · <a href="README.es.md">Español</a></p>
 
-<p align="center">v1.0.0 · <a href="http://101.200.239.135/downloads/v1.0.0/SnapSlot-1.0.0-macOS-universal.dmg">macOS · DMG · Apple Silicon / Intel</a> · <a href="http://101.200.239.135/downloads/v1.0.0/SnapSlot-1.0.0-windows-x64-setup.exe">Windows x64 · Setup</a></p>
+<p align="center">v1.1.0 · <a href="http://101.200.239.135/downloads/v1.1.0/SnapSlot-1.1.0-macOS-universal.dmg">macOS · DMG · Apple Silicon / Intel</a> · <a href="http://101.200.239.135/downloads/v1.1.0/SnapSlot-1.1.0-windows-x64-setup.exe">Windows x64 · Setup</a></p>
 
 <p align="center"><img src="../../docs/media/ko/demo.gif" width="760" alt="SnapSlot 데모: 위쪽 가장자리에 머물면 메모가 내려오고, 복사한 이미지가 자동으로 고정되고, 문서로 끌어다 놓기"></p>
+<p align="center"><a href="../../docs/media/ko/demo.mp4">MP4 · v1.1.0</a></p>
 
 ## 사용 방법
 
@@ -58,7 +59,7 @@ Windows는 트레이 아이콘을 오른쪽 클릭, Mac은 메뉴 막대 아이�
 | 선택한 텍스트 고정 | <kbd>Ctrl</kbd> <kbd>Alt</kbd> <kbd>T</kbd> | <kbd>⌃</kbd> <kbd>⌥</kbd> <kbd>T</kbd> |
 | 선택 / 복사 / 삭제 / 숨기기 | <kbd>←</kbd> <kbd>→</kbd> / <kbd>Enter</kbd> / <kbd>Delete</kbd> / <kbd>Esc</kbd> | <kbd>←</kbd> <kbd>→</kbd> / <kbd>Enter</kbd> / <kbd>Delete</kbd> / <kbd>Esc</kbd> |
 
-표는 기본 단축키입니다. macOS와 Windows 설정에서 키를 눌러 변경할 수 있어요. 사용 중인 조합은 사용 가능한 조합으로 바꾸고 실제 적용된 키를 표시해요.
+표는 기본 단축키입니다. 설정에서 단축키를 클릭한 후 새 조합을 누르세요. 시작하거나 설정을 열 때 두 단축키를 함께 확인해 감지된 충돌과 사용 가능한 대체 조합을 먼저 표시합니다. 입력 중에도 다른 앱은 동작하며, Mac 손쉬운 사용 권한은 선택한 텍스트를 수집할 때만 필요합니다. 일부 공유 등록은 감지하지 못할 수 있습니다.
 
 ## 개인정보
 

@@ -33,13 +33,16 @@ A successful compile or browser run does not establish physical-machine behavior
    language, two shortcuts, count and Clear all. Changes apply immediately.
    On both platforms, occupy both preferred combinations before startup: each receives an
    actually registered replacement and a persistent explanation in its settings row.
-   Click either row to record a new combination; confirm the other action stays
-   registered, standard Copy is rejected and Escape cancels without closing settings.
+   Open Settings before editing either row: both conflict explanations and warning
+   icons must already be visible, including conflicts claimed since SnapSlot started.
+   Click either row to record a new combination; warnings for both actions must stay
+   visible while recording. Standard Copy is rejected and Escape cancels without
+   closing settings.
    Cancel, close or switch apps during recording and confirm both shortcuts resume.
-   With QQ running, record its screenshot combination: no screenshot should start.
-   Verify global shortcuts work again after commit, Escape, close and app switching.
-   Without Mac Accessibility permission, recording must stop with an explanation
-   rather than accepting keys without protection. Open settings over pinned images;
+   Recording pauses only SnapSlot's bindings; QQ screenshots and system shortcuts
+   are allowed to trigger. Verify SnapSlot's bindings resume after commit, Escape,
+   close and app switching. Mac recording must work without Accessibility permission
+   or a permission prompt. Open settings over pinned images;
    it must stay above them while active. Drag the title and blank margins; controls
    must remain clickable. Check all four window corners against a dark background.
    Minimize settings, then open Settings from the status menu: the same window must

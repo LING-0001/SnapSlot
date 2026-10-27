@@ -6,6 +6,7 @@ import { chromium } from "@playwright/test";
 import { mkdir, rm } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { pathToFileURL } from "node:url";
 
 const base = process.env.SNAPSLOT_URL ?? "http://127.0.0.1:3000";
 const all = ["zh-Hans", "en", "zh-Hant", "ja", "ko", "es"];
@@ -13,6 +14,7 @@ const menusOnly = process.argv.includes("--menus-only");
 const localeArgs = process.argv.slice(2).filter(value => value !== "--menus-only");
 const wanted = localeArgs.length ? localeArgs : all;
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../docs/media");
+const nativeEntry = pathToFileURL(path.resolve(root, "../../artifacts/native-ui/index.html")).href;
 // Edge ships with Windows; elsewhere use Chrome, or Playwright's Chromium if neither is installed.
 const channel = process.platform === "win32" ? { channel: "msedge" } : process.platform === "darwin" ? { channel: "chrome" } : {};
 const browser = await chromium.launch(channel);
@@ -48,6 +50,43 @@ async function holdOpen(page) {
   await page.waitForTimeout(500);
 }
 
+// Capture the shipped settings component, including its editable shortcuts.
+async function nativeSettings(locale, dir) {
+  const context = await browser.newContext({ viewport: { width: 420, height: 650 }, deviceScaleFactor: 2 });
+  await context.addInitScript(locale => {
+    const defaults = { key: "Space", control: true, alt: true, shift: false, meta: false };
+    window.capturePreferences = { collectImages: true, textShortcut: { ...defaults, key: "KeyT" }, openShortcut: defaults };
+    window.chrome = { ...window.chrome, webview: {
+      addEventListener: (_, listener) => { window.receiveCapture = listener; }, removeEventListener: () => {},
+      postMessage: command => {
+        const emit = data => window.receiveCapture({ data });
+        if (command.type === "ready") {
+          emit({ type: "state", items: [], count: 0, locale, expanded: false, pinned: false, arming: false, appearance: "glass", reducedMotion: false, platform: "windows" });
+          emit({ type: "preferences", value: window.capturePreferences, platform: "windows" });
+        }
+        if (command.type === "beginShortcutRecording") emit({ type: "recordingReady" });
+      }
+    } };
+  }, locale);
+  const page = await context.newPage();
+  await page.goto(`${nativeEntry}?mode=preferences`);
+  await page.evaluate(() => document.fonts.ready);
+  await page.getByRole("dialog").screenshot({ path: path.join(dir, "settings.png") });
+  if (locale === "zh-Hans") {
+    await page.evaluate(() => {
+      const old = window.capturePreferences;
+      const value = { ...old, textShortcut: { ...old.textShortcut, shift: true }, openShortcut: { ...old.openShortcut, shift: true } };
+      window.receiveCapture({ data: { type: "preferences", value, platform: "windows", shortcutChanges: [
+        { target: "text", requested: old.textShortcut, replacement: value.textShortcut },
+        { target: "open", requested: old.openShortcut, replacement: value.openShortcut }
+      ] } });
+    });
+    await page.locator('[data-shortcut-row="text"] button').click();
+    await page.getByRole("dialog").screenshot({ path: path.join(dir, "shortcuts.png") });
+  }
+  await context.close();
+}
+
 for (const locale of wanted) {
   const dir = path.join(root, locale);
   await mkdir(dir, { recursive: true });
@@ -55,6 +94,9 @@ for (const locale of wanted) {
   // 1. Hero: notes fanned open on the Windows desktop.
   if (!menusOnly) {
     const page = await open(locale);
+    await page.waitForTimeout(400);
+    const guideBox = await desk(page).boundingBox();
+    await page.screenshot({ path: path.join(dir, "onboarding.png"), clip: guideBox });
     await skip(page);
     await reveal(page);
     await page.locator("[data-coach=file]").click();
@@ -77,11 +119,7 @@ for (const locale of wanted) {
     const clip = { x: menu.x - 40, y: menu.y - 40, width: right - (menu.x - 40), height: bottom - (menu.y - 40) };
     await page.screenshot({ path: path.join(dir, "tray-menu.png"), clip });
     if (!menusOnly) {
-      await page.setViewportSize({ width: 1280, height: 1000 });
-      await page.locator("[role=menu] [role=menuitem]").first().click();
-      await page.waitForTimeout(500);
-      const win = await page.locator("[role=dialog]").boundingBox();
-      await page.screenshot({ path: path.join(dir, "settings.png"), clip: { x: win.x - 24, y: win.y - 24, width: win.width + 48, height: win.height + 48 } });
+      await nativeSettings(locale, dir);
     }
     await page.context().close();
   }

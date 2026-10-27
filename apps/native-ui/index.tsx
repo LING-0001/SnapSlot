@@ -28,6 +28,7 @@ function App() {
   const [narrow, setNarrow] = useState(() => matchMedia("(max-width: 760px)").matches);
   const [fresh, setFresh] = useState<string[]>([]), [copied, setCopied] = useState(""), [notice, setNotice] = useState("");
   const [shortcutChanges, setShortcutChanges] = useState<ShortcutChange[]>([]);
+  const currentPreferences = useRef(defaults);
   const recordingReady = useRef(false);
   const [recording, setRecording] = useState<ShortcutTarget | null>(null), [recordError, setRecordError] = useState("");
   const settingsPanel = useRef<HTMLElement>(null), settingsHeight = useRef(0);
@@ -67,7 +68,7 @@ function App() {
         }
         initialized.current = true; known.current = new Map(next.map(item => [item.id, item]));
         if (message.focus) setFocusRequest(value => value + 1);
-      } else if (message.type === "preferences") { setPreferences(message.value); setPlatform(message.platform); setShortcutChanges(message.shortcutChanges || []); }
+      } else if (message.type === "preferences") { currentPreferences.current = message.value; setPreferences(message.value); setPlatform(message.platform); setShortcutChanges(message.shortcutChanges || []); }
       else if (message.type === "recordingCancelled") { recordingReady.current = false; setRecording(null); }
       else if (message.type === "recordingReady") { recordingReady.current = true; }
       else if (message.type === "shortcutKey") { window.dispatchEvent(new KeyboardEvent(message.down ? "keydown" : "keyup", { code: message.code, key: message.key, ctrlKey: message.control, altKey: message.alt, shiftKey: message.shift, metaKey: message.meta, repeat: message.repeat, bubbles: true })); }
@@ -157,7 +158,7 @@ function App() {
       if (!candidate || event.code !== candidate.key) return;
       event.preventDefault(); event.stopImmediatePropagation();
       // Register after the key is released, so recording does not trigger its action.
-      send({ type: "savePreferences", value: { ...preferences, [recording === "text" ? "textShortcut" : "openShortcut"]: candidate }, editingShortcut: recording });
+      send({ type: "savePreferences", value: { ...currentPreferences.current, [recording === "text" ? "textShortcut" : "openShortcut"]: candidate }, editingShortcut: recording });
       candidate = null; setRecording(null);
     };
     const cancel = () => setRecording(null);
@@ -180,9 +181,11 @@ function App() {
   const keys = (value: AppPreferences["textShortcut"]) => [value.control ? (mac ? "⌃" : "Ctrl") : "", value.alt ? (mac ? "⌥" : "Alt") : "", value.shift ? (mac ? "⇧" : "Shift") : "", value.meta ? (mac ? "⌘" : "Win") : "", value.key.replace(/^Key|^Digit/, "")].filter(Boolean);
   const shortcutRow = (target: ShortcutTarget, title: string, value: Shortcut) => {
     const copy = shortcutCopy[locale], change = shortcutChanges.find(change => change.target === target);
-    const hint = recording === target ? recordError || copy.hint : change ? copy.conflict.replace("{old}", keys(change.requested).join(" + ")).replace("{new}", keys(change.replacement).join(" + ")) : "";
+    const conflict = change ? copy.conflict.replace("{old}", keys(change.requested).join(" + ")).replace("{new}", keys(change.replacement).join(" + ")) : "";
+    const hint = [conflict, recording === target ? recordError || copy.hint : ""].filter(Boolean).join(" ");
     return <div className="native-shortcut-row" data-shortcut-row={target}><div className={s.row}><span>{title}</span>
       {<button className="native-shortcut" aria-label={`${title} · ${copy.change}`} aria-pressed={recording === target} title={copy.change} onClick={() => { setRecordError(""); setRecording(recording === target ? null : target); }}>
+        {change && <svg className="native-shortcut-warning" width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="currentColor"/><path d="M8 4.5v4M8 11v.5" stroke="white" strokeWidth="1.5" strokeLinecap="round"/></svg>}
         {recording === target ? <span>{copy.record}</span> : <><Keys keys={keys(value)}/><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="m10.5 2.5 3 3M3 10l7-7a2.12 2.12 0 0 1 3 3l-7 7-4 1 1-4Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/></svg></>}
       </button>}
     </div>{hint && <p className="native-shortcut-hint" role="status" aria-live="polite">{hint}</p>}</div>;

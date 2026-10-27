@@ -16,9 +16,10 @@
 
 <p align="center"><a href="../../README.md">简体中文</a> · <a href="README.en.md">English</a> · <b>繁體中文</b> · <a href="README.ja.md">日本語</a> · <a href="README.ko.md">한국어</a> · <a href="README.es.md">Español</a></p>
 
-<p align="center">v1.0.0 · <a href="http://101.200.239.135/downloads/v1.0.0/SnapSlot-1.0.0-macOS-universal.dmg">macOS · DMG · Apple Silicon / Intel</a> · <a href="http://101.200.239.135/downloads/v1.0.0/SnapSlot-1.0.0-windows-x64-setup.exe">Windows x64 · Setup</a></p>
+<p align="center">v1.1.0 · <a href="http://101.200.239.135/downloads/v1.1.0/SnapSlot-1.1.0-macOS-universal.dmg">macOS · DMG · Apple Silicon / Intel</a> · <a href="http://101.200.239.135/downloads/v1.1.0/SnapSlot-1.1.0-windows-x64-setup.exe">Windows x64 · Setup</a></p>
 
 <p align="center"><img src="../../docs/media/zh-Hant/demo.gif" width="760" alt="SnapSlot 示範：滑鼠移到上緣，便箋落下；複製圖片後自動釘上；拖進文件"></p>
+<p align="center"><a href="../../docs/media/zh-Hant/demo.mp4">MP4 · v1.1.0</a></p>
 
 ## 怎麼用
 
@@ -58,7 +59,7 @@ Windows 在工作列圖示上按右鍵，Mac 點選單列圖示：**設定…**�
 | 收取選取的文字 | <kbd>Ctrl</kbd> <kbd>Alt</kbd> <kbd>T</kbd> | <kbd>⌃</kbd> <kbd>⌥</kbd> <kbd>T</kbd> |
 | 挑選 / 複製 / 移除 / 收起 | <kbd>←</kbd> <kbd>→</kbd> / <kbd>Enter</kbd> / <kbd>Delete</kbd> / <kbd>Esc</kbd> | <kbd>←</kbd> <kbd>→</kbd> / <kbd>Enter</kbd> / <kbd>Delete</kbd> / <kbd>Esc</kbd> |
 
-表中為預設快速鍵。Mac 和 Windows 設定中均可點選組合鍵修改；遇到佔用時會自動選擇可用組合，並顯示實際生效的快速鍵。
+表中為預設快速鍵。在設定中點選組合鍵，再按下新組合即可修改。啟動及開啟設定時會同時檢查兩組快速鍵，提前顯示偵測到的衝突與可用替代組合。錄入不攔截其他應用程式；Mac 僅在收取選取文字時需要輔助使用權限。部分共用註冊的快速鍵可能無法偵測。
 
 ## 隱私
 

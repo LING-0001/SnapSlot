@@ -9,7 +9,7 @@
     <ImplicitUsings>disable</ImplicitUsings>
     <AssemblyName>SnapSlot</AssemblyName>
     <RootNamespace>SnapSlot</RootNamespace>
-    <Version>1.0.0</Version>
+    <Version>1.1.0</Version>
     <NativeUiPath Condition="'$(NativeUiPath)' == ''">../../artifacts/native-ui</NativeUiPath>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>../../assets/brand/SnapSlot.ico</ApplicationIcon>

@@ -329,6 +329,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         let changes=(try? JSONSerialization.jsonObject(with:JSONEncoder().encode(shortcutChanges))) ?? []
         send(["type":"preferences","value":value,"platform":"macos","shortcutChanges":changes],to:view)
     }
+    // Re-register both bindings before showing settings, including shortcuts
+    // claimed by another application since SnapSlot started.
+    func refreshShortcutAvailability() {
+        guard let hotkeys else{return}
+        do {
+            let previous=preferences.value,result=try hotkeys.resolve(previous)
+            if result.preferences != previous {
+                do {try preferences.save(result.preferences)}catch{try? hotkeys.apply(previous);throw error}
+            }
+            shortcutChanges.removeAll {change in result.changes.contains(where:{$0.target==change.target})}
+            shortcutChanges.append(contentsOf:result.changes)
+            for view in [settingsWeb,trayWeb].compactMap({$0}) {sendPreferences(to:view)}
+        } catch {self.error(error)}
+    }
     func savePreferences(_ next:AppPreferences,editing:ShortcutTarget? = nil) throws {
         let old=preferences.value
         var effective=next,changes:[ShortcutChange]=[]
@@ -411,7 +425,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
             case "close":if view===trayWeb {closeTray()}else{closeSettings()}
             case "savePreferences":guard view===settingsWeb || view===trayWeb,let settings=value["value"] else{return};let next=try JSONDecoder().decode(AppPreferences.self,from:JSONSerialization.data(withJSONObject:settings));try savePreferences(next,editing:ShortcutTarget(rawValue:value["editingShortcut"] as? String ?? ""))
             case "beginShortcutRecording":if view===settingsWeb,!recordingShortcut {
-                do {try shortcutRecording.begin();recordingShortcut=true;hotkeys?.suspend();send(["type":"recordingReady"],to:view)}
+                do {refreshShortcutAvailability();try shortcutRecording.begin();recordingShortcut=true;hotkeys?.suspend();send(["type":"recordingReady"],to:view)}
                 catch {send(["type":"recordingCancelled"],to:view);throw error}
             }
             case "endShortcutRecording":if view===settingsWeb {finishShortcutRecording(cancelled:false)}
@@ -505,6 +519,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
     func selectionError(_ message:String){arrived();error(NSError(domain:"SnapSlot.Selection",code:1,userInfo:[NSLocalizedDescriptionKey:message]))}
     func openSettings(mode:String) {
         startLocalObservation()
+        if !recordingShortcut {refreshShortcutAvailability()}
         dismiss?.invalidate();hover?.invalidate();chooseScreenIfHidden()
         if settings != nil {if settingsMode==mode {presentSettings();return};closeSettings()}
         previousApplication=NSWorkspace.shared.frontmostApplication
@@ -760,6 +775,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
                 try check(originalSettings.isMiniaturized,"The settings minimize button minimizes its real AppKit window")
                 openPreferences();try await Task.sleep(nanoseconds:500_000_000)
                 try check(settings===originalSettings && !originalSettings.isMiniaturized && originalSettings.isVisible && originalSettings.isKeyWindow && NSApp.isActive,"Opening Settings from the status menu restores the same minimized window to the foreground")
+                do {
+                    let saved=preferences.value,competitor=HotKeys()
+                    let occupied=AppPreferences(textShortcut:Shortcut(key:"F7",shift:true,meta:true),openShortcut:Shortcut(key:"F5",shift:true,meta:true))
+                    try competitor.apply(occupied);try preferences.save(occupied);hotkeys=HotKeys()
+                    defer{hotkeys=nil;try? preferences.save(saved);shortcutChanges=[];sendPreferences(to:settingsView)}
+                    openPreferences();try await Task.sleep(nanoseconds:250_000_000)
+                    let warnings=try await settingsView.evaluateJavaScript("document.querySelectorAll('.native-shortcut-warning').length===2 && !document.querySelector('.native-shortcut[aria-pressed=true]')") as? Bool
+                    try check(shortcutChanges.count==2 && warnings==true,"Opening Settings detects and displays both occupied shortcuts before editing either action")
+                }
                 dismissalPointer = { NSPoint(x:self.activeScreen.frame.midX,y:self.activeScreen.visibleFrame.maxY-400) }
                 for phase in ["foreground","background","minimized"] {
                     pinned=false;peekUntil = .distantPast
@@ -776,11 +800,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
                 _ = try await settingsView.evaluateJavaScript("document.querySelector('[data-shortcut-row=text] button').click()")
                 try await Task.sleep(nanoseconds:150_000_000)
                 try check(recordingShortcut,"The text shortcut row starts native shortcut recording")
-                try check(shortcutRecording.active && GetSymbolicHotKeyMode()==OptionBits(kHIHotKeyModeAllDisabledExceptUniversalAccess),"Recording pauses global hotkeys while preserving accessibility shortcuts")
+                try check(shortcutRecording.active && GetSymbolicHotKeyMode()==0,"Foreground recording leaves other applications and system hotkeys enabled")
                 _ = try await settingsView.evaluateJavaScript("dispatchEvent(new KeyboardEvent('keydown',{code:'KeyY',key:'Y',ctrlKey:true,altKey:true,shiftKey:true,bubbles:true}));dispatchEvent(new KeyboardEvent('keyup',{code:'KeyY',key:'Y',ctrlKey:true,altKey:true,shiftKey:true,bubbles:true}))")
                 try await Task.sleep(nanoseconds:250_000_000)
                 try check(!recordingShortcut && preferences.value.textShortcut==Shortcut(key:"KeyY",shift:true),"Recording a text shortcut persists the actual combination after key release")
-                try check(!shortcutRecording.active && GetSymbolicHotKeyMode()==0,"Committing a shortcut restores global hotkeys")
+                try check(!shortcutRecording.active && GetSymbolicHotKeyMode()==0,"Committing a shortcut ends recording while other applications hotkeys stay enabled")
                 _ = try await settingsView.evaluateJavaScript("document.querySelector('[data-shortcut-row=open] button').click()")
                 try await Task.sleep(nanoseconds:100_000_000)
                 _ = try await settingsView.evaluateJavaScript("dispatchEvent(new KeyboardEvent('keydown',{code:'KeyO',key:'O',ctrlKey:true,altKey:true,shiftKey:true,bubbles:true}));dispatchEvent(new KeyboardEvent('keyup',{code:'KeyO',key:'O',ctrlKey:true,altKey:true,shiftKey:true,bubbles:true}))")
