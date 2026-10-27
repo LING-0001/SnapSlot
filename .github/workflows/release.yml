@@ -1,45 +1,146 @@
 name: Publish release
 on:
   push:
-    tags:
-      - 'v*'
+    branches:
+      - release
+      - 'releasev*'
+      - 'release/v*'
 permissions:
   contents: read
 concurrency:
-  group: release-${{ github.ref }}
+  # Serialize all release branches; main development never cancels a release.
+  group: snapslot-release
   cancel-in-progress: false
 jobs:
-  verify-windows-installer:
-    runs-on: windows-latest
+  authorize:
+    if: github.repository == 'LING-0001/SnapSlot' && github.actor == 'LING-0001' && github.triggering_actor == 'LING-0001'
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      tag: ${{ steps.release.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          filter: blob:none
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: ./scripts/installers/check-windows.ps1
-        shell: pwsh
-  verify-macos-package:
+      - id: release
+        name: Check owner, main ancestry, version and existing releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/release-preflight.mjs
+
+  package:
+    needs: authorize
     runs-on: macos-latest
+    timeout-minutes: 30
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: 1
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: node scripts/verify-release.mjs
-      - name: Verify the mounted universal app
+          cache: npm
+          cache-dependency-path: apps/website/package-lock.json
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: npm ci --prefix apps/website
+      - name: Install packaging tools on the GitHub runner
         run: |
-          set -euo pipefail
-          version="$(node -p "require('./release.json').version")"
-          image="apps/website/public/downloads/v$version/SnapSlot-$version-macOS-universal.dmg"
-          volume="$(mktemp -d "$RUNNER_TEMP/snapslot-release.XXXXXX")"
-          trap 'hdiutil detach "$volume" >/dev/null 2>&1 || true; rmdir "$volume" 2>/dev/null || true' EXIT
-          hdiutil verify "$image"
-          hdiutil attach -readonly -nobrowse -mountpoint "$volume" "$image"
-          codesign --verify --deep --strict "$volume/SnapSlot.app"
-          lipo "$volume/SnapSlot.app/Contents/MacOS/SnapSlot" -verify_arch arm64 x86_64
-          test "$(readlink "$volume/Applications")" = /Applications
+          brew install makensis sevenzip
+          python -m venv .tools/dmgbuild
+          .tools/dmgbuild/bin/pip install dmgbuild==1.6.7
+      - name: Build universal Mac DMG and Windows x64 installer from this commit
+        run: node scripts/prepare-release.mjs
+      - run: node scripts/verify-release.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-installers
+          path: apps/website/public/downloads/v${{ needs.authorize.outputs.version }}/
+          if-no-files-found: error
+          retention-days: 14
+
+  verify-windows-installer:
+    needs: [authorize, package]
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-installers
+          path: apps/website/public/downloads/v${{ needs.authorize.outputs.version }}/
+      - name: Verify Microsoft signature, install, native UI and uninstall
+        run: ./scripts/installers/check-windows.ps1
+        shell: pwsh
+
+  website-and-media:
+    needs: [authorize, package]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/website/package-lock.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-installers
+          path: apps/website/public/downloads/v${{ needs.authorize.outputs.version }}/
+      - run: npm ci --prefix apps/website
+      - run: npm run build:native --prefix apps/website
+      - run: npx --prefix apps/website playwright install --with-deps chromium
+      - run: npm test --prefix apps/website
+      - name: Build the deployable website with verified installers
+        run: |
+          npm run test:downloads --prefix apps/website
+          npm run build --prefix apps/website
+      - name: Refresh all six languages of screenshots, onboarding and recordings
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+          pip install Pillow
+          HOST=127.0.0.1 PORT=3000 node apps/website/scripts/serve.mjs > "$RUNNER_TEMP/media-server.log" 2>&1 &
+          server=$!
+          trap 'kill "$server" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:3000/en/ > /dev/null; then break; fi
+            sleep 1
+          done
+          node apps/website/scripts/readme-media.mjs
+          python scripts/readme-gif.py
+          python scripts/readme-build.py
+      - name: Archive the website and companion materials
+        env:
+          VERSION: ${{ needs.authorize.outputs.version }}
+        run: |
+          mkdir -p artifacts/release
+          (cd apps/website/out && zip -qr "$GITHUB_WORKSPACE/artifacts/release/SnapSlot-$VERSION-website.zip" .)
+          zip -qr "artifacts/release/SnapSlot-$VERSION-media.zip" README.md docs/readme docs/media
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-website-and-media
+          path: artifacts/release/*.zip
+          if-no-files-found: error
+          retention-days: 14
+
   publish:
-    needs: [verify-windows-installer, verify-macos-package]
+    needs: [authorize, package, verify-windows-installer, website-and-media]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -48,17 +149,19 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Verify the committed packages and tag
-        run: node scripts/verify-release.mjs
-      - name: Publish the same files served by the website
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-installers
+          path: apps/website/public/downloads/v${{ needs.authorize.outputs.version }}/
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-website-and-media
+          path: artifacts/release/
+      - run: node scripts/verify-release.mjs
+      - name: Create the tag and publish the exact verified commit
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          RELEASE_TAG: ${{ github.ref_name }}
-        run: |
-          directory="apps/website/public/downloads/$RELEASE_TAG"
-          notes="docs/releases/$RELEASE_TAG.md"
-          test -f "$notes"
-          gh release create "$RELEASE_TAG" \
-            "$directory"/*.dmg "$directory"/*-setup.exe "$directory/SHA256SUMS.txt" "$directory/manifest.json" \
-            --verify-tag --title "SnapSlot $RELEASE_TAG" --notes-file "$notes"
+          RELEASE_TAG: ${{ needs.authorize.outputs.tag }}
+          VERSION: ${{ needs.authorize.outputs.version }}
+        run: node scripts/publish-release.mjs

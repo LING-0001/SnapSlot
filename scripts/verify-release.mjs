@@ -3,10 +3,10 @@ import { createHash } from "node:crypto";
 import { readFile, readdir, stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { verifySourceVersion } from "./verify-source.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const { version } = JSON.parse(await readFile(path.join(root, "release.json"), "utf8"));
-if (!/^\d+\.\d+\.\d+$/.test(version)) throw new Error("Invalid release version");
+const version = await verifySourceVersion(root);
 const folder = path.join(root, "apps/website/public/downloads", `v${version}`);
 const manifest = JSON.parse(await readFile(path.join(folder, "manifest.json"), "utf8"));
 if (manifest.version !== version || manifest.tag !== `v${version}`) throw new Error("Release manifest version mismatch");
@@ -17,7 +17,7 @@ for (const [platform, filename] of Object.entries(expected)) {
   const pkg = manifest.packages[platform];
   if (pkg?.file !== filename || pkg.url !== `/downloads/v${version}/${filename}`) throw new Error(`Invalid ${platform} download path`);
   const file = path.join(folder, filename), info = await stat(file);
-  if (info.size !== pkg.size || info.size >= 100 * 1024 * 1024) throw new Error(`Invalid archive size: ${filename}`);
+  if (info.size !== pkg.size || info.size >= 2 * 1024 * 1024 * 1024) throw new Error(`Invalid archive size: ${filename}`);
   const data = await readFile(file);
   if (platform === "macos") {
     if (data.length < 512 || data.toString("ascii", data.length - 512, data.length - 508) !== "koly" || pkg.format !== "dmg") throw new Error(`Invalid DMG: ${filename}`);
@@ -31,10 +31,4 @@ for (const [platform, filename] of Object.entries(expected)) {
 }
 if ((await readFile(path.join(folder, "SHA256SUMS.txt"), "utf8")).replace(/\r\n/g, "\n").trim() !== sums.join("\n")) throw new Error("SHA256SUMS.txt is out of date");
 if ((await readdir(folder)).sort().join("\n") !== [...Object.values(expected), "manifest.json", "SHA256SUMS.txt"].sort().join("\n")) throw new Error("Unexpected files in release directory");
-const macVersion = await readFile(path.join(root, "apps/macos/Info.plist"), "utf8");
-const windowsVersion = await readFile(path.join(root, "apps/windows/SnapSlot.Windows.csproj"), "utf8");
-if (!macVersion.includes(`<key>CFBundleShortVersionString</key><string>${version}</string>`) || !windowsVersion.includes(`<Version>${version}</Version>`)) throw new Error("Native source versions do not match release.json");
-const website = JSON.parse(await readFile(path.join(root, "apps/website/package.json"), "utf8"));
-const websiteLock = JSON.parse(await readFile(path.join(root, "apps/website/package-lock.json"), "utf8"));
-if (website.version !== version || websiteLock.version !== version || websiteLock.packages[""].version !== version) throw new Error("Website versions do not match release.json");
 console.log(`Release v${version} is ready for direct hosting and GitHub Releases.`);

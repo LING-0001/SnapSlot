@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --hostname 127.0.0.1",
-    "prebuild": "node ../../scripts/verify-release.mjs",
+    "prebuild": "node ../../scripts/prepare-website.mjs",
     "build": "next build",
     "start": "node scripts/serve.mjs",
     "typecheck": "tsc --noEmit",

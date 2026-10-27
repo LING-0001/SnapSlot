@@ -1,31 +1,47 @@
-# 成品包发布与官网直链
+# 发布分支、GitHub 打包与官网部署
 
-发布文件随普通 Git 提交保存到 `apps/website/public/downloads/v1.1.0/`，没有使用 Git LFS。官网两个按钮直接下载本站安装包，页脚保留 GitHub Releases，导航保留代码仓库入口。
+日常在 `main` 开发和推送。`Verify SnapSlot` 运行源码版本、网站、原生界面及两端编译检查，不生成正式安装包，不创建 Release。
 
-服务器更新并完成静态构建后，下载地址为：
+## 明确要求发布时
 
-- [macOS 13+，Apple Silicon / Intel](http://101.200.239.135/downloads/v1.1.0/SnapSlot-1.1.0-macOS-universal.dmg)
-- [Windows 10 / 11 x64](http://101.200.239.135/downloads/v1.1.0/SnapSlot-1.1.0-windows-x64-setup.exe)
-- [SHA-256 校验文件](http://101.200.239.135/downloads/v1.1.0/SHA256SUMS.txt)
+用户说“推送到 release 分支”或“releasev1.2.0”后：
 
-按钮使用相对地址，将来迁移域名无需改下载代码。
+1. 在 main 准备版本号、发布说明及 README，提交并推送。明确版本号优先；未指定时使用当前未发布版本，已经发布则默认递增 patch。
+2. 将该 main 提交正常推送到 `release`、`releasev1.2.0` 或 `release/v1.2.0`。例如 `git push origin main:releasev1.2.0`。日常 main push 和手工 tag push 均不触发正式发布。
+3. `Publish release` 校验发布者是 `LING-0001`，重跑者也是该账号；源码提交须在远端 main 历史中，版本须与版本分支、两端项目和网站一致。已经公开的版本会被拒绝，不覆盖安装包或标签。
+4. GitHub 的 macOS runner 使用现有打包脚本，从这个提交编译 Mac 双架构应用及 Windows x64 自包含应用，生成 DMG、NSIS 安装器、清单与 SHA-256。Windows runner 实际安装、运行界面冒烟检查并卸载，确认用户文件保留。
+5. Ubuntu runner 刷新六语言截图、引导、GIF / MP4 和 README，并构建包含完整安装包的静态网站。
+6. 全部检查通过后，以最初触发的提交 SHA 创建 `v1.2.0` 标签，先上传并验证草稿附件，再公开 GitHub Release。
 
-## 本地提交与 GitHub Release
+失败后可由同一个 owner 重跑；草稿可为同一提交续传，也可由 owner 用后续 main 提交更新；已有标签不得改指向。发布前还会检查分支是否已前进，过期构建不会公开。失败不公开半成品。并发发布串行执行，新的 main 开发不会取消发布。未更改版本不得再次发布已经公开的版本。
 
-先检查并提交本次代码、文档和整个 `apps/website/public/downloads/v1.1.0/` 目录，再推送分支。不要只提交下载链接或清单。
+正式发布不需要本地 Swift 双架构编译、.NET 自包含发布、NSIS、dmgbuild 或演示录屏。仅本地开发测试时按需使用这些工具。
 
-```bash
-node scripts/verify-release.mjs
-git push
-git tag -a v1.1.0 -m "SnapSlot v1.1.0"
-git push origin v1.1.0
-```
+## 只有 owner 可以修改 release 分支
 
-标签应指向已包含这两个成品包的提交。推送标签会触发 `.github/workflows/release.yml`，先验证版本、SHA-256、Mac DMG 内的签名与双架构，以及 Windows 安装 / 卸载流程，全部通过后将同一份 DMG、EXE、校验文件、清单上传至 GitHub Release。无需本地登录 GitHub CLI；工作流使用仓库的 `GITHUB_TOKEN`。代码仓库需允许 Actions 运行。
+仓库服务端启用 Ruleset **Release branches — owner only**，配置源文件是 `.github/release-branches.ruleset.json`，匹配：
 
-## 服务器拉取与部署
+- `release`
+- `releasev*`
+- `release/v*`
 
-在服务器现有项目目录执行：
+规则限制创建、更新、删除和非快进推送，只允许管理员绕过。目前这是个人仓库，唯一管理员为 `LING-0001`；普通写权限协作者和 GitHub Actions 未获绕过权限。规则不影响 main。
+
+新增管理员、迁移仓库到组织或修改绕过列表时，必须重新审查“仅 owner”是否仍然成立。workflow 内的 actor 校验是额外防线，不能代替服务端分支保护。
+
+## Release 附件
+
+- `SnapSlot-X.Y.Z-macOS-universal.dmg`：macOS 13+，Apple Silicon / Intel，拖入“应用程序”安装。
+- `SnapSlot-X.Y.Z-windows-x64-setup.exe`：Windows 10 / 11 x64，包含 .NET；缺少 WebView2 时从微软官方地址联网安装。
+- `manifest.json`、`SHA256SUMS.txt`：安装包路径、版本、大小和校验值。
+- `SnapSlot-X.Y.Z-website.zip`：可直接部署的完整静态网站，包含本站下载文件。
+- `SnapSlot-X.Y.Z-media.zip`：本次生成的 README、六语言截图、引导素材和 GIF / MP4。发布后可将此 ZIP 中的 README 与 docs 素材同步回 main，无需重新生成；不要回写 release 分支。
+
+历史 Release 保留。安装包不再跟踪在 Git 中；已有历史提交和 v1.1.0 Release 不改写。
+
+## 官网部署
+
+保留相对下载 URL `/downloads/vX.Y.Z/...`，浏览器直接下载本站安装包。可以直接解压本版 `website.zip` 到站点目录；也可以在服务器拉取 main 后构建：
 
 ```bash
 git pull --ff-only
@@ -33,71 +49,17 @@ npm ci --prefix apps/website
 npm run build --prefix apps/website
 ```
 
-静态产物位于 `apps/website/out/`，包含所有语言页面及 `downloads/`。服务器只需 Node.js，不需要 Swift、.NET SDK 或 Windows。构建前自动检查下载包，缺失、版本不符或内容损坏会直接报错。
+构建前自动检查源码版本，从对应 GitHub Release 下载两个安装包、清单和 SHA-256。已有完整且校验通过的缓存会直接复用；下载不完整或校验失败会阻止构建，禁止部署失效下载按钮。构建产物为 `apps/website/out/`，须同步整个目录，包括 downloads。
 
-如果当前使用 Nginx，网站根目录应指向项目的 `apps/website/out/`；如果使用自己的发布目录，需要同步**整个 out 目录**，包括 `downloads/`，再 reload Nginx。Nginx 原生支持 Range 请求，可在现有 server 配置内补充：
-
-```nginx
-# 保留现有其他路由；将 root 替换为真实路径。
-root /path/to/SnapSlot/apps/website/out;
-
-location ~ ^/downloads/v[0-9]+\.[0-9]+\.[0-9]+/[^/]+\.(dmg|exe)$ {
-    try_files $uri =404;
-    types { application/x-apple-diskimage dmg; application/vnd.microsoft.portable-executable exe; }
-    add_header Content-Disposition 'attachment';
-    add_header Cache-Control 'public, max-age=31536000, immutable';
-}
-```
-
-如果使用项目自带的 Node 静态服务器，构建后以现有进程管理方式重启它：
+服务器只需要 Node.js，不需要 Swift、.NET 或安装包工具。如果要单独准备缓存：
 
 ```bash
-HOST=0.0.0.0 PORT=3000 npm start --prefix apps/website
-```
-
-它支持 DMG / EXE 附件下载、HEAD、ETag 和单段 Range 断点续传。公网反向代理应转发 Range / If-Range 等请求头。
-
-部署后用任一下载链接验证响应应为 `200`、对应的 DMG / EXE MIME 类型，而不是跳转 GitHub。断点请求应为 `206`：
-
-```bash
-curl -I http://101.200.239.135/downloads/v1.1.0/SnapSlot-1.1.0-macOS-universal.dmg
-curl -r 0-31 -D - -o /dev/null http://101.200.239.135/downloads/v1.1.0/SnapSlot-1.1.0-windows-x64-setup.exe
-```
-
-## 后续版本
-
-在 Mac 上准备新版本：更新 `release.json`、两端项目版本及网站 package 版本，安装网站依赖、.NET 10 SDK 和 Python 3.10+，以及以下打包工具：
-
-```bash
-brew install makensis sevenzip ffmpeg
-python3 -m venv .tools/dmgbuild
-.tools/dmgbuild/bin/pip install dmgbuild==1.6.7
-```
-
-正式发布时，先刷新六语言截图、引导素材、GIF / MP4 录屏和 README。保持官网开发服务运行，再在另一个终端执行：
-
-```bash
-npm run build:native --prefix apps/website
-node apps/website/scripts/readme-media.mjs
-python3 scripts/readme-gif.py  # 需要 Pillow；MP4 编码使用 FFmpeg
-python3 scripts/readme-build.py
-```
-
-截图脚本使用本机 Chrome，设置截图直接载入本次 NativeUI 构建。请检查引导位置、便签状态、设置与冲突说明后再发布。Mac 的 `CFBundleVersion` 应随正式版本递增，Windows 应用清单版本应与项目版本一起更新。
-
-然后运行：
-
-```bash
-node scripts/prepare-release.mjs
+node scripts/fetch-release.mjs
 node scripts/verify-release.mjs
 ```
 
-脚本生成带拖拽安装引导的 Mac 通用 DMG、Windows x64 安装器、SHA-256 与清单，成功后移除旧版本下载目录。Windows 安装器包含 .NET、桌面与开始菜单快捷方式、卸载入口；缺少 WebView2 时会自动联网安装。打包时会从微软官方地址下载其引导程序，安装器会提示用户保持联网。
+只有 CI 源码预览可设置 `SNAPSLOT_SOURCE_CHECK_ONLY=1`。这个模式只验证版本并构建页面，不下载、不包含安装包，不属于可部署产物。
 
-Mac DMG 通过 `hdiutil verify` 检查，Windows 安装器通过 7-Zip 检查并逐文件比对完整载荷。Windows CI 还会验证微软引导程序的 Authenticode 签名，并执行静默安装、快捷方式 / 注册信息和卸载保留用户文件的检查。安装体验：Mac 用户打开 DMG 后，把 SnapSlot 拖到“应用程序”；Windows 用户双击 `setup.exe` 按引导安装，无需处理 DLL 或项目源码。
+Nginx 的 root 指向静态产物目录，保持已有附件下载与 Range 配置。项目自带静态服务器同样支持 HEAD、附件 MIME、ETag 和单段 Range。部署后检查 DMG / EXE 为 200，断点请求为 206。
 
-已发布的版本文件名不可覆盖；修复后使用新的版本号，避免长期缓存取到旧包。GitHub 中历史 Release 保留，官网仓库只保留最新成品目录。每版还需添加 `docs/releases/v版本号.md` 后提交和推送标签。
-
-当前 Mac 包为 ad-hoc 签名、未公证；Windows 包未签名。获得相应签名证书后应在生成最终安装包前签名并验证。
-
-尚未发布且没有本地版本标签的候选包，可以用 `--replace-unpublished` 重新准备；正式发布后必须递增版本号。
+Mac 包仍为 ad-hoc 签名、未公证；Windows 包仍未签名。获得相应证书后应在生成最终安装包前签名并验证。

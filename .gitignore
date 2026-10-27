@@ -22,3 +22,6 @@ playwright-report/
 .build/
 .DS_Store
 .taste-skill/
+
+# CI-generated installers are fetched from GitHub Releases for website deployment.
+apps/website/public/downloads/v*/

@@ -130,7 +130,7 @@ try {
   const sums = [];
   for (const [platform, file] of Object.entries(files)) {
     const data = await readFile(path.join(bundle, file));
-    if (data.length >= 100 * 1024 * 1024) throw new Error(`${file} exceeds GitHub's regular Git file size limit`);
+    if (data.length >= 2 * 1024 * 1024 * 1024) throw new Error(`${file} exceeds the 2 GiB release asset limit`);
     const sha256 = createHash("sha256").update(data).digest("hex");
     manifest.packages[platform] = { file, url: `/downloads/v${version}/${file}`, size: data.length, sha256, format: platform === "macos" ? "dmg" : "nsis", architecture: platform === "macos" ? "universal (arm64, x86_64)" : "x64", minimumOS: platform === "macos" ? "macOS 13" : "Windows 10", signing: platform === "macos" ? "ad-hoc app, DMG not notarized" : "unsigned" };
     sums.push(`${sha256}  ${file}`);
