@@ -168,7 +168,7 @@ README 有六种语言：`README.md`（简体中文）和 `docs/readme/README.<�
 
 - 界面文案六种语言一起改：`apps/website/lib/home-copy.ts`（官网）、`apps/native-ui`（客户端）。只会一两种语言时，在 PR 里说明，其他语言可以先用英文占位，由维护者补齐。
 - 产品术语以 `CONTEXT.md` 为准（例如「便签」「固定」「自动收取」），不要自造新词。
-- 改动影响设计决策时，同步更新 `CONTEXT.md` 和 `apps/website/DESIGN.md`，只保留当前官网方案。
+- 改动影响设计决策时，将当前规则直接修订到 `AGENTS.md`，不另建并行设计规范；术语变化同步更新 `CONTEXT.md`。
 - 名称和图标的使用规则见 `BRANDING.md`。
 
 有疑问可以开 Issue，或发邮件到 e1347605313@gmail.com。
