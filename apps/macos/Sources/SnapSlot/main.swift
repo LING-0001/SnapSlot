@@ -925,11 +925,42 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
                 checks += try await checkClipboardIntake(sample:Data(contentsOf:imageItem.fileURL))
                 store.remove(id:imageItem.id)
                 try check(FileManager.default.fileExists(atPath:imageItem.fileURL.path),"Removed exports survive for existing file drag consumers")
-                _ = try await web.evaluateJavaScript("window.arrivalProbe={starts:[],opacity:[]};window.arrivalListener=e=>{if(e.target.matches('[data-arm] > div'))window.arrivalProbe.starts.push(e.animationName)};document.addEventListener('animationstart',window.arrivalListener);window.arrivalStart=performance.now();function sampleArrival(){const elapsed=performance.now()-window.arrivalStart,card=document.querySelector('[data-focus=true]')?.parentElement;if(elapsed>900&&card)window.arrivalProbe.opacity.push(Number(getComputedStyle(card).opacity));if(elapsed<2050)requestAnimationFrame(sampleArrival)}requestAnimationFrame(sampleArrival)")
-                try store.addPNG(Data(contentsOf:imageItem.fileURL),title:"Arrival regression",display:displayID(activeScreen));state()
-                try await Task.sleep(nanoseconds:2_150_000_000)
-                let stableArrival=try await web.evaluateJavaScript("document.removeEventListener('animationstart',window.arrivalListener);window.arrivalProbe.starts.length===1 && window.arrivalProbe.opacity.length>0 && Math.min(...window.arrivalProbe.opacity)>.99") as? Bool
-                try check(stableArrival==true,"A new image animates once and stays opaque when the fresh marker expires in real WKWebView")
+                try store.addPNG(Data(contentsOf:imageItem.fileURL),title:"Arrival regression",display:displayID(activeScreen))
+                let arrivalID=String(data:try JSONEncoder().encode(store.items.last!.id),encoding:.utf8)!
+                _ = try await web.evaluateJavaScript("""
+                    window.arrivalProbe={id:\(arrivalID),starts:[],opacity:[],started:null,done:false,reduced:false};
+                    window.arrivalListener=e=>{
+                        const card=document.querySelector('[data-arm="'+window.arrivalProbe.id+'"] > div');
+                        if(e.target===card)window.arrivalProbe.starts.push(e.animationName);
+                    };
+                    document.addEventListener('animationstart',window.arrivalListener);
+                    function sampleArrival(){
+                        const probe=window.arrivalProbe,card=document.querySelector('[data-arm="'+probe.id+'"] > div');
+                        if(card){
+                            const style=getComputedStyle(card);
+                            if(probe.started===null){probe.started=performance.now();probe.reduced=style.animationName==='none';}
+                            const elapsed=performance.now()-probe.started;
+                            if(elapsed>900)probe.opacity.push(Number(style.opacity));
+                            if(elapsed>=2050){
+                                probe.done=true;probe.freshExpired=style.getPropertyValue('--drop-distance').trim()!=='-64px';
+                                document.removeEventListener('animationstart',window.arrivalListener);return;
+                            }
+                        }
+                        requestAnimationFrame(sampleArrival);
+                    }
+                    requestAnimationFrame(sampleArrival);
+                    """)
+                state()
+                // Start timing when this note actually renders, not when the host queues a message.
+                for _ in 0..<80 {
+                    if try await web.evaluateJavaScript("window.arrivalProbe.done") as? Bool == true {break}
+                    try await Task.sleep(nanoseconds:100_000_000)
+                }
+                let arrivalResult=try await web.evaluateJavaScript("({done:window.arrivalProbe.done,starts:window.arrivalProbe.starts,samples:window.arrivalProbe.opacity.length,minOpacity:Math.min(1,...window.arrivalProbe.opacity),reduced:window.arrivalProbe.reduced,freshExpired:window.arrivalProbe.freshExpired===true})") as! [String:Any]
+                let starts=arrivalResult["starts"] as? [String] ?? [],reduced=arrivalResult["reduced"] as? Bool == true
+                let stableArrival=arrivalResult["done"] as? Bool == true && starts.count==(reduced ? 0:1) && (arrivalResult["samples"] as? Int ?? 0)>0 && (arrivalResult["minOpacity"] as? Double ?? 0)>0.99 && arrivalResult["freshExpired"] as? Bool == true
+                print("CHECK: arrival animation \(arrivalResult)");fflush(stdout)
+                try check(stableArrival,"A new image animates once (or respects reduced motion) and stays opaque when its fresh marker expires in real WKWebView")
                 for i in 0..<35 {try store.addText("Note \(i)\nKeep useful things close.",display:displayID(activeScreen))};state()
                 try await Task.sleep(nanoseconds:900_000_000)
                 let geometry=try await web.evaluateJavaScript("(()=>{const face=document.querySelector('[data-focus=true]'),arm=face.closest('[data-arm]'),style=getComputedStyle(face);return {count:document.querySelectorAll('[data-arm]').length,width:face.offsetWidth,height:face.offsetHeight,radius:style.borderRadius,origin:getComputedStyle(arm).transformOrigin}})()") as! [String:Any]
