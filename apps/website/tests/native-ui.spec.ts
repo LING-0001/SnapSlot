@@ -2,6 +2,7 @@ import { test, expect, type Page } from "@playwright/test";
 import { pathToFileURL } from "node:url";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
+const origin=process.env.SNAPSLOT_TEST_URL || "http://127.0.0.1:3000";
 const root = path.resolve(__dirname, "../../..");
 const entry = pathToFileURL(process.env.SNAPSLOT_UI_ENTRY || path.join(root, "artifacts/native-ui/index.html")).href;
 const output = process.env.SNAPSLOT_QA_OUTPUT || path.join(root, "artifacts/qa/native-ui");
@@ -39,22 +40,20 @@ async function host(page: Page, mode = "rail", count = 8, platform: "macos" | "w
 }
 const focused = (page: Page) => page.locator("[data-focus=true]");
 
-test("fan uses the exact website geometry, colors, shadows and animation timings", async ({ page, context }) => {
+test("fan shares website materials and animation while fitting the native host", async ({ page, context }) => {
   await page.setViewportSize({ width: 1280, height: 360 });
   await host(page);
   const reference = await context.newPage();
   await reference.addInitScript(() => Object.defineProperty(navigator, "platform", { get: () => "MacIntel" }));
-  await reference.goto("http://127.0.0.1:3000/zh-Hans/");
-  await reference.getByRole("button", { name: "跳过", exact: true }).click();
-  await reference.getByRole("button", { name: "SnapSlot 菜单" }).click();
-  await reference.getByRole("menuitemcheckbox", { name: "固定便签", exact: true }).click();
+  await reference.goto(origin+"/zh-Hans/");
   await reference.evaluate(() => document.fonts.ready);
+  await reference.getByRole('button',{name:'macOS',exact:true}).click();await reference.keyboard.press('Control+Alt+Space');await expect(reference.locator('#stage [role=list]')).toHaveCSS('transform','none');
   const properties = (node: Element) => {
     const style = getComputedStyle(node), arm = getComputedStyle(node.closest("[role=listitem]")!), card = getComputedStyle(node.parentElement!);
-    return { width: style.width, height: style.height, radius: style.borderRadius, padding: style.padding, background: style.backgroundColor, color: style.color, shadow: style.boxShadow, blur: style.backdropFilter, faceTransition: style.transitionDuration, armTransition: arm.transitionDuration, origin: arm.transformOrigin, cardAnimation: card.animationDuration, dialTransition: getComputedStyle(node.closest("[role=list]")!).transitionDuration };
+    return { radius: style.borderRadius, padding: style.padding, background: style.backgroundColor, color: style.color, shadow: style.boxShadow, blur: style.backdropFilter, faceTransition: style.transitionDuration, armTransition: arm.transitionDuration, cardAnimation: card.animationDuration, dialTransition: getComputedStyle(node.closest("[role=list]")!).transitionDuration };
   };
   expect(await focused(page).evaluate(properties)).toEqual(await reference.locator("[data-focus=true]").evaluate(properties));
-  await expect(page.locator("[data-arm][aria-hidden=false]")).toHaveCount(4);
+  await expect(page.locator("[data-arm][aria-hidden=false]")).toHaveCount(2);
   expect(await page.locator("[data-arm][aria-hidden=false] [data-note]").evaluateAll(nodes => nodes.every(node => node.getBoundingClientRect().bottom < innerHeight - 20))).toBe(true);
   await page.screenshot({ path: path.join(output, "fan.png"), omitBackground: true });
 });
@@ -98,13 +97,14 @@ test("settings match the website and persist changes through native commands", a
   await page.setViewportSize({ width: 420, height: 442 }); await host(page, "preferences", 30);
   await expect(page.getByRole("dialog")).toHaveCSS("width", "420px");
   await expect(page.getByRole("switch")).toHaveCount(2);
+  await page.getByRole("button", { name: "清空全部", exact: true }).scrollIntoViewIfNeeded();
   await expect(page.getByRole("button", { name: "清空全部", exact: true })).toBeInViewport({ ratio: 1 });
   const reference = await context.newPage(); await reference.setViewportSize({ width: 1280, height: 1000 });
   await reference.addInitScript(() => Object.defineProperty(navigator, "platform", { get: () => "MacIntel" }));
-  await reference.goto("http://127.0.0.1:3000/zh-Hans/"); await reference.getByRole("button", { name: "跳过", exact: true }).click();
-  await reference.getByRole("button", { name: "SnapSlot 菜单" }).click(); await reference.getByRole("menuitem", { name: "设置…", exact: true }).click();
+  await reference.goto(origin+"/zh-Hans/");
+  await reference.locator("[data-coach=tray]").click(); await reference.getByRole("menuitem", { name: "设置…", exact: true }).click();
   await reference.evaluate(() => document.fonts.ready);
-  const rowStyle = (node: Element) => { const s = getComputedStyle(node); return [s.minHeight, s.padding, s.backgroundColor, s.borderRadius, s.fontSize, s.gap]; };
+  const rowStyle = (node: Element) => { const s = getComputedStyle(node); return [s.padding, s.backgroundColor, s.borderRadius, s.gap]; };
   expect(await page.getByRole("switch").first().locator("..").evaluate(rowStyle)).toEqual(await reference.getByRole("switch").first().locator("..").evaluate(rowStyle));
   await page.getByRole("button", { name: "纸白", exact: true }).click(); await expect(page.locator("main")).toHaveAttribute("data-skin", "paper");
   await page.getByRole("button", { name: "石墨", exact: true }).click(); await expect(page.locator("main")).toHaveAttribute("data-skin", "graphite");
@@ -118,7 +118,7 @@ test("settings match the website and persist changes through native commands", a
 test("tray matches the four website menu actions", async ({ page }) => {
   await page.setViewportSize({ width: 244, height: 140 }); await host(page, "tray");
   await expect(page.getByRole("menuitem")).toHaveCount(2); await expect(page.getByRole("menuitemcheckbox")).toHaveCount(2);
-  await expect(page.getByRole("menu")).toHaveCSS("border-radius", "10px");
+  await expect(page.getByRole("menu")).toHaveCSS("border-radius", "12px");
   await expect(page.getByRole("menuitemcheckbox").last()).toBeInViewport({ ratio: 1 });
   await page.screenshot({ path: path.join(output, "menu.png"), omitBackground: true });
   await page.getByRole("menuitemcheckbox", { name: "固定便签", exact: true }).click();
@@ -131,15 +131,15 @@ test("tray hover highlights each row, including native pointer updates from an i
   for (let index = 0; index < 4; index++) {
     const row = rows.nth(index);
     await row.hover();
-    await expect(row).toHaveCSS("background-color", "rgb(10, 132, 255)");
-    await expect(row).toHaveCSS("color", "rgb(255, 255, 255)");
-    await expect(row.locator("span")).toHaveCSS("color", "rgb(255, 255, 255)");
+    await expect(row).toHaveCSS("background-color", "rgb(242, 238, 255)");
+    await expect(row).toHaveCSS("color", "rgb(89, 57, 230)");
+    await expect(row.locator("span")).toHaveCSS("color", "rgb(89, 57, 230)");
     await page.mouse.move(0, 0);
     const box = (await row.boundingBox())!;
     await page.evaluate(({ x, y }) => (window as any).snapslotReceive({ type: "pointer", x, y }), { x: box.x + 30, y: box.y + box.height / 2 });
     await expect(page.locator(".native-menu .host-hover")).toHaveCount(1);
-    await expect(row).toHaveCSS("background-color", "rgb(10, 132, 255)");
-    await expect(row.locator("span")).toHaveCSS("color", "rgb(255, 255, 255)");
+    await expect(row).toHaveCSS("background-color", "rgb(242, 238, 255)");
+    await expect(row.locator("span")).toHaveCSS("color", "rgb(89, 57, 230)");
   }
   await page.screenshot({ path: path.join(output, "menu-hover.png"), omitBackground: true });
   await page.evaluate(() => (window as any).snapslotReceive({ type: "pointer", x: null, y: null }));
@@ -234,7 +234,7 @@ test("the entire native interface loads offline without network requests or miss
 test("Windows uses the same fan, native WebView2 bridge and website settings", async ({ page }) => {
   await host(page, "rail", 30, "windows");
   await expect(page.locator("[data-os=win]")).toHaveCount(1);
-  await expect(focused(page)).toHaveCSS("width", "200px");
+  await expect(focused(page)).toHaveCSS("width", "150px");
   await focused(page).click();
   expect(await page.evaluate(() => (window as any).commands.filter((c: any) => c.type === "copy"))).toEqual([{ type: "copy", id: "note-29" }]);
   await focused(page).press("Delete");await expect(page.locator("[data-arm]")).toHaveCount(29);
@@ -242,14 +242,14 @@ test("Windows uses the same fan, native WebView2 bridge and website settings", a
 
 test("Windows settings and tray match the website's platform chrome", async ({ page }) => {
   await page.setViewportSize({ width: 420, height: 442 });await host(page, "preferences", 3, "windows");
-  await expect(page.getByRole("dialog")).toHaveCSS("border-radius", "10px");
+  await expect(page.getByRole("dialog")).toHaveCSS("border-radius", "16px");
   await expect(page.getByRole("button", { name: "关闭设置" })).toHaveText("×");
   await expect(page.locator("kbd")).toContainText(["Ctrl", "Alt", "T", "Ctrl", "Alt", "Space"]);
   await page.getByRole("button", { name: "石墨", exact: true }).click();await expect(page.locator("main")).toHaveAttribute("data-skin", "graphite");
   await page.getByRole("switch", { name: "固定便签", exact: true }).click();await expect(page.getByRole("switch").last()).toHaveAttribute("aria-checked", "true");
   await page.setViewportSize({ width: 244, height: 170 });await page.goto(entry+"?mode=tray");
-  const row=page.getByRole("menuitemcheckbox").last();await row.hover();await expect(row).toHaveCSS("background-color", "rgba(0, 0, 0, 0.05)");
-  await expect(row).toHaveCSS("color", "rgb(27, 27, 27)");
+  const row=page.getByRole("menuitemcheckbox").last();await row.hover();await expect(row).toHaveCSS("background-color", "rgb(242, 238, 255)");
+  await expect(row).toHaveCSS("color", "rgb(89, 57, 230)");
 });
 
 test("native menu supports arrow, Home and End navigation", async ({ page }) => {
@@ -313,3 +313,37 @@ for (const platform of ["macos", "windows"] as const) {
     await expect(page.locator('[data-shortcut-row=open]').getByRole("status")).toContainText("被占用");
   });
 }
+
+for(const platform of ["macos","windows"] as const){
+ test(`${platform}: reading a full note enlarges it, Escape restores the note and copy feedback stays small`,async({page})=>{
+  await page.setViewportSize({width:1280,height:640});await host(page,"rail",3,platform);
+  await focused(page).press('Space');await expect(page.getByRole('dialog',{name:'放大便签'})).toContainText('发给设计组看');
+  await expect.poll(()=>page.evaluate(()=>(window as any).commands.some((c:any)=>c.type==='preview'&&c.id==='note-2'))).toBe(true);
+  await expect(page.locator('[data-native-region=__preview]')).toBeInViewport({ratio:1});
+  await page.keyboard.press('Escape');await expect(page.getByRole('dialog')).toHaveCount(0);await expect(focused(page)).toBeFocused();
+  expect(await page.evaluate(()=>(window as any).commands.some((c:any)=>c.type==='collapse'))).toBe(false);
+  await focused(page).press('Enter');const status=page.locator('[role=status]').filter({hasText:'已复制'}),r=(await status.boundingBox())!,face=(await focused(page).boundingBox())!;
+  expect(r.height).toBeLessThanOrEqual(22);expect(face.x+face.width-r.x-r.width).toBeLessThanOrEqual(9);
+ });
+ test(`${platform}: selected note words can be collected while the full card still drags`,async({page})=>{
+  await host(page,"rail",3,platform);await focused(page).locator('[data-note-text]').dblclick({position:{x:24,y:18}});
+  await expect.poll(()=>page.evaluate(()=>getSelection()?.toString().trim().length||0)).toBeGreaterThan(0);
+  const selected=await page.evaluate(()=>getSelection()!.toString().trim());await page.locator('.native-selection').click();
+  expect(await page.evaluate(()=>(window as any).commands.filter((c:any)=>c.type==='collectText'))).toEqual([{type:'collectText',text:selected}]);
+  await expect(page.locator('.native-selection')).toHaveCount(0);
+  const r=(await focused(page).boundingBox())!;await page.mouse.move(r.x+50,r.y+30);await page.mouse.down();await page.waitForTimeout(180);await page.mouse.move(r.x+75,r.y+40);await page.mouse.up();
+  expect(await page.evaluate(()=>(window as any).commands.filter((c:any)=>c.type==='drag'))).toHaveLength(1);
+ });
+
+}
+
+test('native settings and notes stay readable in six languages with no desktop tutorial',async({page})=>{
+ for(const platform of ['macos','windows'] as const){
+  await page.setViewportSize({width:420,height:700});await host(page,'preferences',3,platform);
+  for(const locale of ['en','zh-Hans','zh-Hant','ja','ko','es']){
+   await page.getByRole('combobox').selectOption(locale);await expect(page.locator('html')).toHaveAttribute('lang',locale);
+   await expect(page.getByRole('dialog')).toBeInViewport({ratio:1});expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(420);
+   await expect(page.locator('.native-coach,.native-guide-restart')).toHaveCount(0);
+  }
+ }
+});

@@ -1,5 +1,4 @@
-/* Native hosts supply the desktop/tray. Everything visible uses the website's
-   CSS module unchanged; these rules only adapt its simulated window containers. */
+/* Native host geometry; the current website module owns the product appearance. */
 * { box-sizing: border-box; }
 html, body, #root { margin: 0; width: 100%; height: 100%; overflow: hidden; background: transparent; }
 body { user-select: none; -webkit-user-select: none; }
@@ -7,25 +6,49 @@ body { user-select: none; -webkit-user-select: none; }
 .native-page .native-surface { --top: 0px; width: 100%; height: 100%; min-height: 0; margin: 0; border-radius: 0; box-shadow: none; background: transparent; }
 .native-page .native-window { position: relative; inset: auto; width: 420px; height: fit-content; max-height: 100%; margin: 0; translate: none; box-shadow: none; animation: none; }
 .native-page .native-surface .native-menu { inset: 6px; min-width: 0; margin: 0; }
-.native-page .native-surface[data-os="mac"] .native-menu button:is(:hover, :focus-visible, .host-hover) { background: #0a84ff; color: #fff; outline: none; }
+.native-page .native-surface[data-os="mac"] .native-menu button:is(:hover, :focus-visible, .host-hover) { background: #f2eeff; color: #5939e6; outline: none; }
 .native-page .native-surface .native-menu button:is(:hover, :focus-visible, .host-hover) > span { color: inherit; }
-.native-page .native-surface[data-os="win"] .native-menu button.host-hover { background: #0000000d; color: #1b1b1b; }
+.native-page .native-surface[data-os="win"] .native-menu button.host-hover { background: #f2eeff; color: #5939e6; }
 .native-page .native-surface .native-notice { bottom: 12px; max-width: calc(100% - 24px); width: max-content; }
 .native-page [data-mode="rail"] .native-notice { bottom: 4px; }
-.native-page .host-hover [data-note] { transform: translateY(5px); }
+.native-page .host-hover [data-note] { transform: none; box-shadow: inset 0 0 0 1.5px var(--pin), 0 10px 28px -8px #23233750; }
 .native-page .host-hover button[aria-label]:last-child { opacity: 1; transform: none; }
 .reduce-motion .native-page *, .reduce-motion .native-page *::before, .reduce-motion .native-page *::after { transition: none !important; animation: none !important; }
-.native-page { --font-latin: "Inter Tight"; --font-han: "Noto Sans SC"; }
+.native-page { --font-latin: -apple-system; --font-han: "PingFang SC"; }
 .native-page .native-shortcut { display: flex; align-items: center; justify-content: flex-end; gap: 7px; flex: none; max-width: 58%; min-height: 32px; padding: 3px 4px; border-radius: 6px; transition: background 120ms; }
-.native-page .native-shortcut:hover, .native-page .native-shortcut[aria-pressed="true"] { background: #0a84ff14; }
+.native-page .native-shortcut:hover, .native-page .native-shortcut[aria-pressed="true"] { background: #f2eeff; }
 .native-page .native-shortcut svg { flex: none; opacity: .6; }
 .native-page .native-shortcut .native-shortcut-warning { color: #a55a00; opacity: 1; }
-.native-page .native-shortcut[aria-pressed="true"] { color: #0656a8; box-shadow: 0 0 0 1px #0a84ff66; padding: 5px 8px; }
+.native-page .native-shortcut[aria-pressed="true"] { color: #5939e6; box-shadow: 0 0 0 1px #6c4dff66; padding: 5px 8px; }
 .native-page .native-shortcut-hint { margin: 5px 14px 8px; color: #815000; font-size: 11px; line-height: 1.55; overflow-wrap: anywhere; }
 
 .native-window-controls { display: flex; align-items: center; margin-left: auto; gap: 4px; }
 .native-page .native-minimize { width: 30px; height: 24px; border-radius: 4px; font-size: 20px; line-height: 1; }
 .native-page .native-minimize:hover { background: #0000000d; }
 
-.native-page .native-surface[data-mode="preferences"] { border-radius: 10px; overflow: hidden; }
-.native-page .native-surface[data-os="mac"][data-mode="preferences"] { border-radius: 12px; }
+.native-page .native-surface[data-mode="preferences"] { border-radius: 16px; overflow: hidden; }
+.native-page .native-surface[data-os="mac"][data-mode="preferences"] { border-radius: 16px; }
+
+/* macOS menu panels are 140pt tall; native menu density stays compact. */
+.native-page .native-surface[data-os="mac"] .native-menu button{height:24px}
+
+/* Host geometry only. Website CSS is the single owner of note materials and controls. */
+main.native-page{--font-latin:'Inter Tight';--font-han:'Noto Sans SC';--card-w:160px;--card-h:116px;--radius:1250px;--step:9deg}
+main.native-page .native-surface[data-mode][data-density]{display:block;padding:0;height:100%;min-height:0;background:none;border:0;container-type:normal;overflow:visible}
+main.native-page .native-surface[data-mode=rail][data-density] [data-arm]{top:12px;height:116px}
+main.native-page .native-surface[data-mode=rail] [data-kind='text']{--card-w:150px}
+main.native-page .native-surface[data-mode=rail][data-density] [role='list']{top:0;height:200px;scale:1}
+main.native-page .native-surface[data-mode=rail] [data-native-counter]{top:158px;bottom:auto}
+main.native-page .native-surface[data-mode=preferences] .native-window{position:relative;inset:auto;width:420px;max-height:100%;margin:0;translate:none;animation:none}
+main.native-page .native-surface[data-mode=preferences] [data-settings-row]{font-size:13px;min-height:48px}
+main.native-page .native-surface[data-mode=preferences] [data-settings-row] small{font-size:11px}
+main.native-page .native-surface[data-mode=tray] .native-menu{inset:6px;min-width:0;max-width:none}
+main.native-page .native-surface[data-mode=rail] .native-preview{top:50%;left:50%;width:min(720px,calc(100% - 32px));max-height:calc(100% - 28px)}
+main.native-page .native-surface [data-preview-content]{overscroll-behavior:contain}
+main.native-page .native-surface [data-preview-content] img{max-height:calc(100vh - 126px)}
+.native-selection{position:absolute;z-index:130;translate:-50% 0;background:#6c4dff!important;color:white!important;border-radius:9px!important;padding:7px 12px!important;box-shadow:0 4px 14px #11132825;font-size:13px!important}
+
+main.native-page .native-surface[data-mode=rail][data-density] [data-note-text]{font-size:13px;line-height:1.5;padding:10px 12px;user-select:text;-webkit-user-select:text}
+main.native-page .native-surface[data-mode=tray] .native-menu button{height:32px;min-height:0}
+main.native-page .native-surface[data-mode=tray][data-os=mac] .native-menu button{height:24px;min-height:0}
+main.native-page .native-surface[data-mode=preferences][data-density]{overflow:hidden}

@@ -15,8 +15,9 @@ export type Message =
   | { type: "error"; message: string };
 export type Surface = { id: string; x: number; y: number; width: number; height: number; angle: number; opacity: number };
 export type Command =
-  | { type: "ready" | "collapse" | "pin" | "unpin" | "close" | "quit" | "openPreferences" | "clearNotes" | "moveWindow" }
-  | { type: "copy" | "remove" | "drag"; id: string }
+  | { type: "ready" | "collapse" | "pin" | "unpin" | "close" | "quit" | "openPreferences" | "clearNotes" | "moveWindow" | "closePreview" }
+  | { type: "copy" | "remove" | "drag" | "preview"; id: string }
+  | { type: "collectText" | "dragText"; text: string }
   | { type: "savePreferences"; value: AppPreferences; editingShortcut?: ShortcutTarget }
   | { type: "beginShortcutRecording" | "endShortcutRecording" | "minimizePreferences" }
   | { type: "resizePreferences"; height: number }

@@ -4,6 +4,7 @@ import { homeCopy, fill } from "../website/lib/home-copy";
 import { locales, localeNames, type Locale } from "../website/lib/locales";
 import { navigateMenu } from "../website/lib/menu-navigation";
 import s from "../website/components/home.module.css";
+import {interactionCopy} from "../website/lib/interaction-copy";
 import "../website/assets/fonts/fonts.css";
 import { send, type Appearance, type AppPreferences, type Message, type NativeItem, type Surface, type Shortcut, type ShortcutTarget, type ShortcutChange } from "./protocol";
 import { shortcutCopy } from "./shortcut-copy";
@@ -19,6 +20,9 @@ function Keys({ keys }: { keys: string[] }) { return <span className={s.keys}>{k
 
 function App() {
   const mode = new URLSearchParams(location.search).get("mode") || "rail";
+  const [preview,setPreview]=useState<NativeItem|null>(null);
+  const [selectionChip,setSelectionChip]=useState<{x:number;y:number}|null>(null);
+  const previewRef=useRef<NativeItem|null>(null),previewClose=useRef<HTMLButtonElement>(null),previewTrigger=useRef<HTMLElement|null>(null);
   const [locale, setLocale] = useState<Locale>("en");
   const [platform, setPlatform] = useState<"macos" | "windows">("macos");
   const [items, setItems] = useState<NativeItem[]>([]);
@@ -37,7 +41,16 @@ function App() {
   const focusAfterRemoval = useRef(false);
   const wheel = useRef(0), pointer = useRef<{ id: string; x: number; y: number; time: number } | null>(null), dragged = useRef(false);
   const hostPointer = useRef<{ x: number; y: number } | null>(null), wakeSurfaces = useRef<() => void>(() => {});
-  const a = homeCopy[locale];
+  const a = homeCopy[locale],interaction=interactionCopy[locale];
+  function closePreview(){previewRef.current=null;setPreview(null);setSelectionChip(null);send({type:"closePreview"});previewTrigger.current?.focus({preventScroll:true});}
+  function enlarge(item:NativeItem,trigger:HTMLElement){previewRef.current=item;previewTrigger.current=trigger;setPreview(item);send({type:"preview",id:item.id});}
+  function collectSelection(){const text=getSelection()?.toString().trim();if(text){if(previewRef.current)closePreview();send({type:"collectText",text});getSelection()?.removeAllRanges();setSelectionChip(null);}}
+  useLayoutEffect(()=>{if(preview)previewClose.current?.focus({preventScroll:true});wakeSurfaces.current();},[preview,selectionChip]);
+  useEffect(()=>{
+    if(mode!=="rail")return;
+    const changed=()=>{const selection=getSelection();if(!selection||selection.isCollapsed||!selection.toString().trim()){setSelectionChip(null);return;}const r=selection.getRangeAt(0).getBoundingClientRect();setSelectionChip({x:Math.max(90,Math.min(innerWidth-90,r.x+r.width/2)),y:Math.min(innerHeight-42,r.bottom+8)});};
+    document.addEventListener("selectionchange",changed);return()=>document.removeEventListener("selectionchange",changed);
+  },[mode]);
   function later(key: string, fn: () => void, ms: number) { clearTimeout(timers.current.get(key)); timers.current.set(key, setTimeout(fn, ms)); }
   function updateHover() {
     const point = hostPointer.current;
@@ -54,7 +67,8 @@ function App() {
         const previous = known.current;
         const next = message.items.map(item => ({ ...item, text: item.text ?? previous.get(item.id)?.text, preview: item.preview ?? previous.get(item.id)?.preview }));
         const arrivals = next.filter(item => !previous.has(item.id));
-        setItems(next); setCount(message.count); setExpanded(message.expanded); setArming(message.arming); setPinned(message.pinned);
+        setItems(next); setCount(message.count);
+        if(previewRef.current && !next.some(item=>item.id===previewRef.current?.id)){previewRef.current=null;setPreview(null);send({type:"closePreview"});} setExpanded(message.expanded); setArming(message.arming); setPinned(message.pinned);
         if (message.platform) setPlatform(message.platform);
         if (locales.includes(message.locale as Locale)) setLocale(message.locale as Locale);
         if (appearances.includes(message.appearance)) setAppearance(message.appearance);
@@ -92,7 +106,7 @@ function App() {
     focusId.current = items[focus]?.id || ""; updateHover(); wakeSurfaces.current();
     if (focusAfterRemoval.current) { focusAfterRemoval.current = false; dial.current?.querySelector<HTMLButtonElement>("[data-focus='true']")?.focus({ preventScroll: true }); }
   }, [items, focus, expanded, arming, appearance, narrow]);
-  useEffect(() => { if (focusRequest) dial.current?.querySelector<HTMLButtonElement>("[data-focus='true']")?.focus({ preventScroll: true }); }, [focusRequest]);
+  useEffect(() => { if (focusRequest && !previewRef.current) dial.current?.querySelector<HTMLButtonElement>("[data-focus='true']")?.focus({ preventScroll: true }); }, [focusRequest]);
 
   // A WKWebView cannot blur the desktop outside its own document. Supply the
   // animated card geometry to AppKit's behind-window material, below the web view.
@@ -115,6 +129,9 @@ function App() {
           surfaces.push({ id: arm.dataset.arm!, x: rect.x + rect.width / 2, y: rect.y + rect.height / 2, width: face.offsetWidth * size, height: face.offsetHeight * size, angle: Math.atan2(rotation.b, rotation.a) * 180 / Math.PI, opacity });
         });
       }
+      document.querySelectorAll<HTMLElement>("[data-native-region]").forEach(node=>{
+        const r=node.getBoundingClientRect();surfaces.push({id:node.dataset.nativeRegion!,x:r.x+r.width/2,y:r.y+r.height/2,width:r.width,height:r.height,angle:0,opacity:1});
+      });
       const value = JSON.stringify(surfaces);
       if (value !== last) { last = value; send({ type: "surfaces", surfaces }); }
       if (!disposed && performance.now() < until) frame = requestAnimationFrame(measure);
@@ -126,7 +143,7 @@ function App() {
   useEffect(() => {
     const node = dial.current; if (!node) return;
     const onWheel = (event: WheelEvent) => {
-      event.preventDefault(); wheel.current += Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+      event.preventDefault(); event.stopPropagation(); wheel.current += Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
       if (Math.abs(wheel.current) < 40) return;
       const by = Math.sign(wheel.current); wheel.current = 0;
       setFocus(value => Math.min(Math.max(value + by, 0), known.current.size - 1));
@@ -135,7 +152,10 @@ function App() {
     return () => node.removeEventListener("wheel", onWheel);
   }, []);
   useEffect(() => {
-    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape" && !recording) send({ type: mode === "rail" ? "collapse" : "close" }); };
+    const onKey = (event: KeyboardEvent) => {
+      if(event.key==="Escape"&&!recording){event.preventDefault();if(previewRef.current)closePreview();else send({type:mode==="rail"?"collapse":"close"});}
+      if(mode==="rail"&&event.ctrlKey&&event.altKey&&event.code==="KeyT"&&getSelection()?.toString().trim()){event.preventDefault();collectSelection();}
+    };
     addEventListener("keydown", onKey); return () => removeEventListener("keydown", onKey);
   }, [mode, recording]);
   useEffect(() => {
@@ -183,7 +203,7 @@ function App() {
     const copy = shortcutCopy[locale], change = shortcutChanges.find(change => change.target === target);
     const conflict = change ? copy.conflict.replace("{old}", keys(change.requested).join(" + ")).replace("{new}", keys(change.replacement).join(" + ")) : "";
     const hint = [conflict, recording === target ? recordError || copy.hint : ""].filter(Boolean).join(" ");
-    return <div className="native-shortcut-row" data-shortcut-row={target}><div className={s.row}><span>{title}</span>
+    return <div className="native-shortcut-row" data-shortcut-row={target}><div className={s.row} data-settings-row><span>{title}</span>
       {<button className="native-shortcut" aria-label={`${title} · ${copy.change}`} aria-pressed={recording === target} title={copy.change} onClick={() => { setRecordError(""); setRecording(recording === target ? null : target); }}>
         {change && <svg className="native-shortcut-warning" width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="currentColor"/><path d="M8 4.5v4M8 11v.5" stroke="white" strokeWidth="1.5" strokeLinecap="round"/></svg>}
         {recording === target ? <span>{copy.record}</span> : <><Keys keys={keys(value)}/><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="m10.5 2.5 3 3M3 10l7-7a2.12 2.12 0 0 1 3 3l-7 7-4 1 1-4Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/></svg></>}
@@ -199,8 +219,8 @@ function App() {
     setFocus(index); focusId.current = items[index]?.id || "";
     if (keyboard) later("focus", () => dial.current?.querySelector<HTMLButtonElement>(`[data-index='${index}']`)?.focus({ preventScroll: true }), 0);
   };
-  return <main className={`${s.page} native-page`} data-skin={appearance}>
-    <div className={`${s.stage} native-surface`} data-os={mac ? "mac" : "win"} data-mode={mode}>
+  return <main className={`${s.page} ${s.embedded} native-page`} data-skin={appearance}>
+    <div className={`${s.stage} native-surface`} data-os={mac ? "mac" : "win"} data-mode={mode} data-density="regular">
       {mode === "tray" ? <div className={`${s.trayMenu} native-menu`} role="menu" aria-label="SnapSlot" onKeyDown={navigateMenu}>
         <button role="menuitem" onClick={() => send({ type: "openPreferences" })}><span className={s.check}/>{a.menu.settings}</button><hr/>
         <button role="menuitemcheckbox" aria-checked={preferences.collectImages} onClick={() => { savePreferences({ ...preferences, collectImages: !preferences.collectImages }); closeMenu(); }}><span className={s.check}>{preferences.collectImages ? "✓" : ""}</span>{a.menu.intake}</button>
@@ -209,48 +229,54 @@ function App() {
         <button role="menuitem" onClick={() => send({ type: "quit" })}><span className={s.check}/>{a.menu.quit}</button>
       </div> : mode !== "rail" ? <section ref={settingsPanel} className={`${s.window} native-window`} onPointerDown={event => { if (event.button === 0 && !(event.target as HTMLElement).closest("button, select, input, a, [role=switch], [data-swatch], [data-shortcut-row]")) send({ type: "moveWindow" }); }} role="dialog" aria-label={a.settings.title}>
         <header className={s.windowBar} data-drag-region>
-          {mac ? <span className={s.lights}><button onClick={() => send({ type: "close" })} aria-label={a.settings.close}/><button onClick={() => send({ type: "minimizePreferences" })} aria-label={shortcutCopy[locale].minimize}/><i/></span> : <img src="icon.svg" width="16" height="16" alt=""/>}
+          {mac ? <span className={s.lights}><button onClick={() => send({ type: "close" })} aria-label={a.settings.close}/><button onClick={() => send({ type: "minimizePreferences" })} aria-label={shortcutCopy[locale].minimize}/><i/></span> : <span className={s.mark} style={{width:20,height:20}} aria-hidden="true"/>}
           <span>{a.settings.title}</span>
           {!mac && <span className="native-window-controls"><button className="native-minimize" onClick={() => send({ type: "minimizePreferences" })} aria-label={shortcutCopy[locale].minimize}>−</button><button className={s.windowClose} onClick={() => send({ type: "close" })} aria-label={a.settings.close}>×</button></span>}
         </header>
         <div className={s.windowBody}>
-          <div className={s.row}><span>{a.menu.intake}<small>{a.settings.intakeHint}</small></span><Toggle on={preferences.collectImages} label={a.menu.intake} onChange={() => savePreferences({ ...preferences, collectImages: !preferences.collectImages })}/></div>
-          <div className={s.row}><span>{a.menu.pin}<small>{a.settings.pinHint}</small></span><Toggle on={pinned} label={a.menu.pin} onChange={togglePin}/></div>
-          <div className={s.row}><span>{a.settings.look}</span><span className={s.miniSkins}>{appearances.map((option, index) => <button key={option} className={`${s.miniSkin} ${appearance === option ? s.miniSkinOn : ""}`} data-swatch={option} onClick={() => send({ type: "setAppearance", value: option })} aria-label={a.skins[index]} aria-pressed={appearance === option}/>)}</span></div>
-          <label className={s.row}><span>{a.settings.language}</span><select className={s.select} value={locale} onChange={event => send({ type: "setLocale", value: event.target.value })}>{locales.map(value => <option key={value} value={value} lang={value}>{localeNames[value]}</option>)}</select></label>
+          <div className={s.row} data-settings-row><span>{a.menu.intake}<small>{a.settings.intakeHint}</small></span><Toggle on={preferences.collectImages} label={a.menu.intake} onChange={() => savePreferences({ ...preferences, collectImages: !preferences.collectImages })}/></div>
+          <div className={s.row} data-settings-row><span>{a.menu.pin}<small>{a.settings.pinHint}</small></span><Toggle on={pinned} label={a.menu.pin} onChange={togglePin}/></div>
+          <div className={s.row} data-settings-row><span>{a.settings.look}</span><span className={s.miniSkins}>{appearances.map((option, index) => <button key={option} className={`${s.miniSkin} ${appearance === option ? s.miniSkinOn : ""}`} data-swatch={option} onClick={() => send({ type: "setAppearance", value: option })} aria-label={a.skins[index]} aria-pressed={appearance === option}/>)}</span></div>
+          <label className={s.row} data-settings-row><span>{a.settings.language}</span><select className={s.select} value={locale} onChange={event => send({ type: "setLocale", value: event.target.value })}>{locales.map(value => <option key={value} value={value} lang={value}>{localeNames[value]}</option>)}</select></label>
           {shortcutRow("text", a.settings.pinText, preferences.textShortcut)}
           {shortcutRow("open", a.settings.openNotes, preferences.openShortcut || openShortcut)}
-          <div className={s.row}><span>{fill(a.settings.count, count)}</span><button className={s.danger} disabled={!count} onClick={() => send({ type: "clearNotes" })}>{a.settings.clear}</button></div>
+          <div className={s.row} data-settings-row><span>{fill(a.settings.count, count)}</span><button className={s.danger} disabled={!count} onClick={() => send({ type: "clearNotes" })}>{a.settings.clear}</button></div>
         </div>
       </section> : <>
         <div className={`${s.edgeGlow} ${arming ? s.edgeArming : ""}`} aria-hidden="true"><i/></div>
         <div ref={dial} className={`${s.dial} ${expanded ? s.dialOpen : ""} ${arming ? s.dialArming : ""}`} role="list" aria-label={a.stage.list} inert={!expanded} aria-hidden={!expanded}>
           {items.map((item, index) => {
-            const d = index - focus, reach = narrow ? 1.6 : 3.2, hidden = Math.abs(d) > reach;
-            return <div key={item.id} role="listitem" data-arm={item.id} className={`${s.arm} ${item.kind === "text" ? s.textNote : ""} ${fresh.includes(item.id) ? s.fresh : ""} ${d === 0 ? s.current : ""}`} aria-hidden={hidden} style={{ "--d": d, "--ad": Math.abs(d), zIndex: 50 - Math.round(Math.abs(d) * 2), opacity: hidden ? 0 : 1 - Math.max(Math.abs(d) - reach + 1, 0) * .7, pointerEvents: hidden ? "none" : undefined } as React.CSSProperties}>
+            const d = index - focus, reach = 1.25, hidden = Math.abs(d) > reach;
+            const Face=item.kind==="text"?"div":"button";
+            return <div key={item.id} role="listitem" data-arm={item.id} data-kind={item.kind} className={`${s.arm} ${item.kind === "text" ? s.textNote : ""} ${fresh.includes(item.id) ? s.fresh : ""} ${d === 0 ? s.current : ""}`} aria-hidden={hidden} style={{ "--d": d, "--ad": Math.abs(d), zIndex: 50 - Math.round(Math.abs(d) * 2), opacity: hidden ? 0 : 1 - Math.max(Math.abs(d) - reach + 1, 0) * .7, pointerEvents: hidden ? "none" : undefined } as React.CSSProperties}>
               <div className={s.card}><span className={s.pin} aria-hidden="true"/>
-                <button className={s.face} data-note={item.id} data-index={index} data-focus={d === 0} tabIndex={d === 0 ? 0 : -1}
+                <Face role={item.kind==="text"?"button":undefined} draggable className={s.face} data-note={item.id} data-index={index} data-focus={d === 0} tabIndex={d === 0 ? 0 : -1}
                   aria-label={item.kind === "text" ? a.stage.copyText + (item.text || "").slice(0, 20) : a.stage.copyImage + item.title}
                   onPointerDown={event => { dragged.current = false; pointer.current = { id: item.id, x: event.clientX, y: event.clientY, time: performance.now() }; }}
-                  onPointerMove={event => { const start = pointer.current; if (start?.id === item.id && event.buttons === 1 && !dragged.current && performance.now() - start.time >= 160 && Math.hypot(event.clientX - start.x, event.clientY - start.y) >= 6) { dragged.current = true; pointer.current = null; send({ type: "drag", id: item.id }); } }}
-                  onPointerUp={() => { pointer.current = null; }} onPointerCancel={() => { pointer.current = null; }} onDragStart={event => event.preventDefault()}
-                  onClick={() => { if (!dragged.current) { select(index); send({ type: "copy", id: item.id }); } dragged.current = false; }}
+                  onPointerMove={event => { const start = pointer.current; if (!getSelection()?.toString().trim() && start?.id === item.id && event.buttons === 1 && !dragged.current && performance.now() - start.time >= 160 && Math.hypot(event.clientX - start.x, event.clientY - start.y) >= 6) { dragged.current = true; pointer.current = null; send({ type: "drag", id: item.id }); } }}
+                  onPointerUp={() => { pointer.current = null; }} onPointerCancel={() => { pointer.current = null; }} onDragStart={event => {event.preventDefault();if(dragged.current)return;dragged.current=true;pointer.current=null;const text=getSelection()?.toString().trim();if(text)send({type:"dragText",text});else send({type:"drag",id:item.id});}}
+                  onClick={() => { if (!dragged.current && !getSelection()?.toString().trim()) { select(index); send({ type: "copy", id: item.id }); } dragged.current = false; }}
                   onKeyDown={event => {
+                    if(event.ctrlKey||event.altKey||event.metaKey)return;
+                    if(event.key===" "){event.preventDefault();enlarge(item,event.currentTarget);return;}
+                    if(event.key==="Enter"){event.preventDefault();send({type:"copy",id:item.id});return;}
                     if (event.key === "ArrowRight" && index < items.length - 1) select(index + 1, true);
                     else if (event.key === "ArrowLeft" && index > 0) select(index - 1, true);
                     else if (event.key === "Delete" || event.key === "Backspace") remove(item, index);
                     else return; event.preventDefault();
                   }}>
-                  {item.kind === "image" ? <span className={s.photo} style={{ backgroundImage: `url("${item.preview}")` }}/> : <span className={s.noteText}>{item.text}</span>}
-                  <span className={`${s.copied} ${copied === item.id ? s.copiedOn : ""}`} aria-hidden="true">{a.stage.copied}</span>
-                </button><button className={s.remove} aria-label={a.stage.remove} tabIndex={-1} onClick={() => remove(item, index)}>×</button>
+                  {item.kind === "image" ? <><span className={s.photo} style={{ backgroundImage: `url("${item.preview}")` }}/><span className={s.photoCaption}><i/>{item.title}</span></> : <span className={s.noteText} data-note-text>{item.text}</span>}
+                  <span className={`${s.copied} ${copied === item.id ? s.copiedOn : ""}`} role={copied===item.id?"status":undefined} aria-hidden={copied!==item.id}>{a.stage.copied}</span>
+                </Face><button className={s.enlarge} aria-label={interaction.zoom} title={interaction.zoom} onClick={event=>enlarge(item,event.currentTarget)} tabIndex={d===0?0:-1}><svg viewBox="0 0 20 20" width="14" height="14" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5" fill="none" stroke="currentColor" strokeWidth="1.6"/><path d="m13 13 4 4M6 8.5h5M8.5 6v5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg></button><button className={s.remove} aria-label={a.stage.remove} tabIndex={-1} onClick={() => remove(item, index)}>×</button>
               </div>
             </div>;
           })}
           {!items.length && <p className={s.emptyFan}>{a.stage.empty}</p>}
-          {items.length > 1 && <p className={s.counter} aria-hidden="true">{pinned && <span className={s.pinnedDot}/ >}{focus + 1} / {items.length}</p>}
+          {items.length > 1 && <p className={s.counter} data-native-counter aria-hidden="true">{pinned && <span className={s.pinnedDot}/ >}{focus + 1} / {items.length}</p>}
         </div>
       </>}
+      {mode==="rail" && preview && <section className={`${s.notePreview} native-preview`} role="dialog" aria-label={interaction.zoom} data-native-region="__preview"><header><b>{interaction.zoom}</b><button ref={previewClose} aria-label={a.settings.close} onClick={closePreview}>×</button></header><div className={s.previewContent} data-preview-content>{preview.kind==="image"?<img src={preview.preview} alt={preview.title}/>:<p>{preview.text}</p>}</div></section>}
+      {mode==="rail" && selectionChip && <button className="native-selection" data-native-region="__selection" style={{left:selectionChip.x,top:selectionChip.y}} onMouseDown={event=>event.preventDefault()} onClick={collectSelection}>{a.chip}</button>}
       <p className={`${s.notice} ${notice ? s.noticeOn : ""} native-notice`} role="status" aria-live="polite">{notice}</p>
     </div>
   </main>;

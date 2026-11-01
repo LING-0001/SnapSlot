@@ -35,7 +35,7 @@ export const homeCopy: Record<Locale, HomeCopy> = {
     get: { win: "下载 Windows 版", mac: "下载 macOS 版", meta: "免费开源 · Windows 10 / 11 · macOS 13 及以上" },
     stage: {
       desktop: "SnapSlot 演示桌面", docTitle: "周报草稿", docHeading: "本周进展", docEmpty: "把便签拖到这里", clear: "清空",
-      files: ["湖边的山.png", "窗边的绿植.png"], fileLabels: ["湖边的山", "窗边的绿植"],
+      files: ["海边的小城.png", "窗边的绿植.png"], fileLabels: ["海边的小城", "窗边的绿植"],
       sampleText: "周五前：\n· 定下图标\n· 更新截图\n· 发给设计组看", pasted: "你复制的图片",
       list: "屏幕顶部的便签", empty: "还没有便签", copied: "已复制", remove: "移除这张便签",
       copyImage: "复制图片：", copyText: "复制文字：", copyFile: "复制 ",
@@ -68,7 +68,7 @@ export const homeCopy: Record<Locale, HomeCopy> = {
     get: { win: "下載 Windows 版", mac: "下載 macOS 版", meta: "免費開源 · Windows 10 / 11 · macOS 13 以上" },
     stage: {
       desktop: "SnapSlot 示範桌面", docTitle: "週報草稿", docHeading: "本週進度", docEmpty: "把便箋拖到這裡", clear: "清空",
-      files: ["湖邊的山.png", "窗邊的綠植.png"], fileLabels: ["湖邊的山", "窗邊的綠植"],
+      files: ["海邊的小城.png", "窗邊的綠植.png"], fileLabels: ["海邊的小城", "窗邊的綠植"],
       sampleText: "週五前：\n· 定下圖示\n· 更新截圖\n· 給設計組看看", pasted: "你複製的圖片",
       list: "螢幕頂端的便箋", empty: "還沒有便箋", copied: "已複製", remove: "移除這張便箋",
       copyImage: "複製圖片：", copyText: "複製文字：", copyFile: "複製 ",
@@ -101,7 +101,7 @@ export const homeCopy: Record<Locale, HomeCopy> = {
     get: { win: "Download for Windows", mac: "Download for Mac", meta: "Free and open source · Windows 10 / 11 · macOS 13 or later" },
     stage: {
       desktop: "SnapSlot demo desktop", docTitle: "Weekly update", docHeading: "This week", docEmpty: "Drag a note here", clear: "Clear",
-      files: ["lake.png", "plant.png"], fileLabels: ["Mountain lake", "Plant by the window"],
+      files: ["coast.png", "plant.png"], fileLabels: ["Seaside village", "Plant by the window"],
       sampleText: "By Friday:\n· Pick the icon\n· Update screenshots\n· Share with design", pasted: "Your copied image",
       list: "Notes at the top of the screen", empty: "No notes yet", copied: "Copied", remove: "Remove this note",
       copyImage: "Copy image: ", copyText: "Copy text: ", copyFile: "Copy ",
@@ -134,7 +134,7 @@ export const homeCopy: Record<Locale, HomeCopy> = {
     get: { win: "Windows 版をダウンロード", mac: "Mac 版をダウンロード", meta: "無料・オープンソース · Windows 10 / 11 · macOS 13 以降" },
     stage: {
       desktop: "SnapSlot デモデスクトップ", docTitle: "週報の下書き", docHeading: "今週の進捗", docEmpty: "ここにメモをドラッグ", clear: "クリア",
-      files: ["湖と山.png", "窓辺の植物.png"], fileLabels: ["湖と山", "窓辺の植物"],
+      files: ["海辺の街.png", "窓辺の植物.png"], fileLabels: ["海辺の街", "窓辺の植物"],
       sampleText: "金曜までに：\n· アイコンを決める\n· スクショを更新\n· デザインチームに共有", pasted: "コピーした画像",
       list: "画面上端のメモ", empty: "メモはまだありません", copied: "コピーしました", remove: "このメモを削除",
       copyImage: "画像をコピー：", copyText: "テキストをコピー：", copyFile: "コピー：",
@@ -167,7 +167,7 @@ export const homeCopy: Record<Locale, HomeCopy> = {
     get: { win: "Windows용 다운로드", mac: "Mac용 다운로드", meta: "무료 오픈 소스 · Windows 10 / 11 · macOS 13 이상" },
     stage: {
       desktop: "SnapSlot 데모 바탕 화면", docTitle: "주간 보고 초안", docHeading: "이번 주 진행", docEmpty: "여기로 메모를 끌어오세요", clear: "비우기",
-      files: ["호수와 산.png", "창가 식물.png"], fileLabels: ["호수와 산", "창가 식물"],
+      files: ["바닷가 마을.png", "창가 식물.png"], fileLabels: ["바닷가 마을", "창가 식물"],
       sampleText: "금요일까지:\n· 아이콘 정하기\n· 스크린샷 업데이트\n· 디자인팀에 공유", pasted: "복사한 이미지",
       list: "화면 위쪽의 메모", empty: "아직 메모가 없어요", copied: "복사됨", remove: "이 메모 삭제",
       copyImage: "이미지 복사: ", copyText: "텍스트 복사: ", copyFile: "복사: ",
@@ -200,7 +200,7 @@ export const homeCopy: Record<Locale, HomeCopy> = {
     get: { win: "Descargar para Windows", mac: "Descargar para Mac", meta: "Gratis y de código abierto · Windows 10 / 11 · macOS 13 o posterior" },
     stage: {
       desktop: "Escritorio de demostración de SnapSlot", docTitle: "Informe semanal", docHeading: "Esta semana", docEmpty: "Arrastra una nota aquí", clear: "Vaciar",
-      files: ["lago.png", "planta.png"], fileLabels: ["Lago y montañas", "Planta junto a la ventana"],
+      files: ["costa.png", "planta.png"], fileLabels: ["Pueblo costero", "Planta junto a la ventana"],
       sampleText: "Antes del viernes:\n· Elegir el icono\n· Actualizar capturas\n· Compartir con diseño", pasted: "Tu imagen copiada",
       list: "Notas en la parte superior de la pantalla", empty: "Aún no hay notas", copied: "Copiada", remove: "Quitar esta nota",
       copyImage: "Copiar imagen: ", copyText: "Copiar texto: ", copyFile: "Copiar ",

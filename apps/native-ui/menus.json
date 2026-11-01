@@ -9,7 +9,8 @@
     "Select All": "Select All",
     "Settings": "Settings",
     "Automatically collect clipboard images": "Collect clipboard images",
-    "Pin notes": "Pin notes"
+    "Pin notes": "Pin notes",
+    "Show notes": "Show notes"
   },
   "zh-Hans": {
     "Quit SnapSlot": "退出快照贴",
@@ -21,7 +22,8 @@
     "Select All": "全选",
     "Settings": "设置",
     "Automatically collect clipboard images": "自动收取剪贴板图片",
-    "Pin notes": "固定便签"
+    "Pin notes": "固定便签",
+    "Show notes": "展开便签"
   },
   "zh-Hant": {
     "Quit SnapSlot": "結束快照貼",
@@ -33,7 +35,8 @@
     "Select All": "全選",
     "Settings": "設定",
     "Automatically collect clipboard images": "自動收取剪貼簿圖片",
-    "Pin notes": "固定便箋"
+    "Pin notes": "固定便箋",
+    "Show notes": "展開便箋"
   },
   "ja": {
     "Quit SnapSlot": "SnapSlot を終了",
@@ -45,7 +48,8 @@
     "Select All": "すべてを選択",
     "Settings": "設定",
     "Automatically collect clipboard images": "クリップボードの画像を自動取り込み",
-    "Pin notes": "メモを固定"
+    "Pin notes": "メモを固定",
+    "Show notes": "メモを表示"
   },
   "ko": {
     "Quit SnapSlot": "SnapSlot 종료",
@@ -57,7 +61,8 @@
     "Select All": "모두 선택",
     "Settings": "설정",
     "Automatically collect clipboard images": "클립보드 이미지 자동 수집",
-    "Pin notes": "메모 고정"
+    "Pin notes": "메모 고정",
+    "Show notes": "메모 펼치기"
   },
   "es": {
     "Quit SnapSlot": "Salir de SnapSlot",
@@ -69,6 +74,7 @@
     "Select All": "Seleccionar todo",
     "Settings": "Ajustes",
     "Automatically collect clipboard images": "Recoger imágenes del portapapeles",
-    "Pin notes": "Fijar notas"
+    "Pin notes": "Fijar notas",
+    "Show notes": "Mostrar notas"
   }
 }

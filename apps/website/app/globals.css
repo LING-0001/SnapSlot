@@ -1,8 +1,11 @@
+@import '@linglinglab/web-ui/showcase.css';
+@import '@linglinglab/web-ui/foundation.css';
+@import '../components/snapshot-site.css';
 /* Shared document reset. Product styling lives in home.module.css. */
 :root { --font-latin: "Inter Tight"; --font-han: "Noto Sans SC"; }
 * { box-sizing: border-box; }
-html { scroll-behavior: smooth; scroll-padding-top: 48px; }
-body { margin: 0; background: #fff; color: #1d1d1f; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; -webkit-font-smoothing: antialiased; }
+html { overscroll-behavior-x: none; scroll-behavior: smooth; scroll-padding-top: 104px; }
+body { overscroll-behavior-x: none; margin: 0; background: #fff; color: #1d1d1f; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; -webkit-font-smoothing: antialiased; }
 button, input, select, textarea { font: inherit; }
 button, a, input, summary { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
 button, summary { cursor: pointer; }
@@ -12,4 +15,7 @@ a { color: inherit; text-decoration: none; }
 p { margin: 0; text-wrap: pretty; }
 h1, h2, h3 { margin: 0; text-wrap: balance; }
 ::selection { background: #b3d7ff; }
-@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+@media (prefers-reduced-motion: reduce) { html { overscroll-behavior-x: none; scroll-behavior: auto; } }
+
+/* Portal controls must inherit the same approved theme as the page itself. */
+:root{--ll-ink:#171824;--ll-muted:#626774;--ll-violet:#6c4dff;--ll-blue:#6c4dff;--ll-line:#e8eaf0;--ll-soft:#f8f9fb;--brand-language-ink:#171824;--brand-language-accent:#6c4dff;--brand-language-hover:#f2eeff;--brand-language-line:#e8eaf0}

@@ -1,12 +1,19 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import LanguageMenu from "@linglinglab/web-ui/language-menu";
 import { locales, localeNames, type Locale } from "@/lib/locales";
 import { fill, homeCopy } from "@/lib/home-copy";
 import { demoCopy } from "@/lib/demo-copy";
 import { navigateMenu } from "@/lib/menu-navigation";
 import { downloads, githubReleases } from "@/lib/releases";
 import s from "./home.module.css";
+import {Apple} from "@linglinglab/web-ui/showcase-icons";
+import {desktopFiles,desktopPhotos} from "@/lib/desktop-assets";
+import {interactionCopy} from "@/lib/interaction-copy";
+import {landingDemoCopy} from "@/lib/landing-demo-copy";
+import {referenceCopy} from "@/lib/reference-copy";
+
 
 type Note =
   | { id: string; kind: "image"; src: string; label: string; fresh?: boolean }
@@ -19,20 +26,30 @@ type Box = { x: number; y: number; w: number; h: number; stageHeight: number };
 const CAPACITY = 30;
 const DWELL_MS = 500;
 const GRACE_MS = 450;
-const PEEK_MS = 2500;
+const PEEK_MS = 4000;
 const DRAG_TYPE = "application/x-snapslot-note";
 const GITHUB = "https://github.com/LING-0001/SnapSlot";
 const EMAIL = "e1347605313@gmail.com";
-const ART = ["/mountains.svg", "/studio.svg"];
+const ART = desktopPhotos;
 const SKINS: Skin[] = ["glass", "paper", "graphite"];
 // Guided steps, in order: reveal from the edge, collect an image, use a note, open the menu.
 const STEPS = ["edge", "file", "drag", "tray"] as const;
+const WEB_STEPS = ["edge", "pin", "drag", "tray"] as const;
+type CoachTarget = (typeof STEPS)[number] | (typeof WEB_STEPS)[number];
 
 const uid = () => Math.random().toString(36).slice(2, 9);
 
 /** The app mark as a CSS image, so extensions that annotate <img> tags cannot break hydration. */
 function Mark({ size }: { size: number }) {
   return <span className={s.mark} style={{ width: size, height: size }} aria-hidden="true"/>;
+}
+
+function MacStatusMark() {
+  return <svg data-mac-status-mark viewBox="0 0 18 16" width="17" height="15" aria-hidden="true">
+    <rect x="1" y="1.2" width="16" height="1.4" rx=".7" fill="currentColor" opacity=".55"/>
+    <rect x="4" y="4" width="10" height="8.5" rx="2" fill="none" stroke="currentColor" strokeWidth="1.5"/>
+    <circle cx="9" cy="4" r="1.6" fill="currentColor"/>
+  </svg>;
 }
 
 function Keys({ keys }: { keys: string[] }) {
@@ -43,7 +60,7 @@ function Toggle({ on, onChange, label }: { on: boolean; onChange: () => void; la
   return <button role="switch" aria-checked={on} aria-label={label} className={`${s.toggle} ${on ? s.toggleOn : ""}`} onClick={onChange}><span/></button>;
 }
 
-function GitHubMark({ size = 16 }: { size?: number }) {
+export function GitHubMark({ size = 16 }: { size?: number }) {
   return <svg viewBox="0 0 16 16" width={size} height={size} aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>;
 }
 
@@ -67,20 +84,31 @@ async function copyNote(note: Note) {
   return navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
 }
 
-export function Home({ locale }: { locale: Locale }) {
+export function Home({ locale, embedded = false }: { locale: Locale; embedded?: boolean }) {
   const t = homeCopy[locale];
+  const steps = embedded ? WEB_STEPS : STEPS;
+  const files = desktopFiles(locale);
+  const guide = interactionCopy[locale];
+  const info = landingDemoCopy[locale];
+  const refCopy = referenceCopy[locale];
+  const [instructionsOpen,setInstructionsOpen] = useState(false);
+  const [previewNote,setPreviewNote] = useState<Note|null>(null);
+  const previewCloseRef=useRef<HTMLButtonElement>(null);
+  const previewTriggerRef=useRef<HTMLElement|null>(null);
+  const [collected,setCollected] = useState(false);
   const [appLocale, setAppLocale] = useState<Locale>(locale);
   const a = homeCopy[appLocale];
   const demo = demoCopy[locale];
   const [notes, setNotes] = useState<Note[]>(() => [
-    { id: "s1", kind: "image", src: ART[0], label: t.stage.fileLabels[0] },
+    { id: "s1", kind: "image", src: ART[0], label: files[0].label },
     { id: "s2", kind: "text", text: t.stage.sampleText },
-    { id: "s3", kind: "image", src: ART[1], label: t.stage.fileLabels[1] },
+    { id: "s3", kind: "image", src: ART[1], label: files[1].label },
   ]);
   const [focus, setFocus] = useState(1);
-  const [os, setOs] = useState<Os>("win");
+  const [os, setOs] = useState<Os>(embedded ? "mac" : "win");
   const [running, setRunning] = useState(true);
   const [pinned, setPinned] = useState(false);
+  const [dragging,setDragging] = useState(false);
   const [intake, setIntake] = useState(true);
   const [hover, setHover] = useState(false);
   const [arming, setArming] = useState(false);
@@ -97,6 +125,8 @@ export function Home({ locale }: { locale: Locale }) {
   const [island, setIsland] = useState<Note | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [menu, setMenu] = useState(false);
+  const [menuPoint,setMenuPoint] = useState<{x:number;y:number}|null>(null);
+  const [menuPosition,setMenuPosition] = useState<{left:number;top:number}|null>(null);
   const [settings, setSettings] = useState(false);
   const [stageVisible, setStageVisible] = useState(true);
   const [doc, setDoc] = useState<DocItem[]>([]);
@@ -107,7 +137,6 @@ export function Home({ locale }: { locale: Locale }) {
   const [coachShift, setCoachShift] = useState(0);
   const [coachHeight, setCoachHeight] = useState(0);
   const coachRef = useRef<HTMLDivElement>(null);
-  const [langOpen, setLangOpen] = useState(false);
   const stageRef = useRef<HTMLDivElement>(null);
   const dialRef = useRef<HTMLDivElement>(null);
   const docRef = useRef<HTMLDivElement>(null);
@@ -115,8 +144,8 @@ export function Home({ locale }: { locale: Locale }) {
   const menuRef = useRef<HTMLDivElement>(null);
   const menuKeyboard = useRef(false);
   const trayRef = useRef<HTMLButtonElement>(null);
-  const languageRef = useRef<HTMLButtonElement>(null);
   const swipe = useRef(false);
+  const draggingNote = useRef(false);
   const noteCount = useRef(notes.length);
   noteCount.current = notes.length;
   const timers = useRef<Record<string, number>>({});
@@ -133,15 +162,21 @@ export function Home({ locale }: { locale: Locale }) {
   const cancel = (key: string) => window.clearTimeout(timers.current[key]);
   const tell = useCallback((message: string) => { setNotice(message); later("notice", 2200, () => setNotice(null)); }, []);
 
-  const coach = STEPS[step] as (typeof STEPS)[number] | undefined;
-  // While the drag step is showing, keep the notes down so there is something to drag.
-  const open = pinned || hover || peek || coach === "drag";
+  const coach = steps[step] as CoachTarget | undefined;
+  // Guidance never overrides whether an unpinned rail should collapse.
+  const open = pinned || hover || peek || dragging || !!previewNote;
   const mac = os === "mac";
-  const reach = narrow || demoDensity !== "regular" ? 1.6 : 2.2;
+  const reach = embedded ? 1.25 : narrow || demoDensity !== "regular" ? 1.6 : 2.2;
   const mod = mac ? ["⌃", "⌥"] : ["Ctrl", "Alt"];
   const edgePx = mac ? 26 : 14;
 
-  const reached = useCallback((name: (typeof STEPS)[number]) => setStep((n) => (STEPS[n] === name ? n + 1 : n)), []);
+  const reached = useCallback((name: CoachTarget) => setStep((n) => steps[n] === name ? n + 1 : name === "pin" && steps[n] === "edge" ? steps.findIndex(value=>value==="pin") + 1 : n), [steps]);
+
+  const advanceCaptureGuide=useCallback(()=>{
+    if(steps[step]!=="edge" && steps[step]!=="pin")return;
+    later("guide-capture",700,()=>reached("pin"));
+  },[step,steps,reached]);
+  const leaveDelay=embedded && collected && coach && coach!=="tray" ? 1100 : GRACE_MS;
 
   const turn = (by: number) => setFocus((f) => Math.min(Math.max(f + by, 0), Math.max(0, noteCount.current - 1)));
   const close = () => {
@@ -155,13 +190,21 @@ export function Home({ locale }: { locale: Locale }) {
   const showNotes = () => {
     if (!running) return;
     cancel("leave"); setHover(true);
-    requestAnimationFrame(() => dialRef.current?.querySelector<HTMLElement>("[data-focus='true']")?.focus({ preventScroll: true }));
+    requestAnimationFrame(() => {
+      const note=dialRef.current?.querySelector<HTMLElement>("[data-focus='true']");
+      note?.focus({preventScroll:true});
+      if(embedded && note){const rect=note.getBoundingClientRect();if(rect.top<96||rect.bottom>innerHeight)dialRef.current?.scrollIntoView({block:'center',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});}
+    });
   };
+  const closePreview = () => {setPreviewNote(null);previewTriggerRef.current?.focus({preventScroll:true});};
+  const enlarge = (note:Note,trigger:HTMLElement) => {previewTriggerRef.current=trigger;setPreviewNote(note);};
+  useLayoutEffect(()=>{if(previewNote)previewCloseRef.current?.focus({preventScroll:true});},[previewNote]);
   const replay = () => {
+    setPreviewNote(null);
     setRunning(true);
     Object.values(timers.current).forEach(window.clearTimeout); timers.current = {};
-    setNotes([{ id: "s1", kind: "image", src: ART[0], label: t.stage.fileLabels[0] }, { id: "s2", kind: "text", text: t.stage.sampleText }, { id: "s3", kind: "image", src: ART[1], label: t.stage.fileLabels[1] }]);
-    setFocus(1); setPinned(false); setIntake(true); setHover(false); setArming(false); setPeek(false);
+    setDragging(false); draggingNote.current=false; setNotes([{ id: "s1", kind: "image", src: ART[0], label: files[0].label }, { id: "s2", kind: "text", text: t.stage.sampleText }, { id: "s3", kind: "image", src: ART[1], label: files[1].label }]);
+    setCollected(false); setFocus(1); setPinned(false); setIntake(true); setHover(false); setArming(false); setPeek(false);
     edgeArmed.current = false; leaving.current = false;
     setDoc([]); setDemoClipboard(null); setDemoNoteCopied(false); setCopied(null); setNotice(null); setIsland(null); setMenu(false); setSettings(false); setStep(0);
   };
@@ -179,7 +222,7 @@ export function Home({ locale }: { locale: Locale }) {
       setFocus(next.length - 1);
       return next;
     });
-    setPeek(true);
+    cancel("leave"); leaving.current=false; setHover(false); setPeek(true);
     later("peek", PEEK_MS, () => setPeek(false));
     later("fresh", 1400, () => setNotes((list) => list.map((n) => (n.fresh ? { ...n, fresh: false } : n))));
     if (!stageSeen.current) {
@@ -188,26 +231,33 @@ export function Home({ locale }: { locale: Locale }) {
     }
   }, []);
 
+  const pinExample = () => {
+    if(!running)return;
+    add({id:uid(),kind:"text",text:t.bento.selectLine,fresh:true});
+    setCollected(true); advanceCaptureGuide();
+  };
+
   const pinSelection = useCallback(() => {
     if (!running) return;
     const selection = window.getSelection();
     const text = selection?.toString().trim() ?? "";
-    if (!text || stageRef.current?.contains(selection!.anchorNode)) return;
+    if (!text) return;
     add({ id: uid(), kind: "text", text: text.slice(0, 2000), fresh: true });
+    setCollected(true); setInstructionsOpen(false); setPreviewNote(null); advanceCaptureGuide();
     navigator.clipboard?.writeText(text).catch(() => {});
     selection?.removeAllRanges();
     setChip(null);
-  }, [add, running]);
+  }, [add, running, advanceCaptureGuide]);
 
   // Clicking a desktop file stands in for copying an image in another app.
   const copyFile = (from: HTMLElement, index: number) => {
-    setDemoClipboard({ id: uid(), kind: "image", src: ART[index], label: t.stage.fileLabels[index] });
+    setDemoClipboard({ id: uid(), kind: "image", src: ART[index], label: files[index].label });
     if (!running) return tell(demo.exited);
     if (!intake) return tell(a.notice.notPinned);
     const id = uid();
     const src = ART[index];
-    add({ id, kind: "image", src, label: t.stage.fileLabels[index], fresh: true });
-    reached("file");
+    add({ id, kind: "image", src, label: files[index].label, fresh: true });
+    reached(embedded ? "pin" : "file");
     if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const start = from.getBoundingClientRect();
     const ghost = document.createElement("div");
@@ -234,13 +284,18 @@ export function Home({ locale }: { locale: Locale }) {
   }, [appLocale]);
 
   useEffect(() => {
-    if (/Mac|iPhone|iPad/.test(navigator.platform)) setOs("mac");
+    setOs(/Mac|iPhone|iPad/.test(navigator.platform) ? "mac" : "win");
     const measureDemo = () => {
-      const height = stageRef.current!.getBoundingClientRect().height;
+      const stage=stageRef.current!;
+      if(embedded){const top=stage.getBoundingClientRect().top+window.scrollY;stage.style.setProperty("--stage-height",`${Math.max(280,window.innerHeight-top-5)}px`);}
+      const height = stage.getBoundingClientRect().height;
       setDemoDensity(height < 480 ? "tight" : height < 560 ? "compact" : "regular");
     };
     const sizeObserver = typeof ResizeObserver === "function" ? new ResizeObserver(measureDemo) : null;
-    sizeObserver?.observe(stageRef.current!); measureDemo();
+    sizeObserver?.observe(stageRef.current!);
+    const intro=document.querySelector('.ss-intro'),bar=stageRef.current!.closest(`.${s.fold}`)?.querySelector(`.${s.demoBar}`);
+    if(intro)sizeObserver?.observe(intro);if(bar)sizeObserver?.observe(bar);
+    document.fonts?.ready.then(measureDemo);measureDemo();
     addEventListener("resize", measureDemo);
     const media = matchMedia("(max-width: 760px)");
     const coarse = matchMedia("(hover: none)");
@@ -271,9 +326,12 @@ export function Home({ locale }: { locale: Locale }) {
 
   // Wheel and swipe turn the fan one note at a time.
   useEffect(() => {
-    const dial = dialRef.current!;
+    const dial = dialRef.current!, stage = stageRef.current!;
     const onWheel = (e: WheelEvent) => {
-      e.preventDefault();
+      const target=e.target as Element, lane=dial.getBoundingClientRect();
+      if(dial.hasAttribute("inert") || e.clientY<lane.top || e.clientY>lane.bottom || target.closest(`.${s.window}, .${s.trayMenu}, .${s.demoInstructions}, .${s.firstStep}, .${s.doc}`))return;
+      cancel("leave"); leaving.current=false; setHover(true);
+      e.preventDefault(); e.stopPropagation();
       wheel.current += Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
       if (Math.abs(wheel.current) < 40) return;
       const by = Math.sign(wheel.current);
@@ -281,19 +339,23 @@ export function Home({ locale }: { locale: Locale }) {
       turn(by);
     };
     let startX = 0, startY = 0;
-    const onTouchStart = (e: TouchEvent) => { startX = e.touches[0].clientX; startY = e.touches[0].clientY; swipe.current = false; };
+    const onTouchStart = (e: TouchEvent) => { cancel("leave"); leaving.current=false; setHover(true); startX = e.touches[0].clientX; startY = e.touches[0].clientY; swipe.current = false; };
+    const onTouchMove = (e: TouchEvent) => { if(e.cancelable)e.preventDefault(); e.stopPropagation(); };
     const onTouchEnd = (e: TouchEvent) => {
+      if(e.cancelable)e.preventDefault(); e.stopPropagation();
       const dx = e.changedTouches[0].clientX - startX, dy = e.changedTouches[0].clientY - startY;
       if (Math.abs(dx) >= 30 && Math.abs(dx) > Math.abs(dy) * 1.2) {
         swipe.current = true; turn(-Math.sign(dx) * Math.max(1, Math.round(Math.abs(dx) / 80)));
       }
     };
-    dial.addEventListener("wheel", onWheel, { passive: false });
+    stage.addEventListener("wheel", onWheel, { passive: false, capture: true });
     dial.addEventListener("touchstart", onTouchStart, { passive: true });
-    dial.addEventListener("touchend", onTouchEnd);
+    dial.addEventListener("touchmove", onTouchMove, { passive: false });
+    dial.addEventListener("touchend", onTouchEnd, { passive: false });
     return () => {
-      dial.removeEventListener("wheel", onWheel);
+      stage.removeEventListener("wheel", onWheel, true);
       dial.removeEventListener("touchstart", onTouchStart);
+      dial.removeEventListener("touchmove", onTouchMove);
       dial.removeEventListener("touchend", onTouchEnd);
     };
   }, []);
@@ -301,10 +363,11 @@ export function Home({ locale }: { locale: Locale }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        if (menu) { setMenu(false); restoreTrayFocus(); }
+        if(e.defaultPrevented || document.querySelector(".brand-language-trigger[data-state=open]"))return;
+        if (previewNote) {e.preventDefault();closePreview();}
+        else if (menu) { setMenu(false); restoreTrayFocus(); }
         else if (settings) closeSettings();
-        else if (langOpen) { setLangOpen(false); languageRef.current?.focus({ preventScroll: true }); }
-        else { setPinned(false); close(); (document.activeElement as HTMLElement)?.blur(); }
+        else { setStep(steps.length + 1); setPinned(false); close(); (document.activeElement as HTMLElement)?.blur(); }
         return;
       }
       if (!running || !(e.ctrlKey && e.altKey)) return;
@@ -325,9 +388,9 @@ export function Home({ locale }: { locale: Locale }) {
     const onSelection = () => {
       if (!running) return setChip(null);
       const selection = window.getSelection();
-      if (!selection || selection.isCollapsed || !selection.toString().trim() || stageRef.current?.contains(selection.anchorNode)) return setChip(null);
+      if (!selection || selection.isCollapsed || !selection.toString().trim()) return setChip(null);
       const rect = selection.getRangeAt(0).getBoundingClientRect();
-      setChip({ x: Math.min(Math.max(rect.left + rect.width / 2, 110), innerWidth - 110), y: rect.bottom + 10 });
+      setChip({ x: Math.min(Math.max(rect.left + rect.width / 2, 110), innerWidth - 110), y: Math.min(rect.bottom + 10, innerHeight - 52) });
     };
     const hideChip = () => setChip(null);
     addEventListener("keydown", onKey);
@@ -340,23 +403,33 @@ export function Home({ locale }: { locale: Locale }) {
       document.removeEventListener("selectionchange", onSelection);
       removeEventListener("scroll", hideChip);
     };
-  }, [add, pinSelection, t, menu, settings, langOpen, pinned, running]);
+  }, [add, pinSelection, t, menu, settings, pinned, running, previewNote]);
+
 
   // Close menus on any outside press.
   useEffect(() => {
-    if (!menu && !langOpen) return;
+    if (!menu) return;
     const onDown = (e: PointerEvent) => {
       const target = e.target as Element;
       if (!target.closest(`.${s.trayMenu}, [data-coach="tray"]`)) setMenu(false);
-      if (!target.closest(`.${s.lang}`)) setLangOpen(false);
     };
     addEventListener("pointerdown", onDown, true);
     return () => removeEventListener("pointerdown", onDown, true);
-  }, [menu, langOpen]);
+  }, [menu]);
+
+  // Keep menus beside the actual OS tray or right-click point, within this desktop.
+  useLayoutEffect(()=>{
+    if(!menu || !menuRef.current || !trayRef.current || !stageRef.current)return;
+    const stage=stageRef.current.getBoundingClientRect(),tray=trayRef.current.getBoundingClientRect();
+    const width=menuRef.current.offsetWidth,height=menuRef.current.offsetHeight;
+    const x=menuPoint ? menuPoint.x-stage.left : tray.right-stage.left;
+    const y=menuPoint ? mac ? menuPoint.y-stage.top : Math.min(menuPoint.y,tray.top)-stage.top : mac ? tray.bottom-stage.top : tray.top-stage.top;
+    setMenuPosition({left:Math.max(8,Math.min(x-width,stage.width-width-8)),top:Math.max(8,Math.min(mac?y+6:y-height-6,stage.height-height-8))});
+  },[menu,menuPoint,os,appLocale,narrow]);
 
   // The coach bubble follows whatever the current step points at.
   useLayoutEffect(() => {
-    if (!coach) { setCoachBox(null); return; }
+    if (!coach || (coach==="drag" && !open)) { setCoachBox(null); return; }
     const measure = () => {
       const stage = stageRef.current!.getBoundingClientRect();
       const target = coach === "drag" && touch
@@ -400,25 +473,25 @@ export function Home({ locale }: { locale: Locale }) {
       return;
     }
     if (edgeArmed.current) { edgeArmed.current = false; cancel("dwell"); setArming(false); }
-    if (!open || pinned || menu || coach === "drag") return;
+    if (!open || pinned || menu || draggingNote.current) return;
     if (y > dialBottom) {
-      if (!leaving.current) { leaving.current = true; later("leave", GRACE_MS, close); }
+      if (!leaving.current) { leaving.current = true; later("leave", leaveDelay, close); }
     } else if (leaving.current) { leaving.current = false; cancel("leave"); }
   };
   const onStageLeave = () => {
     if (edgeArmed.current) { edgeArmed.current = false; cancel("dwell"); setArming(false); }
-    if (open && !pinned && coach !== "drag") later("leave", GRACE_MS, close);
+    if (open && !pinned && !draggingNote.current) later("leave", leaveDelay, close);
   };
   // Touch has no hover: tapping the top strip opens, tapping bare desktop closes.
   const onStageTap = (e: React.PointerEvent) => {
     if (!running || e.pointerType !== "touch") return;
     const y = e.clientY - stageRef.current!.getBoundingClientRect().top;
     if (y <= 40) setHover(true);
-    else if (open && !pinned && coach !== "drag" && !(e.target as Element).closest(`.${s.dial}, .${s.taskbar}, .${s.menubar}, .${s.dock}, .${s.doc}, .${s.files}, .${s.window}, .${s.trayMenu}`)) close();
+    else if (open && !pinned && !draggingNote.current && !(e.target as Element).closest(`.${s.dial}, .${s.taskbar}, .${s.menubar}, .${s.dock}, .${s.doc}, .${s.files}, .${s.firstStep}, .${s.window}, .${s.trayMenu}`)) close();
   };
 
   const copy = async (note: Note, index: number) => {
-    if (swipe.current) return;
+    if (swipe.current || window.getSelection()?.toString().trim()) return;
     setFocus(index);
     setDemoClipboard(note); setDemoNoteCopied(true);
     try {
@@ -428,7 +501,7 @@ export function Home({ locale }: { locale: Locale }) {
       later("copied", 1400, () => setCopied(null));
     } catch {
       setCopiedLocally(true); setCopied(note.id);
-      later("copied", 1800, () => setCopied(null)); tell(demo.clipboardHint);
+      later("copied", 1400, () => setCopied(null)); if(!embedded)tell(demo.clipboardHint);
     }
   };
   const remove = (id: string) => {
@@ -437,10 +510,25 @@ export function Home({ locale }: { locale: Locale }) {
     setFocus(keep >= 0 ? keep : Math.max(0, focus - 1)); setNotes(next);
   };
 
+  const startNoteDrag=(e:React.DragEvent<HTMLElement>,note:Note)=>{
+    draggingNote.current=true;setDragging(true);cancel("leave");cancel("peek");setPeek(false);
+    e.dataTransfer.setData(DRAG_TYPE,note.id);
+    e.dataTransfer.setData("text/plain",note.kind==="text"?note.text:note.label);
+    e.dataTransfer.effectAllowed="copy";
+  };
+  const endNoteDrag=(e:React.DragEvent<HTMLElement>)=>{
+    draggingNote.current=false;setDragging(false);
+    const lane=dialRef.current?.getBoundingClientRect();
+    if(!pinned && lane && (e.clientY<lane.top||e.clientY>lane.bottom))later("leave",leaveDelay,close);
+  };
+
   const onCardKey = (e: React.KeyboardEvent<HTMLElement>, note: Note, index: number) => {
+    if(e.ctrlKey||e.altKey||e.metaKey)return;
+    if(e.key===" "){e.preventDefault();enlarge(note,e.currentTarget);return;}
+    if(e.key==="Enter"){e.preventDefault();void copy(note,index);return;}
     const go = (i: number) => {
       setFocus(i);
-      requestAnimationFrame(() => dialRef.current?.querySelector<HTMLElement>(`[data-index="${i}"]`)?.focus());
+      requestAnimationFrame(() => dialRef.current?.querySelector<HTMLElement>(`[data-index="${i}"]`)?.focus({preventScroll:true}));
     };
     if (e.key === "ArrowRight" && index < notes.length - 1) go(index + 1);
     else if (e.key === "ArrowLeft" && index > 0) go(index - 1);
@@ -487,23 +575,25 @@ export function Home({ locale }: { locale: Locale }) {
   };
   const quitDemo = () => {
     Object.values(timers.current).forEach(window.clearTimeout);
-    close(); setRunning(false); setPinned(false); setMenu(false); setSettings(false);
-    setNotes([]); setFocus(0); setStep(STEPS.length + 1); setChip(null); setCopied(null);
+    setPreviewNote(null);setDragging(false);draggingNote.current=false;close(); setRunning(false); setPinned(false); setMenu(false); setSettings(false);
+    setNotes([]); setFocus(0); setStep(steps.length + 1); setChip(null); setCopied(null);
+    setCollected(false); setDoc([]); setDemoClipboard(null); setDemoNoteCopied(false);
     tell(demo.exited);
   };
   const toggleIntake = () => {
     setIntake((v) => !v);
     tell(intake ? a.notice.intakeOff : a.notice.intakeOn);
   };
-  const openMenu = (keyboard=false) => {
+  const openMenu = (keyboard=false, point?:{x:number;y:number}) => {
+    setMenuPoint(point ?? null);
     menuKeyboard.current=keyboard;
     if (menu && keyboard) menuRef.current?.querySelector<HTMLButtonElement>("button")?.focus({ preventScroll: true });
     setMenu(true); reached("tray");
   };
   const openSettings = () => { setMenu(false); setSettings(true); };
-  // Windows: left click shows or hides the notes, right click opens the menu. Mac: any click opens the menu.
+  // The web toolbar opens its demo menu on click; the standalone surface keeps OS tray behavior.
   const onTrayClick = (e: React.MouseEvent<HTMLButtonElement>) => {
-    if (mac || (e.nativeEvent as PointerEvent).pointerType === "touch") return menu ? setMenu(false) : openMenu();
+    if (embedded || mac || (e.nativeEvent as PointerEvent).pointerType === "touch") return menu ? setMenu(false) : openMenu();
     setMenu(false);
     if (open && !pinned) close(); else setHover(true);
   };
@@ -511,46 +601,52 @@ export function Home({ locale }: { locale: Locale }) {
   const trayButton = <button
     ref={trayRef}
     data-coach="tray"
+    data-pinned={pinned}
     className={`${s.trayIcon} ${!intake ? s.trayOff : ""} ${menu ? s.trayIconOn : ""}`}
     onClick={onTrayClick}
-    onContextMenu={(e) => { e.preventDefault(); openMenu(); }}
+    onContextMenu={(e) => { e.preventDefault(); openMenu(false,{x:e.clientX,y:e.clientY}); }}
     onKeyDown={(e) => { if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); openMenu(true); } }}
     aria-haspopup="menu"
     aria-expanded={menu}
-    aria-label={mac ? a.menu.trayMac : a.menu.trayWin}
+    aria-label={embedded ? refCopy.menu : mac ? a.menu.trayMac : a.menu.trayWin}
   >
-    {mac
-      ? <svg viewBox="0 0 18 16" width="17" height="15" aria-hidden="true"><rect x="1" y="1.2" width="16" height="1.4" rx=".7" fill="currentColor" opacity=".55"/><rect x="4" y="4" width="10" height="8.5" rx="2" fill="none" stroke="currentColor" strokeWidth="1.5"/><circle cx="9" cy="4" r="1.6" fill="currentColor"/></svg>
-      : <Mark size={16}/>}
+    {mac ? <MacStatusMark/> : <Mark size={22}/>}
     {pinned && <span className={s.trayPinned}/>}
   </button>;
 
-  const coachText = coach === "edge" ? (touch ? t.coach.edgeTouch : t.coach.edge)
+  const coachText = coach === "pin" ? info.first : coach === "edge" ? (touch ? t.coach.edgeTouch : t.coach.edge)
     : coach === "file" ? t.coach.file
-    : coach === "drag" ? (touch ? demo.touchCopy : t.coach.drag)
+    : coach === "drag" ? (touch ? demo.touchCopy : embedded ? guide.dragNote : t.coach.drag)
     : coach === "tray" ? (touch ? t.coach.trayTouch : mac ? t.coach.trayMac : t.coach.trayWin) : "";
   // Where the bubble sits relative to its target.
-  let coachSide = coach === "edge" || (coach === "tray" && mac) ? "below" : coach === "file" ? (narrow ? "below" : mac ? "left" : "right") : coach === "drag" && touch ? "below" : "above";
+  let coachSide = embedded && coach === "tray" ? mac ? "below" : "above" : coach === "edge" || (coach === "tray" && mac) ? "below" : coach === "file" ? (narrow ? "below" : mac ? "left" : "right") : coach === "drag" && touch ? "below" : "above";
   if (coachBox) {
     const height = coachHeight || 64;
     if (coachSide === "below" && coachBox.y + coachBox.h + 12 + height > coachBox.stageHeight - 8) coachSide = "above";
     else if (coachSide === "above" && coachBox.y - 12 - height < 8) coachSide = "below";
   }
 
-  return <div className={s.page} data-skin={skin}>
+  const [backVisible,setBackVisible]=useState(false);
+  useEffect(()=>{const update=()=>setBackVisible(window.scrollY>120);window.addEventListener("scroll",update,{passive:true});return()=>window.removeEventListener("scroll",update)},[]);
+  const websiteDownloads=downloads;
+  const moreTools = {en:"More tools", "zh-Hans":"更多工具", "zh-Hant":"更多工具", ja:"ほかのツール", ko:"다른 도구", es:"Más herramientas"}[locale];
+  const scrollSection = (event: React.MouseEvent<HTMLAnchorElement>) => {
+    const target = document.getElementById(event.currentTarget.hash.slice(1));
+    if (!target) return;
+    event.preventDefault();
+    if(event.currentTarget.hash==="#top"){window.scrollTo({top:0,behavior:window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth"});return;}
+    target.scrollIntoView({behavior:window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth",block:"start"});
+  };
+  const Main = embedded ? "div" : "main";
+  return <div className={`${s.page} ${embedded ? s.embedded : ""}`} data-skin={skin}>
     <header className={s.nav}>
       <div className={s.navInner}>
-        <a href="#top" className={s.brand}><Mark size={22}/>SnapSlot{t.name && <small>{t.name}</small>}</a>
+        <a href="#top" onClick={scrollSection} className={s.brand}><Mark size={22}/>SnapSlot{t.name && <small>{t.name}</small>}</a>
         <nav aria-label="SnapSlot">
-          <a href="#features">{t.nav.features}</a>
+          <a href={`${process.env.NEXT_PUBLIC_HOME_URL||"https://linglinglab.top"}/${locale}/`}>{moreTools}</a>
+          <a href="#features" onClick={scrollSection}>{t.nav.features}</a>
           <a href={GITHUB} target="_blank" rel="noopener" className={s.navIcon} aria-label="GitHub"><GitHubMark/></a>
-          <div className={s.lang}>
-            <button ref={languageRef} onClick={() => setLangOpen((v) => !v)} aria-expanded={langOpen} aria-haspopup="true" aria-label={t.nav.language}>
-              <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><circle cx="8" cy="8" r="6.3" fill="none" stroke="currentColor" strokeWidth="1.2"/><path d="M1.7 8h12.6M8 1.7c1.8 1.7 2.6 3.9 2.6 6.3S9.8 12.6 8 14.3C6.2 12.6 5.4 10.4 5.4 8S6.2 3.4 8 1.7Z" fill="none" stroke="currentColor" strokeWidth="1.2"/></svg>
-              {localeNames[locale]}
-            </button>
-            {langOpen && <ul>{locales.map((l) => <li key={l}><a href={`/${l}/`} lang={l} aria-current={l === locale ? "page" : undefined}>{localeNames[l]}</a></li>)}</ul>}
-          </div>
+          <LanguageMenu locale={locale} ariaLabel={t.nav.language}/>
         </nav>
       </div>
     </header>
@@ -561,26 +657,28 @@ export function Home({ locale }: { locale: Locale }) {
           ? <span className={s.islandThumb} style={{ backgroundImage: `url("${island.src}")` }}/>
           : <span className={s.islandThumb + " " + s.islandText}>Aa</span>}
         <span>{fill(t.island, notes.length)}</span>
+        {embedded && <button type="button" onClick={()=>{showNotes();stageRef.current?.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'start'})}}>{guide.view}</button>}
       </>}
     </div>
 
-    <main id="top" className={s.main}>
+    <Main id="top" className={s.main}>
       <div className={s.fold} data-os={os}>
         <section className={s.hero}>
-          <h1>{t.headline}</h1>
+          <div className={s.heroCopy}><h1>{t.headline}</h1>
           <p className={s.sub}>{t.sub}</p>
-          <div id="downloads" className={s.ctas}>
-            <a href={downloads[os].href} download={downloads[os].filename} title={downloads[os].title} className={s.buttonPrimary}>{mac ? t.get.mac : t.get.win}</a>
-            <a href={downloads[mac ? "win" : "mac"].href} download={downloads[mac ? "win" : "mac"].filename} title={downloads[mac ? "win" : "mac"].title} className={s.buttonSecondary}>{mac ? t.get.win : t.get.mac}</a>
-          </div>
+          <div id={embedded ? undefined : "downloads"} className={s.ctas}>
+            <a href={websiteDownloads[os].href} download={websiteDownloads[os].filename} title={downloads[os].title} className={s.buttonPrimary}>{mac ? t.get.mac : t.get.win}</a>
+            <a href={websiteDownloads[mac ? "win" : "mac"].href} download={websiteDownloads[mac ? "win" : "mac"].filename} title={downloads[mac ? "win" : "mac"].title} className={s.buttonSecondary}>{mac ? t.get.win : t.get.mac}</a>
+          </div></div>
+          <img className={s.heroScene} src="/brand/snapslot-scene.webp" width="1200" height="720" alt="" fetchPriority="high"/>
         </section>
 
-        <div className={s.demoBar} role="group" aria-label={demo.title}>
-          <span className={s.demoTitle}>{demo.title}</span>
+        <div className={s.demoBar} role="group" aria-label={embedded ? info.label : demo.title}>
+          <span className={s.demoTitle}>{embedded ? info.label : demo.title}</span>{embedded && <span className={s.scopeInline}>{info.scope}</span>}
           <div className={s.platforms} role="group" aria-label={demo.platforms}>
-            {(["win", "mac"] as const).map((platform) => <button key={platform} aria-pressed={os === platform} onClick={() => { setOs(platform); setMenu(false); }} aria-controls="stage">{platform === "win" ? "Windows" : "macOS"}</button>)}
+            {(["mac", "win"] as const).map((platform) => <button key={platform} aria-pressed={os === platform} onClick={() => { setOs(platform); setMenu(false); setPreviewNote(null); }} aria-controls="stage">{platform === "win" ? "Windows" : "macOS"}</button>)}
           </div>
-          <button className={s.demoReveal} disabled={!running} onClick={showNotes} aria-controls="stage">{demo.reveal}</button>
+          {!embedded && <button className={s.demoReveal} disabled={!running} onClick={showNotes} aria-controls="stage">{demo.reveal}</button>}
           <button className={s.replay} onClick={replay} title={demo.replay} aria-label={demo.replay}>
             <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M3 5a5.2 5.2 0 1 1-.1 5M3 1.8V5h3.2" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg><span>{demo.replay}</span>
           </button>
@@ -599,11 +697,37 @@ export function Home({ locale }: { locale: Locale }) {
             aria-label={t.stage.desktop}
           >
             <div className={s.wallpaper} aria-hidden="true"/>
+            {embedded && <>
+      <section className={s.firstStep} data-collected={collected} data-demo-selection aria-label={info.first}>
+        <div className={s.firstStepMain}><h2 data-selectable className={s.exampleSentence}>{t.bento.selectLine}</h2><button type="button" className={s.pinExample} data-coach="pin" disabled={!running} onClick={pinExample}><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 3h8l-1 7 4 4v2h-6v6h-2v-6H5v-2l4-4z"/></svg>{info.pin}</button></div>
+        <div className={s.demoTools}><span className={s.noteCount} data-note-count aria-live="polite">{info.notes} {notes.length}/{CAPACITY}</span><label className={s.appearanceLabel}>{refCopy.appearance}<select className={s.appearanceSelect} aria-label={a.settings.look} value={skin} onChange={event=>setSkin(event.target.value as Skin)}>{SKINS.map((value,index)=><option key={value} value={value}>{a.skins[index]}</option>)}</select></label><button className={s.instructionsToggle} aria-label={info.instructions} aria-expanded={instructionsOpen} aria-controls="demo-instructions" onClick={()=>setInstructionsOpen(value=>!value)}>{info.instructions}</button></div>
+        {collected && <p className={s.stepFeedback} role="status"><span className={s.srOnly}>{info.pinned}</span>{info.next}</p>}
+        {(collected||instructionsOpen) && <div className={s.followUp}><button type="button" className={s.demoReveal} disabled={!running} onClick={showNotes} aria-controls="stage">{demo.reveal}</button><div className={s.noteNavigation}><button type="button" aria-label={info.prev} disabled={!running||focus===0} onClick={()=>{turn(-1);showNotes()}}>‹</button><button type="button" aria-label={info.nextNote} disabled={!running||focus>=notes.length-1} onClick={()=>{turn(1);showNotes()}}>›</button></div></div>}
+      </section>
+        <div className={s.demoInstructions} id="demo-instructions" hidden={!instructionsOpen}>
+        <header className={s.helpHeader}><b>{info.instructions}</b><button type="button" aria-label={a.settings.close} onClick={()=>setInstructionsOpen(false)}>×</button></header><div className={s.instructionsBody}><div><p>{guide.hint}</p><p>{guide.keyboard}</p><p className={s.sessionRules}>{info.demoRules}</p></div><dl className={s.shortcutList}><div><dt>{guide.zoom}</dt><dd><Keys keys={["Space"]}/></dd></div>
+          <div><dt>{a.settings.pinText}</dt><dd><Keys keys={[...mod,"T"]}/></dd></div>
+          <div><dt>{a.settings.openNotes}</dt><dd><Keys keys={[...mod,"Space"]}/></dd></div>
+          <div><dt>{guide.switchNote}</dt><dd><Keys keys={["←","→"]}/></dd></div>
+          <div><dt>{guide.removeNote}</dt><dd><Keys keys={["Delete"]}/></dd></div>
+          <div><dt>{guide.hide}</dt><dd><Keys keys={["Esc"]}/></dd></div>
+          <div><dt>{demo.paste}</dt><dd><Keys keys={[mac?"⌘":"Ctrl","V"]}/></dd></div>
+        </dl></div>
+            <div className={s.demoFiles}>
+              {files.map(({filename:name}, index) => <button key={name} className={s.file} data-coach={index === 0 ? "file" : undefined} onClick={(e) => copyFile(e.currentTarget.querySelector("span")!, index)} aria-label={t.stage.copyFile + name} title={name}>
+                <span className={s.fileThumb} style={{ backgroundImage: `url("${ART[index]}")` }}/>
+                <span className={s.fileName}>{files[index].label}</span>
+              </button>)}
+            </div>
+        </div>
+
+            </>}
+
 
             {mac
               ? <div className={s.menubar} data-coach="edge">
-                <span className={s.menuLogo} aria-hidden="true"/>
-                <b>{t.stage.docTitle}</b>
+                <span className={s.menuLogo} aria-hidden="true"><Apple size={13}/></span>
+                <b>TextEdit</b>
                 <span className={s.menubarRight}>{running && trayButton}<Glyphs/><span className={s.clock}>{clock}</span></span>
               </div>
               : <div className={s.edgeZone} data-coach="edge" aria-hidden="true"/>}
@@ -620,6 +744,7 @@ export function Home({ locale }: { locale: Locale }) {
               {notes.map((note, index) => {
                 const d = index - focus;
                 const hidden = Math.abs(d) > reach;
+                const Face=note.kind==="text"?"div":"button";
                 return <div
                   role="listitem"
                   key={note.id}
@@ -629,28 +754,32 @@ export function Home({ locale }: { locale: Locale }) {
                 >
                   <div className={s.card}>
                     <span className={s.pin} aria-hidden="true"/>
-                    <button
+                    {note.kind==="text" && <span className={s.noteDrag} data-note-drag={note.id} draggable title={guide.dragNote} aria-hidden="true" onDragStart={e=>startNoteDrag(e,note)} onDragEnd={endNoteDrag}><svg viewBox="0 0 14 6" width="14" height="6"><path d="M2 2h10M2 5h10" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg></span>}
+                    <Face
+                      role={note.kind==="text"?"button":undefined}
                       className={s.face}
                       data-note={note.id}
                       data-index={index}
                       data-focus={d === 0}
                       tabIndex={d === 0 ? 0 : -1}
                       draggable
+                      title={note.kind==="text"?guide.dragNote:undefined}
                       onFocus={() => { cancel("leave"); setHover(true); }}
-                      onDragStart={(e) => {
-                        e.dataTransfer.setData(DRAG_TYPE, note.id);
-                        e.dataTransfer.setData("text/plain", note.kind === "text" ? note.text : note.label);
-                        e.dataTransfer.effectAllowed = "copy";
+                      onDragStart={e=>{
+                        if(note.kind==="text" && window.getSelection()?.toString().trim()){draggingNote.current=true;setDragging(true);cancel("leave");cancel("peek");setPeek(false);return;}
+                        startNoteDrag(e,note);
                       }}
+                      onDragEnd={endNoteDrag}
                       onClick={() => copy(note, index)}
                       onKeyDown={(e) => onCardKey(e, note, index)}
                       aria-label={note.kind === "text" ? a.stage.copyText + note.text.slice(0, 20) : a.stage.copyImage + note.label}
                     >
                       {note.kind === "image"
-                        ? <span className={s.photo} style={{ backgroundImage: `url("${note.src}")` }}/>
+                        ? <><span className={s.photo} style={{ backgroundImage: `url("${note.src}")` }}/><span className={s.photoCaption}><i/>{note.label}</span></>
                         : <span className={s.noteText}>{note.text}</span>}
-                      <span className={`${s.copied} ${copied === note.id ? s.copiedOn : ""}`} aria-hidden="true">{copiedLocally ? demo.copiedHere : a.stage.copied}</span>
-                    </button>
+                      <span className={`${s.copied} ${copied === note.id ? s.copiedOn : ""}`} role={copied===note.id?"status":undefined} aria-hidden={copied!==note.id}>{copiedLocally ? demo.copiedHere : a.stage.copied}</span>
+                    </Face>
+                    <button className={s.enlarge} aria-label={guide.zoom} title={guide.zoom} onClick={e=>enlarge(note,e.currentTarget)} tabIndex={d===0?0:-1}><svg viewBox="0 0 20 20" width="14" height="14" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5" fill="none" stroke="currentColor" strokeWidth="1.6"/><path d="m13 13 4 4M6 8.5h5M8.5 6v5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg></button>
                     <button className={s.remove} onClick={() => remove(note.id)} aria-label={a.stage.remove} tabIndex={-1}>×</button>
                   </div>
                 </div>;
@@ -659,18 +788,25 @@ export function Home({ locale }: { locale: Locale }) {
               {notes.length > 1 && <p className={s.counter} aria-hidden="true">{pinned && <span className={s.pinnedDot}/>}{focus + 1} / {notes.length}</p>}
             </div>
 
+            {previewNote && <section className={s.notePreview} role="dialog" aria-label={guide.zoom} data-note-preview>
+              <header><b>{guide.zoom}</b><button ref={previewCloseRef} aria-label={a.settings.close} onClick={closePreview}>×</button></header>
+              <div className={s.previewContent}>{previewNote.kind==="image"?<img src={previewNote.src} alt={previewNote.label}/>:<p>{previewNote.text}</p>}</div>
+            </section>}
             <p className={`${s.notice} ${notice ? s.noticeOn : ""}`} role="status" aria-live="polite">{notice}</p>
 
+            {!embedded && <>
             <div className={s.files}>
-              {t.stage.files.map((name, index) => <button key={name} className={s.file} data-coach={index === 0 ? "file" : undefined} onClick={(e) => copyFile(e.currentTarget.querySelector("span")!, index)} aria-label={t.stage.copyFile + name}>
+              {files.map(({filename:name}, index) => <button key={name} className={s.file} data-coach={index === 0 ? "file" : undefined} onClick={(e) => copyFile(e.currentTarget.querySelector("span")!, index)} aria-label={t.stage.copyFile + name} title={name}>
                 <span className={s.fileThumb} style={{ backgroundImage: `url("${ART[index]}")` }}/>
-                <span className={s.fileName}>{name}</span>
+                <span className={s.fileName}>{files[index].label}</span>
               </button>)}
             </div>
+            </>}
 
             <div
               ref={docRef}
               data-coach="drag"
+              data-reuse-active={demoNoteCopied||doc.length>0}
               className={`${s.doc} ${docOver ? s.docOver : ""}`}
               tabIndex={0}
               onPaste={onDocPaste}
@@ -690,7 +826,7 @@ export function Home({ locale }: { locale: Locale }) {
                 {doc.map((item) => item.kind === "image"
                   ? <span key={item.id} className={s.docImage} style={{ backgroundImage: `url("${item.src}")` }}/>
                   : <p key={item.id} className={s.docText}>{item.text}</p>)}
-                {doc.length === 0 && <p className={s.placeholder}>{touch ? demo.pasteHint : t.stage.docEmpty}</p>}
+                {doc.length === 0 && <p className={s.placeholder}>{embedded ? refCopy.docHint : touch ? demo.pasteHint : t.stage.docEmpty}</p>}
               </div>
               <div className={s.docActions}>
                 {!touch && <Keys keys={[mac ? "⌘" : "Ctrl", "V"]}/>}
@@ -731,7 +867,7 @@ export function Home({ locale }: { locale: Locale }) {
                 <span className={s.tray}>{running && trayButton}<Glyphs/><span className={s.clock}>{clock}</span></span>
               </div>}
 
-            {menu && <div ref={menuRef} className={s.trayMenu} role="menu" aria-label="SnapSlot" onKeyDown={navigateMenu}>
+            {menu && <div ref={menuRef} className={s.trayMenu} style={menuPosition ? {...menuPosition,right:"auto",bottom:"auto"} : undefined} role="menu" aria-label="SnapSlot" onKeyDown={navigateMenu}>
               <button role="menuitem" onClick={openSettings}><span className={s.check}/>{a.menu.settings}</button>
               <hr/>
               <button role="menuitemcheckbox" aria-checked={intake} onClick={() => { closeMenu(); toggleIntake(); }}><span className={s.check}>{intake ? "✓" : ""}</span>{a.menu.intake}</button>
@@ -741,7 +877,7 @@ export function Home({ locale }: { locale: Locale }) {
             </div>}
 
             {coach && coachBox && <>
-              <span className={s.coachRing} data-target={coach} style={{ left: coachBox.x, top: coachBox.y, width: coachBox.w, height: coachBox.h }} aria-hidden="true"/>
+              {coach !== "edge" && !(coach === "drag" && !open) && <span className={s.coachRing} data-target={coach} style={{ left: coachBox.x, top: coachBox.y, width: coachBox.w, height: coachBox.h }} aria-hidden="true"/>}
               <div
                 ref={coachRef}
                 className={s.coach}
@@ -756,22 +892,35 @@ export function Home({ locale }: { locale: Locale }) {
                 role="status"
                 aria-live="polite"
               >
-                <span className={s.coachStep}>{step + 1}/{STEPS.length}</span>
+                <span className={s.coachStep}>{step + 1}/{steps.length}</span>
                 <span>{coachText}</span>
-                <button onClick={() => setStep(STEPS.length + 1)} aria-label={t.coach.skip}>×</button>
+                <button onClick={() => setStep(steps.length + 1)} aria-label={t.coach.skip}>×</button>
               </div>
             </>}
-            {step === STEPS.length && <p className={s.coachDone} aria-hidden="true" onAnimationEnd={() => setStep(STEPS.length + 1)}>{t.coach.done}</p>}
+            {step === steps.length && <p className={s.coachDone} aria-hidden="true" onAnimationEnd={() => setStep(steps.length + 1)}>{t.coach.done}</p>}
           </div>
         </section>
       </div>
 
-      <section className={s.bento} id="features">
-        <article className={`${s.tile} ${s.tileDark} ${s.wide}`} data-reveal>
-          <h2>{t.bento.selectTitle[0]}<br/>{t.bento.selectTitle[1]}</h2>
-          <p className={s.selectable}>{t.bento.selectLine}</p>
+      {embedded ? null : <>
+      <section className={s.bento} id={embedded ? undefined : "features"}>
+        <article className={`${s.tile} ${s.tileDark} ${s.wide}`} data-demo-selection>
+          <h2>{embedded ? guide.title : <>{t.bento.selectTitle[0]}<br/>{t.bento.selectTitle[1]}</>}</h2>
+          {embedded && <p className={s.guideHint}>{guide.hint}</p>}
+          <p className={s.selectable} data-selectable>{t.bento.selectLine}</p>
           <p className={s.tileFoot}>{t.bento.selectFoot} <Keys keys={[...mod, "T"]}/></p>
         </article>
+
+        {embedded && <article className={`${s.tile} ${s.shortcutGuide}`}>
+          <h2>{guide.shortcuts}</h2><p className={s.guideHint}>{guide.keyboard}</p>
+          <dl className={s.shortcutList}><div><dt>{guide.zoom}</dt><dd><Keys keys={["Space"]}/></dd></div>
+            <div><dt>{a.settings.pinText}</dt><dd><Keys keys={[...mod,"T"]}/></dd></div>
+            <div><dt>{a.settings.openNotes}</dt><dd><Keys keys={[...mod,"Space"]}/></dd></div>
+            <div><dt>{guide.switchNote}</dt><dd><Keys keys={["←","→"]}/></dd></div>
+            <div><dt>{guide.removeNote}</dt><dd><Keys keys={["Delete"]}/></dd></div>
+            <div><dt>{guide.hide}</dt><dd><Keys keys={["Esc"]}/></dd></div>
+          </dl>
+        </article>}
 
         <article className={s.tile} data-reveal>
           <h2>{notes.length}<small> / 30</small></h2>
@@ -796,7 +945,8 @@ export function Home({ locale }: { locale: Locale }) {
           <p className={s.tileFoot}>{t.bento.privacyFoot}</p>
         </article>
       </section>
-    </main>
+      </>}
+    </Main>
 
     <footer className={s.footer}>
       <div className={s.footerInner}>
@@ -814,5 +964,6 @@ export function Home({ locale }: { locale: Locale }) {
     {chip && <button className={s.chip} style={{ left: chip.x, top: chip.y }} onMouseDown={(e) => e.preventDefault()} onClick={pinSelection}>
       {t.chip} <Keys keys={[...mod, "T"]}/>
     </button>}
+    <button className={`${s.backTop} ${backVisible?s.backTopVisible:""}`} aria-label={locale.startsWith('zh')?'回到顶部':'Back to top'} aria-hidden={!backVisible} tabIndex={backVisible?0:-1} onClick={()=>{window.scrollTo({top:0,behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});document.querySelector<HTMLAnchorElement>('header a')?.focus({preventScroll:true})}}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><path d="m5 12 7-7 7 7M12 5v15"/></svg></button>
   </div>;
 }

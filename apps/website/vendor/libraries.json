@@ -1,0 +1,23 @@
+{
+  "@linglinglab/web-ui": {
+    "name": "@linglinglab/web-ui",
+    "version": "1.3.1",
+    "visibility": "public",
+    "filename": "linglinglab-web-ui-1.3.1.tgz",
+    "sha256": "1d616573494923f0ad289d6df478337c2ec549a93e3cbba55367b1e37b4ebba3",
+    "files": [
+      "LICENSE",
+      "back-to-top.css",
+      "back-to-top.tsx",
+      "confirm-dialog.css",
+      "confirm-dialog.tsx",
+      "foundation.css",
+      "language-menu.css",
+      "language-menu.tsx",
+      "package.json",
+      "showcase-icons.tsx",
+      "showcase.css",
+      "use-carousel.ts"
+    ]
+  }
+}

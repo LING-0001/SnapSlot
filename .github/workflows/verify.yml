@@ -23,6 +23,7 @@ jobs:
           cache: npm
           cache-dependency-path: apps/website/package-lock.json
       - run: npm ci --prefix apps/website
+      - run: node scripts/check-public-boundary.mjs
       - run: node --test scripts/tests/*.test.mjs
       - run: npm run test:downloads --prefix apps/website
       - run: npm run build --prefix apps/website

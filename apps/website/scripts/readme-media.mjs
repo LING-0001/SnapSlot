@@ -1,5 +1,5 @@
 // Captures the README screenshots and the demo animation from the running website.
-//   npm run dev -- --port 3000   (in another terminal)
+//   npm run dev   (in another terminal)
 //   node scripts/readme-media.mjs [locale ...]
 // Writes PNG stills and GIF frames to docs/media/<locale>/; scripts/readme-gif.py assembles the GIF.
 import { chromium } from "@playwright/test";
@@ -8,13 +8,14 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { pathToFileURL } from "node:url";
 
-const base = process.env.SNAPSLOT_URL ?? "http://127.0.0.1:3000";
+const base = process.env.SNAPSLOT_URL ?? "http://127.0.0.1:4325";
 const all = ["zh-Hans", "en", "zh-Hant", "ja", "ko", "es"];
 const menusOnly = process.argv.includes("--menus-only");
 const localeArgs = process.argv.slice(2).filter(value => value !== "--menus-only");
 const wanted = localeArgs.length ? localeArgs : all;
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../docs/media");
-const nativeEntry = pathToFileURL(path.resolve(root, "../../artifacts/native-ui/index.html")).href;
+const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
+const root = process.env.SNAPSLOT_MEDIA_OUTPUT || path.join(repositoryRoot, "docs/media");
+const nativeEntry = pathToFileURL(path.join(repositoryRoot, "artifacts/native-ui/index.html")).href;
 // Edge ships with Windows; elsewhere use Chrome, or Playwright's Chromium if neither is installed.
 const channel = process.platform === "win32" ? { channel: "msedge" } : process.platform === "darwin" ? { channel: "chrome" } : {};
 const browser = await chromium.launch(channel);
@@ -32,7 +33,16 @@ async function open(locale, { mac = false, width = 1280, height = 800, scale = 2
   return page;
 }
 const desk = (page) => page.locator("#stage > div").first();
-const skip = (page) => page.locator("[data-side] button").click();
+const skip = async (page) => {
+  const close = page.locator("[data-side] button");
+  if (await close.isVisible()) await close.click();
+};
+async function copyImage(page) {
+  const toggle = page.locator('#stage button[aria-controls="demo-instructions"]');
+  if (await toggle.getAttribute("aria-expanded") === "false") await toggle.click();
+  await page.locator("[data-coach=file]").click();
+  await toggle.click();
+}
 const dropFocused = (page) => page.evaluate(() => {
   const source = document.querySelector("[data-focus='true']"), target = document.querySelector("[data-coach='drag']"), data = new DataTransfer();
   source.dispatchEvent(new DragEvent("dragstart", { bubbles: true, dataTransfer: data }));
@@ -99,7 +109,7 @@ for (const locale of wanted) {
     await page.screenshot({ path: path.join(dir, "onboarding.png"), clip: guideBox });
     await skip(page);
     await reveal(page);
-    await page.locator("[data-coach=file]").click();
+    await copyImage(page);
     await page.waitForTimeout(1200);
     await holdOpen(page);
     const deskBox = await desk(page).boundingBox();
@@ -130,7 +140,7 @@ for (const locale of wanted) {
     await skip(page);
     await reveal(page);
     await dropFocused(page);
-    await page.locator("[data-coach=file]").nth(0).click();
+    await copyImage(page);
     await page.waitForTimeout(900);
     await dropFocused(page);
     await holdOpen(page);
@@ -143,17 +153,17 @@ for (const locale of wanted) {
   if (!menusOnly) {
     const page = await open(locale);
     await skip(page);
-    const line = page.locator("[class*=selectable]");
+    const line = page.locator("#stage [data-selectable]").first();
     await line.scrollIntoViewIfNeeded();
     await page.waitForTimeout(900);
-    const box = await line.boundingBox();
-    await page.mouse.move(box.x + 2, box.y + box.height / 2);
-    await page.mouse.down();
-    await page.mouse.move(box.x + box.width - 2, box.y + box.height / 2, { steps: 8 });
-    await page.mouse.up();
-    await page.waitForTimeout(400);
-    const tile = await page.locator("[class*=tileDark]").boundingBox();
-    await page.screenshot({ path: path.join(dir, "select.png"), clip: { x: tile.x, y: tile.y, width: tile.width, height: tile.height } });
+    await line.evaluate(el => {
+      const selection = window.getSelection(), range = document.createRange();
+      range.selectNodeContents(el); selection.removeAllRanges(); selection.addRange(range);
+    });
+    await page.keyboard.press("Control+Alt+T");
+    await holdOpen(page);
+    const box = await desk(page).boundingBox();
+    await page.screenshot({ path: path.join(dir, "select.png"), clip: box });
     await page.context().close();
   }
 
@@ -221,11 +231,10 @@ for (const locale of wanted) {
     // Rest on the top edge: the glow charges, then the notes drop.
     await glide(...at(.45, 5), 700);
     await pause(1500);
-    // Copy an image on the desktop: it flies up and joins the fan.
-    const file = await page.locator("[data-coach=file]").boundingBox();
-    await glide(file.x + file.width / 2, file.y + file.height / 3, 700);
-    await page.mouse.down(); await pause(90); await page.mouse.up();
-    await page.locator("[data-coach=file]").evaluate((el) => el.click());
+    // Collect the visible sample sentence through the shipped first action.
+    const first = await page.locator('[data-coach="pin"]').boundingBox();
+    await glide(first.x + first.width / 2, first.y + first.height / 2, 700);
+    await page.locator('[data-coach="pin"]').click();
     await pause(1500);
     // Pin the notes from the tray menu so they stay put.
     const tray = await page.locator("[data-coach=tray]").boundingBox();
@@ -262,7 +271,7 @@ for (const locale of wanted) {
     await page.evaluate(() => {
       document.getElementById("demo-ghost")?.remove();
       const target = document.querySelector("[data-coach='drag']");
-      if (target.querySelector("[style*='background-image']")) return;
+      if (target.getAttribute("data-reuse-active") === "true") return;
       const source = document.querySelector("[data-focus='true']"), data = new DataTransfer();
       source.dispatchEvent(new DragEvent("dragstart", { bubbles: true, dataTransfer: data }));
       target.dispatchEvent(new DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer: data }));
