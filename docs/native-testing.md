@@ -6,8 +6,9 @@ A successful compile or browser run does not establish physical-machine behavior
 ## Common checks
 
 1. Start empty and hidden. The status/tray icon uses the current brand mark; the
-   hidden overlay does not block clicks. Mac also has the same Dock icon.
-2. Copy an image in another application: one note appears and peeks for 2.5 s.
+   hidden overlay does not block clicks. Mac has a monochrome menu-bar symbol, gray
+   when automatic image collection is off, plus the adopted Dock icon. No desktop tutorial is added.
+2. Copy an image in another application: one note appears and peeks for 4 s without pinning.
    Existing launch clipboard content, ordinary copied text, file URLs and files
    saved to disk must not be collected. Copying a note must not add it again.
 3. Select text and press Control+Option+T / Ctrl+Alt+T. Check the full Unicode
@@ -19,12 +20,20 @@ A successful compile or browser run does not establish physical-machine behavior
    Control+Option+Space / Ctrl+Alt+Space and Escape.
 5. Turn the fan with the wheel and arrows. Click to copy, Delete to remove and
    hover to reveal the remove button. The first click must work without a prior
-   activation click. Remaining cards, keyboard focus and counter stay consistent.
+   activation click. The copied label stays small in the note's lower-right corner.
+   Space/magnifier shows full text or image; Escape closes reading only and restores
+   focus. Select words in a text card or reading view and collect them again; whole-card
+   dragging must still work. Remaining cards, keyboard focus and counter stay consistent.
 6. Add more than 30 notes. Retain the newest 30, oldest to newest. Clear all empties
    the session immediately. Exports for removed/cleared notes survive until exit.
 7. Hold and drag PNG/TXT copies into a file manager and a document/chat app. Keep
-   the original note and preserve pinned state. Verify the exported bytes/content.
-8. Open the four-entry menu. Move across every row while another application is
+   the original note and preserve pinned state. Text drops offer both plain text and
+   an exported file. Verify the exported bytes/content.
+8. On macOS, right-click the Dock icon: Show notes, Settings, image collection and
+   pinning must work even when the status icon is hidden by other menu-bar items.
+   Reopen the Dock menu to check live marks, toggle pinning/collection, and restore
+   minimized Settings. System Options/Hide/Quit stay system-owned without duplication.
+   Open the four-entry status/tray menu. Move across every row while another application is
    active: highlight follows the pointer and clears on departure. Checkmarks are
    legible; hovering never toggles a setting. Pinning adds the website's lower-right
    dot to the status/tray icon; unpinning, Escape and hiding notes clear it. Check
@@ -67,6 +76,7 @@ npm test --prefix apps/website
 ./scripts/build-macos.sh
 bash scripts/check-macos-hotkeys.sh
 artifacts/macos/SnapSlot.app/Contents/MacOS/SnapSlot --smoke-test /tmp/snapslot-qa
+artifacts/macos/SnapSlot.app/Contents/MacOS/SnapSlot --status-icon-check /tmp/snapslot-status-qa
 ```
 
 ```powershell
@@ -76,6 +86,9 @@ artifacts/macos/SnapSlot.app/Contents/MacOS/SnapSlot --smoke-test /tmp/snapslot-
 Mac smoke checks use a named pasteboard, generated test content and isolated
 preferences. They verify real WKWebView/AppKit behavior without reading selections
 from other apps, requesting screen capture or changing the general clipboard.
+The focused status-icon check compares light/dark AppKit rendering with a standard
+untinted status item, including collection on/off and pin on/off. It checks the
+3 pt marker mask, unchanged symbol size and that dimming preserves menu access.
 Windows logical checks exercise preferences and edge rules; Windows smoke rendering
 and actual file drops must run on Windows.
 

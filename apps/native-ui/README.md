@@ -3,7 +3,9 @@
 Windows (WPF/WebView2 Composition) and macOS (AppKit/WKWebView) load this same offline
 React interface. It imports `apps/website/components/home.module.css` and the current
 six-language product copy. Fan geometry, three appearances, hover/copy/arrival
-feedback, compact settings and the four-entry menu follow the website.
+feedback, compact settings and the four-entry menu follow the website. The hosts
+do not show the website tutorial, mock wallpaper, Dock or draft document. There is
+one renderer and one note stylesheet for both desktop platforms.
 
 `protocol.ts` is the complete host contract. Hosts own clipboard bytes, selected
 text, shortcuts, display placement and file-copy dragging. The UI uses session item
@@ -21,6 +23,13 @@ and system shortcuts continue to work during recording; Mac recording requires n
 Accessibility permission. Both restore this app's shortcuts on commit, cancel,
 close or blur. Selected-text collection separately requires Accessibility on Mac.
 Settings reports its content height to the host so explanations fit.
+Space or the magnifier opens full text/image reading; Escape closes that layer
+and restores the card without changing pinning. Copy feedback stays in the lower
+right corner. A text card remains draggable, while selected words can be collected
+again through the selection action or shortcut. Hosts validate note IDs and the
+reserved preview/selection input regions; they keep transparent space click-through.
+Text drops expose both file and plain-text formats.
+
 Settings never suppresses unpinned pointer dismissal or top-edge reveal. Temporary arrival
 markers change CSS animation parameters rather than restarting the animation.
 Settings owns its rounded clipping and can be dragged from non-interactive blank
@@ -41,3 +50,5 @@ Windows packages include the runtime and NativeUI beside the exe.
 Inter Tight and Noto Sans SC are shared from `apps/website/assets/fonts` and bundled with SIL Open Font Licenses. No installed
 client needs a website server or requests remote fonts. Browser parity and native
 acceptance procedures are in `docs/native-testing.md`.
+
+To update both platform icon formats from the adopted PNG master, run `swift scripts/make-icon.swift /tmp/snapslot-iconset assets/brand/snapslot-icon-1024.png assets/brand/SnapSlot.ico`; the temporary directory contains the matching macOS PNG sizes.

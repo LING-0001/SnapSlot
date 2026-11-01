@@ -1,5 +1,7 @@
 # 参与共创
 
+官网共用控件以明确版本的公开包保存在 `apps/website/vendor/npm`，校验清单为 `vendor/libraries.json`。直接在本仓库执行 `npm ci --prefix apps/website` 即可安装，不需要其他项目源码或凭证。更新包时需同步本项目锁文件，并运行 `node scripts/check-public-boundary.mjs`；不得加入未经审查的包或私有业务接口依赖。
+
 谢谢你愿意一起做 SnapSlot。这份文档只讲一件事：**怎样提交，才能让别人一眼看懂、放心合并、出了问题能快速回退。**
 
 SnapSlot 有三个平台：官网（`website`）、Windows 客户端（`windows`）、macOS 客户端（`macos`），外加两端共用的便签界面（`native-ui`）。它们经常要改「同一个功能」，最容易出的问题是：一个提交里同时改了三端，其中一端出错，结果整个提交都得回退。下面的规则就是为了避免这种情况。
@@ -153,7 +155,7 @@ README 有六种语言：`README.md`（简体中文）和 `docs/readme/README.<�
 - 改了界面，README 里的图也要更新。截图和动图都由脚本从官网自动截取，六种语言一次生成：
 
   ```bash
-  npm run dev --prefix apps/website -- --port 3000     # 另开一个终端
+  npm run dev --prefix apps/website     # 另开一个终端
   npm run readme:media --prefix apps/website           # 截图 + 录制演示动图（约 5 分钟）
   python scripts/readme-gif.py                         # 合成 demo.gif、转成 WebP
   python scripts/readme-build.py                       # 重新生成六份 README

@@ -23,12 +23,24 @@ Local Mac packaging retains only `artifacts/macos/SnapSlot.app`. The optional
 temporary. The website is statically exported. No Developer ID / notarized Mac distribution or signed Windows installer,
 auto-start setting, update service, account or cloud store is implemented.
 
-The v1.0.0 distribution contains a universal Mac DMG and self-contained Windows
-x64 Setup installer in `apps/website/public/downloads/v1.0.0/`. Website builds verify their
-versions and checksums before copying them into `out/downloads/`. GitHub tag
-releases publish those same files. See `docs/releases/hosting.md` for deployment.
+Installer distribution follows `release.json` and the formal release workflow. Local
+source/native verification does not create a release, change the version or replace
+website installers. Source-only website previews skip installer validation and must
+not be deployed. See `docs/releases/hosting.md` for deployment.
 
 The website also provides a replayable demo toolbar and an explicit in-demo paste
 path. Clipboard denial keeps the local demo usable and shows a truthful explanation.
 Small-screen settings and guide positioning, keyboard menu/focus behavior, inert
 closed notes and touch direction handling have dedicated browser regression checks.
+
+Desktop functional parity uses the current website note stylesheet directly. The
+old standalone stylesheet and separate macOS SwiftUI shelf are retired. Both hosts
+support unpinned arrival peeks, explicit pinning, full-note reading, small copied
+feedback, text selection/recollection, whole-note dragging and the existing editable
+shortcuts. No desktop tutorial is included. The real operating system remains the
+user's workspace; the website's draft document and wallpaper are demo surroundings.
+
+Current local evidence is maintained privately outside the public product repository.
+The shared browser bridge suite covers both platform contracts. macOS host smoke
+checks use isolated data and a named clipboard; cross-compilation is recorded
+separately from Windows-machine interaction acceptance.
