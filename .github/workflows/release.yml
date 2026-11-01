@@ -115,11 +115,11 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ffmpeg
           pip install Pillow
-          HOST=127.0.0.1 PORT=3000 node apps/website/scripts/serve.mjs > "$RUNNER_TEMP/media-server.log" 2>&1 &
+          HOST=127.0.0.1 PORT=4325 node apps/website/scripts/serve.mjs > "$RUNNER_TEMP/media-server.log" 2>&1 &
           server=$!
           trap 'kill "$server" 2>/dev/null || true' EXIT
           for attempt in $(seq 1 60); do
-            if curl --fail --silent http://127.0.0.1:3000/en/ > /dev/null; then break; fi
+            if curl --fail --silent http://127.0.0.1:4325/en/ > /dev/null; then break; fi
             sleep 1
           done
           node apps/website/scripts/readme-media.mjs

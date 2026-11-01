@@ -8,18 +8,18 @@
 <p align="center">Windows 10 / 11 · macOS 13+ · 무료 오픈 소스 · 계정 불필요 · 업로드 없음</p>
 
 <p align="center">
-  <a href="http://101.200.239.135/ko/"><b>온라인으로 체험</b></a> ·
-  <a href="http://101.200.239.135/ko/#downloads">다운로드</a> ·
+  <a href="https://snapslot.linglinglab.top/ko/"><b>온라인으로 체험</b></a> ·
+  <a href="https://snapslot.linglinglab.top/ko/#downloads">다운로드</a> ·
   <a href="https://github.com/LING-0001/SnapSlot/releases">GitHub Releases</a> ·
   <a href="../../CONTRIBUTING.md">기여하기</a>
 </p>
 
 <p align="center"><a href="../../README.md">简体中文</a> · <a href="README.en.md">English</a> · <a href="README.zh-Hant.md">繁體中文</a> · <a href="README.ja.md">日本語</a> · <b>한국어</b> · <a href="README.es.md">Español</a></p>
 
-<p align="center">v1.1.0 · <a href="http://101.200.239.135/downloads/v1.1.0/SnapSlot-1.1.0-macOS-universal.dmg">macOS · DMG · Apple Silicon / Intel</a> · <a href="http://101.200.239.135/downloads/v1.1.0/SnapSlot-1.1.0-windows-x64-setup.exe">Windows x64 · Setup</a></p>
+<p align="center">v1.1.1 · <a href="https://github.com/LING-0001/SnapSlot/releases/download/v1.1.1/SnapSlot-1.1.1-macOS-universal.dmg">macOS · DMG · Apple Silicon / Intel</a> · <a href="https://github.com/LING-0001/SnapSlot/releases/download/v1.1.1/SnapSlot-1.1.1-windows-x64-setup.exe">Windows x64 · Setup</a></p>
 
 <p align="center"><img src="../../docs/media/ko/demo.gif" width="760" alt="SnapSlot 데모: 위쪽 가장자리에 머물면 메모가 내려오고, 복사한 이미지가 자동으로 고정되고, 문서로 끌어다 놓기"></p>
-<p align="center"><a href="../../docs/media/ko/demo.mp4">MP4 · v1.1.0</a></p>
+<p align="center"><a href="../../docs/media/ko/demo.mp4">MP4 · v1.1.1</a></p>
 
 ## 사용 방법
 
@@ -70,7 +70,7 @@ Windows는 트레이 아이콘을 오른쪽 클릭, Mac은 메뉴 막대 아이�
 ```bash
 # 웹사이트
 npm ci --prefix apps/website
-npm run dev --prefix apps/website -- --port 3000
+npm run dev --prefix apps/website
 ```
 
 ```powershell

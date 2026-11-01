@@ -12,7 +12,7 @@ root = Path(__file__).resolve().parent.parent
 REPO = "https://github.com/LING-0001/SnapSlot"
 EMAIL = "e1347605313@gmail.com"
 VERSION = json.loads((root / "release.json").read_text())["version"]
-DOWNLOADS = f"http://101.200.239.135/downloads/v{VERSION}"
+DOWNLOADS = f"{REPO}/releases/download/v{VERSION}"
 ORDER = ["zh-Hans", "en", "zh-Hant", "ja", "ko", "es"]
 NAMES = {"zh-Hans": "简体中文", "en": "English", "zh-Hant": "繁體中文", "ja": "日本語", "ko": "한국어", "es": "Español"}
 
@@ -189,7 +189,7 @@ def build(locale: str) -> str:
     link = lambda l: f"{up}README.md" if l == "zh-Hans" else (f"{up}docs/readme/README.{l}.md" if up == "" else f"README.{l}.md")
     langs = " · ".join(f"<b>{NAMES[l]}</b>" if l == locale else f'<a href="{link(l)}">{NAMES[l]}</a>' for l in ORDER)
     fix = lambda s: s.replace("](CONTRIBUTING.md)", f"]({up}CONTRIBUTING.md)").replace("](BRANDING.md)", f"]({up}BRANDING.md)").replace("](docs/releases/hosting.md)", f"]({up}docs/releases/hosting.md)")
-    site = f"http://101.200.239.135/{locale}/"
+    site = f"https://snapslot.linglinglab.top/{locale}/"
 
     def step(img, alt, pair, flip=False):
         title, body = pair
@@ -272,7 +272,7 @@ def build(locale: str) -> str:
 ```bash
 # {t["b_site"]}
 npm ci --prefix apps/website
-npm run dev --prefix apps/website -- --port 3000
+npm run dev --prefix apps/website
 ```
 
 ```powershell

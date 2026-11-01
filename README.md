@@ -8,18 +8,18 @@
 <p align="center">Windows 10 / 11 · macOS 13+ · 免费开源 · 不需要账号 · 不上传</p>
 
 <p align="center">
-  <a href="http://101.200.239.135/zh-Hans/"><b>在线体验</b></a> ·
-  <a href="http://101.200.239.135/zh-Hans/#downloads">下载</a> ·
+  <a href="https://snapslot.linglinglab.top/zh-Hans/"><b>在线体验</b></a> ·
+  <a href="https://snapslot.linglinglab.top/zh-Hans/#downloads">下载</a> ·
   <a href="https://github.com/LING-0001/SnapSlot/releases">GitHub Releases</a> ·
   <a href="CONTRIBUTING.md">参与贡献</a>
 </p>
 
 <p align="center"><b>简体中文</b> · <a href="docs/readme/README.en.md">English</a> · <a href="docs/readme/README.zh-Hant.md">繁體中文</a> · <a href="docs/readme/README.ja.md">日本語</a> · <a href="docs/readme/README.ko.md">한국어</a> · <a href="docs/readme/README.es.md">Español</a></p>
 
-<p align="center">v1.1.0 · <a href="http://101.200.239.135/downloads/v1.1.0/SnapSlot-1.1.0-macOS-universal.dmg">macOS · DMG · Apple Silicon / Intel</a> · <a href="http://101.200.239.135/downloads/v1.1.0/SnapSlot-1.1.0-windows-x64-setup.exe">Windows x64 · Setup</a></p>
+<p align="center">v1.1.1 · <a href="https://github.com/LING-0001/SnapSlot/releases/download/v1.1.1/SnapSlot-1.1.1-macOS-universal.dmg">macOS · DMG · Apple Silicon / Intel</a> · <a href="https://github.com/LING-0001/SnapSlot/releases/download/v1.1.1/SnapSlot-1.1.1-windows-x64-setup.exe">Windows x64 · Setup</a></p>
 
 <p align="center"><img src="docs/media/zh-Hans/demo.gif" width="760" alt="SnapSlot 演示：鼠标移到上沿，便签落下；复制图片后自动钉上；拖进文档"></p>
-<p align="center"><a href="docs/media/zh-Hans/demo.mp4">MP4 · v1.1.0</a></p>
+<p align="center"><a href="docs/media/zh-Hans/demo.mp4">MP4 · v1.1.1</a></p>
 
 ## 怎么用
 
@@ -70,7 +70,7 @@ Windows 右键托盘图标，Mac 单击菜单栏图标：**设置…**、**自�
 ```bash
 # 官网
 npm ci --prefix apps/website
-npm run dev --prefix apps/website -- --port 3000
+npm run dev --prefix apps/website
 ```
 
 ```powershell

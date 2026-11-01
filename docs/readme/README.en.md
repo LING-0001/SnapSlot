@@ -8,18 +8,18 @@
 <p align="center">Windows 10 / 11 · macOS 13+ · Free and open source · No account · No uploads</p>
 
 <p align="center">
-  <a href="http://101.200.239.135/en/"><b>Try it online</b></a> ·
-  <a href="http://101.200.239.135/en/#downloads">Download</a> ·
+  <a href="https://snapslot.linglinglab.top/en/"><b>Try it online</b></a> ·
+  <a href="https://snapslot.linglinglab.top/en/#downloads">Download</a> ·
   <a href="https://github.com/LING-0001/SnapSlot/releases">GitHub Releases</a> ·
   <a href="../../CONTRIBUTING.md">Contribute</a>
 </p>
 
 <p align="center"><a href="../../README.md">简体中文</a> · <b>English</b> · <a href="README.zh-Hant.md">繁體中文</a> · <a href="README.ja.md">日本語</a> · <a href="README.ko.md">한국어</a> · <a href="README.es.md">Español</a></p>
 
-<p align="center">v1.1.0 · <a href="http://101.200.239.135/downloads/v1.1.0/SnapSlot-1.1.0-macOS-universal.dmg">macOS · DMG · Apple Silicon / Intel</a> · <a href="http://101.200.239.135/downloads/v1.1.0/SnapSlot-1.1.0-windows-x64-setup.exe">Windows x64 · Setup</a></p>
+<p align="center">v1.1.1 · <a href="https://github.com/LING-0001/SnapSlot/releases/download/v1.1.1/SnapSlot-1.1.1-macOS-universal.dmg">macOS · DMG · Apple Silicon / Intel</a> · <a href="https://github.com/LING-0001/SnapSlot/releases/download/v1.1.1/SnapSlot-1.1.1-windows-x64-setup.exe">Windows x64 · Setup</a></p>
 
 <p align="center"><img src="../../docs/media/en/demo.gif" width="760" alt="SnapSlot demo: rest at the top edge and notes drop down; copied images pin themselves; drag one into a document"></p>
-<p align="center"><a href="../../docs/media/en/demo.mp4">MP4 · v1.1.0</a></p>
+<p align="center"><a href="../../docs/media/en/demo.mp4">MP4 · v1.1.1</a></p>
 
 ## How it works
 
@@ -70,7 +70,7 @@ Collects images other apps write to the clipboard and text selected when you pre
 ```bash
 # Website
 npm ci --prefix apps/website
-npm run dev --prefix apps/website -- --port 3000
+npm run dev --prefix apps/website
 ```
 
 ```powershell

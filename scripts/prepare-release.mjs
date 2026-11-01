@@ -67,6 +67,9 @@ try {
   run("lipo", [path.join(app, "Contents/MacOS/SnapSlot"), "-verify_arch", "arm64", "x86_64"]);
   const stamp = spawnSync("/usr/libexec/PlistBuddy", ["-c", "Print :CFBundleShortVersionString", path.join(app, "Contents/Info.plist")], { encoding: "utf8" });
   if (stamp.status !== 0 || stamp.stdout.trim() !== version) throw new Error("Mac version does not match release.json");
+  for (const mode of ["smoke-test", "status-icon-check", "dock-menu-check"]) {
+    run(path.join(app, "Contents/MacOS/SnapSlot"), [`--${mode}`, path.join(temporary, mode)]);
+  }
   if ((await readFile(path.join(windows, "SnapSlot.exe"))).toString("ascii", 0, 2) !== "MZ") throw new Error("Invalid Windows executable");
   const notices = path.join(windows, "ThirdPartyNotices");
   await mkdir(notices, { recursive: true });
