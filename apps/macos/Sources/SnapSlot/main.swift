@@ -41,16 +41,28 @@ final class SettingsSurface: NSVisualEffectView {
         dragAnchor=nil;dragOrigin=nil
     }
 }
-final class StatusPinIndicator: NSView {
-    override func draw(_ dirtyRect:NSRect) {
-        NSColor.labelColor.setFill()
-        NSBezierPath(ovalIn:bounds).fill()
+// A single alpha mask lets AppKit tint the symbol and pin together for the menu bar,
+// independently of the app's window appearance or the colour of the wallpaper.
+func menuBarSymbol(size:NSSize,pinned:Bool) -> NSImage {
+    let image=NSImage(size:size,flipped:true){_ in
+        NSColor.black.setFill();NSColor.black.setStroke()
+        NSGraphicsContext.saveGraphicsState()
+        let transform=NSAffineTransform()
+        transform.translateX(by:(size.width-17)/2,yBy:(size.height-15)/2)
+        transform.scaleX(by:17/18,yBy:15/16);transform.concat()
+        NSBezierPath(roundedRect:NSRect(x:1,y:1.2,width:16,height:1.4),xRadius:0.7,yRadius:0.7).fill()
+        let body=NSBezierPath(roundedRect:NSRect(x:4,y:4,width:10,height:8.5),xRadius:2,yRadius:2)
+        body.lineWidth=1.5;body.stroke()
+        NSBezierPath(ovalIn:NSRect(x:7.4,y:2.4,width:3.2,height:3.2)).fill()
+        NSGraphicsContext.restoreGraphicsState()
+        if pinned {NSBezierPath(ovalIn:NSRect(x:size.width-4,y:size.height-3,width:3,height:3)).fill()}
+        return true
     }
-    // Keep the entire menu-bar button clickable, including the indicator.
-    override func hitTest(_ point:NSPoint) -> NSView? { nil }
+    image.isTemplate=true
+    return image
 }
 final class NativeWebView: WKWebView, NSDraggingSource {
-    var onDragEnded: (() -> Void)?
+    var onDragEnded: ((NSDragOperation) -> Void)?
     var onPointerMoved: ((NSPoint?) -> Void)?
     private var hoverTracking: NSTrackingArea?
     override func updateTrackingAreas() {
@@ -66,10 +78,11 @@ final class NativeWebView: WKWebView, NSDraggingSource {
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
     func draggingSession(_ session: NSDraggingSession, sourceOperationMaskFor context: NSDraggingContext) -> NSDragOperation { .copy }
     func ignoreModifierKeys(for session: NSDraggingSession) -> Bool { true }
-    func draggingSession(_ session: NSDraggingSession, endedAt screenPoint: NSPoint, operation: NSDragOperation) { onDragEnded?() }
+    func draggingSession(_ session: NSDraggingSession, endedAt screenPoint: NSPoint, operation: NSDragOperation) { onDragEnded?(operation) }
 }
 final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler {
-    let testing = CommandLine.arguments.contains("--smoke-test")
+    let testing = CommandLine.arguments.contains("--smoke-test") || CommandLine.arguments.contains("--dock-menu-check") || CommandLine.arguments.contains("--status-icon-check")
+    var previewing=false
     var uiRoot: URL!
     var store: SessionStore!
     var panel: NotePanel!
@@ -84,7 +97,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
     var appearance = "glass"
     var allViews: [NativeWebView] { [web,settingsWeb,trayWeb].compactMap{$0} }
     var status: NSStatusItem?
-    let statusPin = StatusPinIndicator(frame:.zero)
+    var statusSymbolPinned:Bool?
     var hotkeys: HotKeys?
     var shortcutChanges: [ShortcutChange] = []
     var recordingShortcut = false
@@ -146,9 +159,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
             panel.backgroundColor = .clear;panel.isOpaque=false;panel.hasShadow=false;panel.appearance=NSAppearance(named:.aqua)
             panel.level = .statusBar;panel.collectionBehavior=[.canJoinAllSpaces,.fullScreenAuxiliary,.ignoresCycle]
             panel.isReleasedWhenClosed=false;panel.title="SnapSlot";panel.delegate=self
-            web = makeWebView(mode:"rail")
             let surface=NSView(frame:panel.contentView!.bounds);surface.autoresizingMask=[.width,.height]
-            web.frame=surface.bounds;web.autoresizingMask=[.width,.height];surface.addSubview(web);panel.contentView=surface
+            web=makeWebView(mode:"rail");web.frame=surface.bounds;web.autoresizingMask=[.width,.height];surface.addSubview(web)
+            panel.contentView=surface
             // Create the menu-bar entry independently of clipboard intake and
             // WebKit readiness. A failed secondary feature must not remove it.
             setupMenu()
@@ -162,7 +175,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
                     shortcutChanges=result.changes
                     if !shortcutChanges.isEmpty {DispatchQueue.main.async{self.openSettings(mode:"preferences")}}
                 } catch {self.error(error);DispatchQueue.main.async{self.openSettings(mode:"preferences")}}
-                hotkeys?.action={ [weak self] id in guard let self else{return};if id==3 {self.collectSelectedText()}else if self.expanded { self.collapse() } else { self.reveal(focus:true) } }
+                hotkeys?.action={ [weak self] id in guard let self else{return};if id==3 {self.collectSelectedText()}else { self.reveal(focus:true) } }
             }
             NSWorkspace.shared.notificationCenter.addObserver(self,selector:#selector(willSleep),name:NSWorkspace.willSleepNotification,object:nil)
             NotificationCenter.default.addObserver(self,selector:#selector(screenChanged),name:NSApplication.didChangeScreenParametersNotification,object:nil)
@@ -174,7 +187,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         let view=NativeWebView(frame:.zero,configuration:configuration)
         view.navigationDelegate=self;view.uiDelegate=self
         view.setValue(false,forKey:"drawsBackground");view.underPageBackgroundColor = .clear
-        view.onDragEnded={ [weak self] in self?.dragging=false;self?.scheduleDismiss() }
+        view.onDragEnded={ [weak self] operation in guard let self else{return};self.dragging=false;self.scheduleDismiss() }
         if mode=="tray" {
             view.onPointerMoved={ [weak self,weak view] point in
                 guard let self,let view else{return}
@@ -222,7 +235,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
                 }
                 return value
             }
-            let message:[String:Any]=["type":"state","items":data,"locale":locale,"expanded":expanded,"reducedMotion":NSWorkspace.shared.accessibilityDisplayShouldReduceMotion,"focus":focus,"pinned":pinned,"arming":arming,"appearance":appearance,"count":store.items.count]
+            let message:[String:Any]=["type":"state","items":data,"locale":locale,"expanded":expanded,"reducedMotion":NSWorkspace.shared.accessibilityDisplayShouldReduceMotion,"focus":focus,"pinned":pinned,"arming":arming,"appearance":appearance,"count":store.items.count,"platform":"macos"]
             send(message,to:view)
             sentItems[key]=Set(visible.map{$0.id})
         }
@@ -230,21 +243,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
     func error(_ error:Error) { lastError=error.localizedDescription;for view in allViews { send(["type":"error","message":error.localizedDescription],to:view) } }
     func sizePanel() {
         // Side cards rotate below the 230 px dial; leave room for their shadows.
-        let screen=activeScreen,height=CGFloat(360)
+        let screen=activeScreen,height=previewing ? min(CGFloat(720),activeScreen.visibleFrame.height):CGFloat(360)
         panel.setFrame(NSRect(x:screen.frame.minX,y:screen.visibleFrame.maxY-height,width:screen.frame.width,height:height),display:true)
     }
     func reveal(focus:Bool,peek:Bool=false) {
         hover?.invalidate();dismiss?.invalidate();hideWork?.cancel();arming=false
         if !expanded && !peek { currentScreen=screenAtPointer() ?? NSScreen.main }
         expanded=true;panel.keyboardAccess=focus;panel.ignoresMouseEvents=false
-        if peek { peekUntil=Date().addingTimeInterval(2.5) }
+        if peek { peekUntil=Date().addingTimeInterval(4) }
         sizePanel();panel.orderFrontRegardless();state(focus:focus)
-        if focus { previousApplication=NSWorkspace.shared.frontmostApplication;NSApp.activate(ignoringOtherApps:true);panel.makeKey() }
+        if focus { previousApplication=NSWorkspace.shared.frontmostApplication;NSApp.activate(ignoringOtherApps:true);panel.makeKey();panel.makeFirstResponder(web) }
         if peek { scheduleDismiss() }
         if !testing {setupMenu()}
     }
     func collapse() {
-        hover?.invalidate();dismiss?.invalidate();hideWork?.cancel();expanded=false;pinned=false;arming=false;panel.keyboardAccess=false
+        hover?.invalidate();dismiss?.invalidate();hideWork?.cancel();expanded=false;pinned=false;arming=false;previewing=false;panel.keyboardAccess=false
         closeTray()
         panel.ignoresMouseEvents=true;pointerInside=false;send(["type":"pointer","x":NSNull(),"y":NSNull()],to:web);state()
         if !testing {setupMenu()}
@@ -253,13 +266,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
     }
     func scheduleDismiss() {
         dismiss?.invalidate()
-        guard expanded,!pinned,!dragging,trayPanel==nil else{return}
+        guard expanded,!pinned,!dragging,!previewing,trayPanel==nil else{return}
         let delay=max(0.45,peekUntil.timeIntervalSinceNow)
         dismiss=Timer.scheduledTimer(withTimeInterval:delay,repeats:false){ [weak self] _ in guard let self else{return};if !self.keepOpenAtPointer() { self.collapse() } }
     }
     var dismissalPointer: () -> NSPoint = { NSEvent.mouseLocation }
+    var dismissalButtons: () -> Int = { NSEvent.pressedMouseButtons }
     func keepOpenAtPointer() -> Bool {
+        if previewing || dismissalButtons() != 0 {return true}
         let point=dismissalPointer(),screen=activeScreen
+        let local=web.convert(panel.convertPoint(fromScreen:point),from:nil)
+        let y=web.isFlipped ? local.y:web.bounds.height-local.y
+        if cardHitAreas.contains(where:{area in let dx=local.x-area.center.x,dy=y-area.center.y;return abs(dx*cos(area.angle)+dy*sin(area.angle))<=area.size.width/2+12 && abs(-dx*sin(area.angle)+dy*cos(area.angle))<=area.size.height/2+12}) {return true}
         return point.x>=screen.frame.minX && point.x<=screen.frame.maxX && point.y>=screen.visibleFrame.maxY-230 && point.y<=screen.frame.maxY
     }
     func canReveal(on screen:NSScreen) -> Bool {
@@ -380,7 +398,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         restoredHandoff=directory
     }
     func startPointerObservation() {
-        globalMonitor=NSEvent.addGlobalMonitorForEvents(matching:[.mouseMoved,.leftMouseDragged,.rightMouseDragged,.leftMouseDown,.rightMouseDown]){ [weak self] event in
+        globalMonitor=NSEvent.addGlobalMonitorForEvents(matching:[.mouseMoved,.leftMouseDragged,.rightMouseDragged,.leftMouseDown,.rightMouseDown,.leftMouseUp]){ [weak self] event in
+
             if event.type == .leftMouseDown || event.type == .rightMouseDown {self?.closeTray();self?.scheduleDismiss()}else{self?.pointerMoved(event)}
         }
         startLocalObservation()
@@ -393,7 +412,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
                 if event.type == .flagsChanged {return nil}
             }
             if event.type == .leftMouseDown,event.window===self?.settings {self?.settingsMouseDown=event}
-            if event.type == .leftMouseUp {self?.settingsMouseDown=nil}
+            if event.type == .leftMouseUp {self?.settingsMouseDown=nil;}
             if let self,let tray=self.trayPanel,event.type == .leftMouseDown,event.window !== tray {self.closeTray()}
             if event.type == .keyDown {self?.dismiss?.invalidate()}else{self?.pointerMoved(event)};return event
         }
@@ -404,8 +423,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         guard message.frameInfo.isMainFrame,let view=message.webView,view===web || view===settingsWeb || view===trayWeb,let value=message.body as? [String:Any],let type=value["type"] as? String else{return}
         do {
             switch type {
-            case "ready": readyViews.insert(ObjectIdentifier(view));sentItems[ObjectIdentifier(view)]=[];state();if view===settingsWeb || view===trayWeb {sendPreferences(to:view)};if view===trayWeb {updateTrayPointer()};if let lastError {send(["type":"error","message":lastError],to:view)};if testing && view===web { DispatchQueue.main.asyncAfter(deadline:.now()+0.8){self.smoke()} }
+            case "ready": readyViews.insert(ObjectIdentifier(view));sentItems[ObjectIdentifier(view)]=[];state();if view===settingsWeb || view===trayWeb {sendPreferences(to:view)};if view===trayWeb {updateTrayPointer()};if let lastError {send(["type":"error","message":lastError],to:view)};if testing && view===web { DispatchQueue.main.asyncAfter(deadline:.now()+0.8){if self.argument("--status-icon-check") != nil {self.checkStatusIcon()}else if self.argument("--dock-menu-check") != nil {self.checkDockMenu()}else{self.smoke()}} }
             case "collapse":collapse()
+            case "closePreview":previewing=false;sizePanel();state();scheduleDismiss()
+            case "collectText":if view===web,let text=value["text"] as? String {previewing=false;pinSelection(text)}
+            case "dragText":if view===web,let text=value["text"] as? String,!text.isEmpty,text.utf8.count<=65536 {try beginTextDrag(text)}
+            case "preview":if view===web,let id=value["id"] as? String {
+                let item=try store.item(id:id);guard item.display==displayID(activeScreen) else{return}
+                previewing=true;reveal(focus:true)
+            }
             case "pin":pinNotes()
             case "unpin":collapse()
             case "openPreferences":closeTray();openSettings(mode:"preferences")
@@ -434,7 +460,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
             case "copy","remove","drag":
                 guard let id=value["id"] as? String else{return};let item=try store.item(id:id)
                 guard item.display==displayID(activeScreen) else{return}
-                if type=="remove" {store.remove(id:id);previews.removeValue(forKey:item.fileURL);state()}
+                if type=="remove" {previewing=false;sizePanel();store.remove(id:id);previews.removeValue(forKey:item.fileURL);state()}
                 else if type=="copy" {try copy(item);send(["type":"copied","id":id],to:web)}
                 else {try beginDrag(item)}
             default:break
@@ -451,7 +477,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
     }
     func beginDrag(_ item:InboxItem) throws {
         guard let event=lastMouse else{return}
-        let draggingItem=NSDraggingItem(pasteboardWriter:item.fileURL as NSURL)
+        let writer=NSPasteboardItem();writer.setString(item.fileURL.absoluteString,forType:.fileURL)
+        if let text=item.text {writer.setString(text,forType:.string)}
+        let draggingItem=NSDraggingItem(pasteboardWriter:writer)
         let image=NSImage(contentsOf:item.fileURL) ?? NSImage(systemSymbolName:"doc.text",accessibilityDescription:item.title)!
         let point=web.convert(event.locationInWindow,from:nil)
         draggingItem.setDraggingFrame(NSRect(x:point.x-50,y:point.y-35,width:100,height:70),contents:image)
@@ -461,13 +489,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         let live=Set(store.items.map{$0.fileURL});previews=previews.filter{live.contains($0.key)}
         reveal(focus:false,peek:true)
     }
+    func beginTextDrag(_ text:String) throws {
+        guard let event=lastMouse else{return}
+        let writer=NSPasteboardItem();writer.setString(text,forType:.string)
+        let item=NSDraggingItem(pasteboardWriter:writer),point=web.convert(event.locationInWindow,from:nil)
+        item.setDraggingFrame(NSRect(x:point.x-40,y:point.y-20,width:80,height:40),contents:NSImage(systemSymbolName:"doc.text",accessibilityDescription:nil))
+        dragging=true;dismiss?.invalidate();web.beginDraggingSession(with:[item],event:event,source:web)
+    }
     func pinNotes() {
         if !expanded {reveal(focus:false)}
         pinned=true;dismiss?.invalidate();state();if !testing {setupMenu()}
     }
     func collectSelectedText() {
         guard !collectingText else{return}
-        guard let front=NSWorkspace.shared.frontmostApplication,front.processIdentifier != ProcessInfo.processInfo.processIdentifier else{return}
+        if NSWorkspace.shared.frontmostApplication?.processIdentifier==ProcessInfo.processInfo.processIdentifier {
+            web.evaluateJavaScript("window.getSelection().toString()") {[weak self] value,_ in if let text=value as? String,!text.isEmpty {self?.pinSelection(text)}};return
+        }
+        guard let front=NSWorkspace.shared.frontmostApplication else{return}
         let options=[kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String:true] as CFDictionary
         guard AXIsProcessTrustedWithOptions(options) else {
             selectionError(label("Allow SnapSlot in System Settings → Privacy & Security → Accessibility, then use the shortcut again.","请在系统设置 → 隐私与安全性 → 辅助功能中允许 SnapSlot，然后再按快捷键。"));return
@@ -558,6 +596,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         settings.setFrame(frame,display:true)
     }
     func closeSettings() {settings?.close()}
+    func windowDidDeminiaturize(_ notification:Notification) {
+        if let window=notification.object as? NSWindow,window===settings {presentSettings()}
+    }
     func windowDidBecomeKey(_ notification:Notification) {
         if let window=notification.object as? NSWindow,window===settings {window.level=NSWindow.Level(rawValue:panel.level.rawValue+1)}
     }
@@ -586,26 +627,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
     }
     func setupMenu() {
         if status==nil {
-            let item=NSStatusBar.system.statusItem(withLength:24)
+            let item=NSStatusBar.system.statusItem(withLength:28)
             item.autosaveName="SnapSlot.MenuBar";item.behavior=[];item.isVisible=true
             status=item
         }
         status?.isVisible=true
-        if let mark=brandIcon() ?? NSImage(systemSymbolName:"pin.fill",accessibilityDescription:"SnapSlot") {
-            mark.size=NSSize(width:18,height:18);mark.isTemplate=false;status?.button?.image=mark
-        }else{status?.button?.title="SS"}
-        status?.button?.imagePosition = .imageOnly;status?.button?.imageScaling = .scaleProportionallyDown
+        statusSymbolPinned=nil
+        status?.button?.imagePosition = .imageOnly;status?.button?.imageScaling = .scaleNone
         status?.button?.toolTip="SnapSlot · 快照贴";status?.button?.setAccessibilityLabel("SnapSlot 快照贴")
         updateStatusIndicator()
         status?.button?.setAccessibilityIdentifier("SnapSlot.MenuBar")
         status?.menu=nil;status?.button?.target=self;status?.button?.action=#selector(toggleTray)
         status?.button?.sendAction(on:[.leftMouseUp,.rightMouseUp])
-        let menu=NSMenu()
-        func item(_ title:String,_ action:Selector){let entry=NSMenuItem(title:title,action:action,keyEquivalent:"");entry.target=self;menu.addItem(entry)}
-        item(label("Settings","设置")+"…",#selector(openPreferences));menu.addItem(.separator())
-        let intake=NSMenuItem(title:label("Automatically collect clipboard images","自动收取剪贴板图片"),action:#selector(toggleImageIntake),keyEquivalent:"");intake.target=self;intake.state=preferences.value.collectImages ? .on:.off;menu.addItem(intake)
-        let pin=NSMenuItem(title:label("Pin notes","固定便签"),action:#selector(togglePinned),keyEquivalent:"");pin.target=self;pin.state=pinned ? .on:.off;menu.addItem(pin)
-        menu.addItem(.separator());item(label("Quit SnapSlot","退出快照贴"),#selector(quit))
+        let menu=controlsMenu(includeShow:false,includeQuit:true)
         let main=NSMenu(),applicationItem=NSMenuItem(title:"SnapSlot",action:nil,keyEquivalent:"")
         let applicationMenu=menu.copy() as! NSMenu
         if let quit=applicationMenu.items.last {quit.keyEquivalent="q"}
@@ -614,17 +648,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         for(title,action,key) in [(label("Undo","撤销"),Selector(("undo:")),"z"),(label("Cut","剪切"),#selector(NSText.cut(_:)),"x"),(label("Copy","复制"),#selector(NSText.copy(_:)),"c"),(label("Paste","粘贴"),#selector(NSText.paste(_:)),"v"),(label("Select All","全选"),#selector(NSText.selectAll(_:)),"a")] {edit.addItem(NSMenuItem(title:title,action:action,keyEquivalent:key))}
         editItem.submenu=edit;main.addItem(editItem);NSApp.mainMenu=main
     }
+    func controlsMenu(includeShow:Bool,includeQuit:Bool) -> NSMenu {
+        let menu=NSMenu()
+        func item(_ title:String,_ action:Selector,state:NSControl.StateValue?=nil) {
+            let entry=NSMenuItem(title:title,action:action,keyEquivalent:"");entry.target=self
+            if let state {entry.state=state};menu.addItem(entry)
+        }
+        if includeShow {item(label("Show notes","展开便签"),#selector(showNotes))}
+        item(label("Settings","设置")+"…",#selector(openPreferences));menu.addItem(.separator())
+        item(label("Automatically collect clipboard images","自动收取剪贴板图片"),#selector(toggleImageIntake),state:preferences.value.collectImages ? .on:.off)
+        item(label("Pin notes","固定便签"),#selector(togglePinned),state:pinned ? .on:.off)
+        if includeQuit {menu.addItem(.separator());item(label("Quit SnapSlot","退出快照贴"),#selector(quit))}
+        return menu
+    }
+    func applicationDockMenu(_ sender:NSApplication) -> NSMenu? {
+        // Build from live state each time Dock asks; the system supplies Options/Hide/Quit.
+        guard preferences != nil else{return nil}
+        return controlsMenu(includeShow:true,includeQuit:false)
+    }
     func updateStatusIndicator() {
         guard let button=status?.button else{return}
-        if statusPin.superview !== button {
-            statusPin.setAccessibilityElement(false)
-            statusPin.autoresizingMask=[.minXMargin,.maxYMargin]
-            button.addSubview(statusPin)
+        if button.image == nil || statusSymbolPinned != pinned || button.image!.size != button.bounds.size {
+            button.image=menuBarSymbol(size:button.bounds.size,pinned:pinned)
+            statusSymbolPinned=pinned
         }
-        // The website's Mac marker is 5 px, 3 px from the right and 1 px from the bottom.
-        let bottom=button.isFlipped ? button.bounds.maxY-6 : button.bounds.minY+1
-        statusPin.frame=NSRect(x:button.bounds.maxX-8,y:bottom,width:5,height:5)
-        statusPin.isHidden = !pinned
+        button.contentTintColor=nil
+        // Dim without disabling the button: Settings and collection remain accessible.
+        button.alphaValue=preferences.value.collectImages ? 1:0.45
         button.setAccessibilityValue(pinned ? label("Pin notes","固定便签") : "")
     }
     func updateMaterials(_ surfaces:[[String:Any]]) {
@@ -633,13 +683,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         var live=Set<String>()
         cardHitAreas.removeAll(keepingCapacity:true)
         for surface in surfaces.prefix(9) {
-            guard let id=surface["id"] as? String,allowed.contains(id),
+            guard let id=surface["id"] as? String,allowed.contains(id) || (id=="__preview" && previewing) || (id=="__selection" && expanded),
                   let x=surface["x"] as? Double,let y=surface["y"] as? Double,
                   let width=surface["width"] as? Double,let height=surface["height"] as? Double,
                   let angle=surface["angle"] as? Double,let opacity=surface["opacity"] as? Double,
-                  [x,y,width,height,angle,opacity].allSatisfy({$0.isFinite}),width>0,width<500,height>0,height<300 else{continue}
+                  [x,y,width,height,angle,opacity].allSatisfy({$0.isFinite}),width>0,width<=min(760,panel.frame.width),height>0,height<=panel.frame.height else{continue}
             if opacity>0.01 {cardHitAreas.append((center:NSPoint(x:x,y:y),size:NSSize(width:width,height:height),angle:angle * .pi/180))}
-            guard appearance != "paper" else{continue}
+            guard allowed.contains(id),appearance != "paper" else{continue}
             live.insert(id)
             let material=materialViews[id] ?? NSVisualEffectView()
             if materialViews[id]==nil {
@@ -649,7 +699,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
             material.appearance=NSAppearance(named:appearance=="graphite" ? .darkAqua:.aqua)
             material.frameCenterRotation=0
             material.frame=NSRect(x:x-width/2,y:root.bounds.height-y-height/2,width:width,height:height)
-            material.frameCenterRotation = CGFloat(-angle);material.layer?.cornerRadius=14*CGFloat(width/220)
+            material.frameCenterRotation = CGFloat(-angle);material.layer?.cornerRadius=12*CGFloat(width/(store.items.first(where:{$0.id==id})?.kind=="text" ? 150:160))
             material.alphaValue=CGFloat(min(1,max(0,opacity)))
         }
         for id in Array(materialViews.keys) where !live.contains(id) {materialViews.removeValue(forKey:id)?.removeFromSuperview()}
@@ -688,7 +738,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
     @objc func quit(){NSApp.terminate(nil)}
     func seed(){
         let image=NSImage(size:NSSize(width:480,height:300));image.lockFocus();NSColor(calibratedRed:0.5,green:0.72,blue:0.8,alpha:1).setFill();NSBezierPath(rect:NSRect(x:0,y:0,width:480,height:300)).fill();NSColor(calibratedRed:0.15,green:0.4,blue:0.4,alpha:1).setFill();let path=NSBezierPath();path.move(to:.zero);path.line(to:NSPoint(x:200,y:260));path.line(to:NSPoint(x:480,y:0));path.close();path.fill();image.unlockFocus()
-        _ = try? store.addPNG(imagePNG(image),title:"Mountains",display:displayID(activeScreen));_ = try? store.addText("A little idea\nKeep useful things close.\nTake a breath.",display:displayID(activeScreen))
+        let sample=argument("--smoke-image").flatMap {NSImage(contentsOfFile:$0)} ?? image
+        _ = try? store.addPNG(imagePNG(sample),title:"海边的小城.png",display:displayID(activeScreen));_ = try? store.addText("A little idea\nKeep useful things close.\nTake a breath.",display:displayID(activeScreen))
     }
     func snapshot(_ view:WKWebView,to url:URL) async throws {
         let image:NSImage=try await withCheckedThrowingContinuation{ continuation in
@@ -700,6 +751,130 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         }
         try imagePNG(image).write(to:url)
     }
+    func checkStatusIcon() {
+        smokeStarted=true
+        guard let output=argument("--status-icon-check"),let button=status?.button else{return}
+        Task { @MainActor in
+            do {
+                let directory=URL(fileURLWithPath:output,isDirectory:true)
+                try FileManager.default.createDirectory(at:directory,withIntermediateDirectories:true)
+                var checks:[String]=[]
+                func check(_ condition:Bool,_ description:String) throws {
+                    guard condition else{throw StoreError.invalidConfiguration(description)}
+                    checks.append("PASS: "+description)
+                }
+                let originalPreferences=preferences.value,clipboardCount=NSPasteboard.general.changeCount
+                let originalAppearance=button.appearance
+                // Compare with an untinted standard status item in the same menu bar.
+                let reference=NSStatusBar.system.statusItem(withLength:28)
+                defer {NSStatusBar.system.removeStatusItem(reference)}
+                reference.button?.image=NSImage(systemSymbolName:"square.fill",accessibilityDescription:nil)
+                @MainActor func bitmap(_ view:NSView) throws -> NSBitmapImageRep {
+                    guard let result=view.bitmapImageRepForCachingDisplay(in:view.bounds) else{throw StoreError.invalidImage}
+                    view.cacheDisplay(in:view.bounds,to:result);return result
+                }
+                func brightestInk(_ image:NSBitmapImageRep) -> CGFloat {
+                    var value:CGFloat=0
+                    for y in 0..<image.pixelsHigh {for x in 0..<image.pixelsWide {
+                        guard let colour=image.colorAt(x:x,y:y)?.usingColorSpace(.deviceRGB),colour.alphaComponent>0.9 else{continue}
+                        value=max(value,(colour.redComponent+colour.greenComponent+colour.blueComponent)/3)
+                    }}
+                    return value
+                }
+                for (name,appearance) in [("light",NSAppearance.Name.aqua),("dark",NSAppearance.Name.darkAqua)] {
+                    button.appearance=NSAppearance(named:appearance);reference.button?.appearance=button.appearance
+                    for collect in [true,false] {for pin in [false,true] {
+                        var next=preferences.value;next.collectImages=collect;try preferences.save(next)
+                        pinned=pin;updateStatusIndicator()
+                        reference.button?.alphaValue=button.alphaValue
+                        try await Task.sleep(nanoseconds:80_000_000)
+                        let frame=try bitmap(button)
+                        let expected=try bitmap(reference.button!)
+                        try check(button.image?.isTemplate==true && button.contentTintColor==nil,"\(name), collection \(collect), pinned \(pin): AppKit owns symbol and dot tint")
+                        try check(button.imageScaling == .scaleNone && button.image?.size==button.bounds.size,"\(name), collection \(collect), pinned \(pin): the 17 by 15 pt symbol is not shrunk by the full-button mask")
+                        try check(button.isEnabled && button.alphaValue==(collect ? 1:0.45),"\(name), collection \(collect), pinned \(pin): collection dims without disabling menu actions")
+                        try check(abs(brightestInk(frame)-brightestInk(expected))<0.08,"\(name), collection \(collect), pinned \(pin): rendered symbol matches a standard untinted status item")
+                        guard let data=frame.representation(using:.png,properties:[:]) else{throw StoreError.invalidImage}
+                        try data.write(to:directory.appendingPathComponent("\(name)-\(collect ? "on":"off")-\(pin ? "pinned":"unpinned").png"))
+                    }}
+                }
+                let size=button.bounds.size
+                let without=NSBitmapImageRep(data:menuBarSymbol(size:size,pinned:false).tiffRepresentation!)!
+                let with=NSBitmapImageRep(data:menuBarSymbol(size:size,pinned:true).tiffRepresentation!)!
+                var extra=0,escaped=false
+                for y in 0..<with.pixelsHigh {for x in 0..<with.pixelsWide {
+                    let delta=with.colorAt(x:x,y:y)!.alphaComponent-without.colorAt(x:x,y:y)!.alphaComponent
+                    if delta>0.01 {
+                        extra+=1
+                        let px=(CGFloat(x)+0.5)*size.width/CGFloat(with.pixelsWide)
+                        let py=(CGFloat(y)+0.5)*size.height/CGFloat(with.pixelsHigh)
+                        if px<size.width-4.5 || px>size.width-0.5 || py<size.height-3.5 {escaped=true}
+                    }
+                }}
+                try check(extra>0 && !escaped,"Pinning changes only the bottom-right 3 px marker in the shared alpha mask")
+                try check(NSPasteboard.general.changeCount==clipboardCount,"Status appearance checks leave the user's clipboard unchanged")
+                button.appearance=originalAppearance;pinned=false;try preferences.save(originalPreferences);updateStatusIndicator()
+                try (checks.joined(separator:"\n")+"\n").write(to:directory.appendingPathComponent("checks.txt"),atomically:true,encoding:.utf8)
+                print("Status icon checks passed: \(checks.count)");fflush(stdout);NSApp.terminate(nil)
+            }catch{fatal(error)}
+        }
+    }
+    func checkDockMenu() {
+        smokeStarted=true
+        guard let output=argument("--dock-menu-check") else{return}
+        Task { @MainActor in
+            do {
+                let directory=URL(fileURLWithPath:output,isDirectory:true)
+                try FileManager.default.createDirectory(at:directory,withIntermediateDirectories:true)
+                var checks:[String]=[]
+                func check(_ value:Bool,_ message:String) throws {
+                    guard value else{throw StoreError.invalidConfiguration(message)};checks.append("PASS: "+message)
+                }
+                @MainActor func dock() throws -> NSMenu {
+                    guard let menu=applicationDockMenu(NSApp) else{throw StoreError.invalidConfiguration("No Dock menu")};return menu
+                }
+                @MainActor func index(_ action:Selector,in menu:NSMenu) throws -> Int {
+                    guard let index=menu.items.firstIndex(where:{$0.action==action}) else{throw StoreError.invalidConfiguration("Missing Dock action")};return index
+                }
+                let originalLocale=locale,originalPreferences=preferences.value
+                for language in locales {
+                    locale=language;let menu=try dock()
+                    try check(menu.items.filter{!$0.isSeparatorItem}.count==4,"Dock exposes four custom actions in \(language)")
+                    try check(menu.items.contains{$0.title==label("Show notes","展开便签")} && menu.items.contains{$0.title==label("Settings","设置")+"…"},"Dock labels follow \(language)")
+                }
+                locale=originalLocale
+                var menu=try dock()
+                try check(!menu.items.contains{$0.action == #selector(quit)},"System Dock Quit is not duplicated")
+                try check(menu.items.filter{!$0.isSeparatorItem}.allSatisfy{($0.target as AnyObject?) === self},"Dock actions route to the existing app controller")
+                menu.performActionForItem(at:try index(#selector(togglePinned),in:menu))
+                try check(pinned && expanded && statusSymbolPinned==true,"Dock Pin opens and fixes notes using the existing pin action")
+                menu=try dock()
+                try check(menu.items[try index(#selector(togglePinned),in:menu)].state == .on,"A fresh Dock menu reflects pinned state")
+                menu.performActionForItem(at:try index(#selector(togglePinned),in:menu))
+                try check(!pinned && !expanded && statusSymbolPinned==false,"Dock Unpin collapses notes and removes the status marker")
+                menu=try dock();let intakeBefore=preferences.value.collectImages
+                let globalClipboard=NSPasteboard.general.changeCount
+                menu.performActionForItem(at:try index(#selector(toggleImageIntake),in:menu))
+                try check(preferences.value.collectImages != intakeBefore,"Dock image collection toggles the real preference")
+                menu=try dock()
+                try check(menu.items[try index(#selector(toggleImageIntake),in:menu)].state == (preferences.value.collectImages ? .on:.off),"Dock image collection checkmark uses live state")
+                try check(NSPasteboard.general.changeCount==globalClipboard,"Dock checks leave the user's general clipboard untouched")
+                menu.performActionForItem(at:try index(#selector(showNotes),in:menu))
+                try check(expanded && !pinned,"Dock Show notes reveals without changing pinning")
+                menu.performActionForItem(at:try index(#selector(openPreferences),in:menu))
+                for _ in 0..<50 {if let settingsWeb,readyViews.contains(ObjectIdentifier(settingsWeb)){break};try await Task.sleep(nanoseconds:100_000_000)}
+                try check(settings != nil && settings!.isVisible && settingsWeb != nil,"Dock Settings opens the actual native settings window")
+                let originalWindow=settings!;originalWindow.miniaturize(nil)
+                try await Task.sleep(nanoseconds:500_000_000)
+                menu=try dock();menu.performActionForItem(at:try index(#selector(openPreferences),in:menu))
+                for _ in 0..<30 {if !originalWindow.isMiniaturized && originalWindow.isVisible {break};try await Task.sleep(nanoseconds:100_000_000)}
+                try check(settings===originalWindow && !originalWindow.isMiniaturized && originalWindow.isVisible,"Dock Settings restores the same minimized window")
+                try preferences.save(originalPreferences);closeSettings()
+                try (checks.joined(separator:"\n")+"\n").write(to:directory.appendingPathComponent("checks.txt"),atomically:true,encoding:.utf8)
+                print("Dock menu checks passed: \(checks.count)");fflush(stdout);NSApp.terminate(nil)
+            }catch{fatal(error)}
+        }
+    }
     func smoke(){
         smokeStarted=true
         guard let output=argument("--smoke-test") else{return}
@@ -707,6 +882,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
             do {
                 let directory=URL(fileURLWithPath:output,isDirectory:true);try FileManager.default.createDirectory(at:directory,withIntermediateDirectories:true)
                 dismissalPointer = { NSPoint(x:self.activeScreen.frame.midX,y:self.activeScreen.visibleFrame.maxY-100) }
+                dismissalButtons={0}
                 var checks:[String]=[]
                 func check(_ condition:Bool,_ description:String) throws {guard condition else{throw NSError(domain:"SnapSlot.Smoke",code:1,userInfo:[NSLocalizedDescriptionKey:description])};checks.append("PASS: "+description)}
                 @MainActor func waitForSettings() async throws -> NativeWebView {
@@ -719,6 +895,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
                     guard let data=bitmap.representation(using:.png,properties:[:]) else{throw StoreError.invalidImage}
                     try data.write(to:directory.appendingPathComponent(name))
                 }
+                try await snapshot(web,to:directory.appendingPathComponent("macos-notes-mixed.png"))
                 try check(!panel.isKeyWindow,"Pointer reveal does not activate the note panel")
                 try check(status?.isVisible==true && status?.button?.image != nil && status?.button?.window?.isVisible==true,"Menu-bar icon is visible from startup before opening notes or settings")
                 try snapshotStatus("macos-status-unpinned.png")
@@ -757,7 +934,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
                 try await Task.sleep(nanoseconds:900_000_000)
                 let geometry=try await web.evaluateJavaScript("(()=>{const face=document.querySelector('[data-focus=true]'),arm=face.closest('[data-arm]'),style=getComputedStyle(face);return {count:document.querySelectorAll('[data-arm]').length,width:face.offsetWidth,height:face.offsetHeight,radius:style.borderRadius,origin:getComputedStyle(arm).transformOrigin}})()") as! [String:Any]
                 try check(store.items.count==30 && geometry["count"] as? Int==30,"Native session and rendered fan enforce the website's 30-note capacity")
-                try check(geometry["width"] as? Int==200 && geometry["height"] as? Int==144 && geometry["radius"] as? String=="14px","WKWebView uses the website's exact text-card dimensions and radius")
+                try check(geometry["width"] as? Int==150 && geometry["height"] as? Int==116 && geometry["radius"] as? String=="12px","Native text-card geometry matches the website at 150×116 with a 12px edge; observed \(geometry)")
                 let unclipped=try await web.evaluateJavaScript("Array.from(document.querySelectorAll('[data-arm][aria-hidden=false]')).every(arm=>arm.querySelector('[data-note]').getBoundingClientRect().bottom<innerHeight-20)") as? Bool
                 try check(unclipped==true,"Native transparent window does not crop the fan's outer cards or shadows")
                 try check(!materialViews.isEmpty,"AppKit supplies behind-window blur only underneath visible fan cards")
@@ -773,7 +950,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
                 _ = try await settingsView.evaluateJavaScript("document.querySelectorAll('header button')[1].click()")
                 try await Task.sleep(nanoseconds:500_000_000)
                 try check(originalSettings.isMiniaturized,"The settings minimize button minimizes its real AppKit window")
-                openPreferences();try await Task.sleep(nanoseconds:500_000_000)
+                openPreferences()
+                for _ in 0..<30 {if !originalSettings.isMiniaturized && originalSettings.isVisible && originalSettings.isKeyWindow && NSApp.isActive {break};try await Task.sleep(nanoseconds:100_000_000)}
                 try check(settings===originalSettings && !originalSettings.isMiniaturized && originalSettings.isVisible && originalSettings.isKeyWindow && NSApp.isActive,"Opening Settings from the status menu restores the same minimized window to the foreground")
                 do {
                     let saved=preferences.value,competitor=HotKeys()
@@ -816,12 +994,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
                 _ = try await settingsView.evaluateJavaScript("document.querySelector('[data-swatch=paper]').click()")
                 try await Task.sleep(nanoseconds:500_000_000)
                 let paper=try await web.evaluateJavaScript("getComputedStyle(document.querySelector('[data-focus=true]')).backgroundColor") as? String
-                try check(appearance=="paper" && paper=="rgb(251, 250, 247)" && materialViews.isEmpty,"Paper preset synchronizes settings and fan and disables native blur")
+                try check(appearance=="paper" && paper=="rgb(255, 255, 255)" && materialViews.isEmpty,"White paper preset synchronizes settings and fan and disables native blur")
                 try await snapshot(web,to:directory.appendingPathComponent("macos-notes-paper.png"))
                 _ = try await settingsView.evaluateJavaScript("document.querySelector('[data-swatch=graphite]').click()")
                 try await Task.sleep(nanoseconds:500_000_000)
                 let graphite=try await web.evaluateJavaScript("getComputedStyle(document.querySelector('[data-focus=true]')).color") as? String
-                try check(appearance=="graphite" && graphite=="rgb(245, 245, 247)","Graphite preset uses the website's dark material and light text")
+                try check(appearance=="graphite" && graphite=="rgb(245, 244, 252)","Graphite preset uses a dark navy material and light text")
                 try await snapshot(web,to:directory.appendingPathComponent("macos-notes-graphite.png"))
                 _ = try await settingsView.evaluateJavaScript("document.querySelector('[data-swatch=glass]').click();const select=document.querySelector('select');select.value='zh-Hans';select.dispatchEvent(new Event('change',{bubbles:true}))")
                 try await Task.sleep(nanoseconds:350_000_000)
@@ -839,12 +1017,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
                 try await Task.sleep(nanoseconds:150_000_000)
                 try check(pinned && expanded,"Settings pin switch opens and pins the fan")
                 let button=status!.button!
-                let bottomInset=button.isFlipped ? button.bounds.maxY-statusPin.frame.maxY : statusPin.frame.minY-button.bounds.minY
-                try check(!statusPin.isHidden && statusPin.superview===button && statusPin.frame.size==NSSize(width:5,height:5) && button.bounds.maxX-statusPin.frame.maxX==3 && bottomInset==1 && statusPin.hitTest(.zero)==nil,"Pinning adds the website's bottom-right 5 px menu-bar dot without blocking clicks")
+                try check(statusSymbolPinned==true && button.image?.isTemplate==true && button.contentTintColor==nil && button.image?.size==button.bounds.size,"Pinning adds the bottom-right 3 px dot to the same system-tinted template without adding a hit target")
                 try snapshotStatus("macos-status-pinned.png")
                 _ = try await settingsView.evaluateJavaScript("document.querySelectorAll('[role=switch]')[1].click()")
                 try await Task.sleep(nanoseconds:150_000_000)
-                try check(!pinned && statusPin.isHidden,"Unpinning immediately removes the menu-bar dot")
+                try check(!pinned && statusSymbolPinned==false,"Unpinning immediately removes the menu-bar dot")
                 _ = try await settingsView.evaluateJavaScript("document.querySelectorAll('[role=switch]')[1].click()")
                 try await Task.sleep(nanoseconds:150_000_000)
                 pinSelection("全选或者选中这段文字\nFull selected payload 📝")
@@ -867,16 +1044,41 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
                         let event=NSEvent.mouseEvent(with:.mouseMoved,location:point,modifierFlags:[],timestamp:ProcessInfo.processInfo.systemUptime,windowNumber:trayPanel!.windowNumber,context:nil,eventNumber:index,clickCount:0,pressure:0)!
                         trayWeb.mouseMoved(with:event)
                         try await Task.sleep(nanoseconds:80_000_000)
-                        let selected=try await trayWeb.evaluateJavaScript("(()=>{const rows=document.querySelectorAll('.native-menu button'),row=rows[\(index)],style=getComputedStyle(row);return document.querySelectorAll('.native-menu .host-hover').length===1 && row.classList.contains('host-hover') && style.backgroundColor==='rgb(10, 132, 255)' && style.color==='rgb(255, 255, 255)' && getComputedStyle(row.firstElementChild).color==='rgb(255, 255, 255)'})()") as? Bool
+                        let selected=try await trayWeb.evaluateJavaScript("(()=>{const rows=document.querySelectorAll('.native-menu button'),row=rows[\(index)],style=getComputedStyle(row);return document.querySelectorAll('.native-menu .host-hover').length===1 && row.classList.contains('host-hover') && style.backgroundColor==='rgb(242, 238, 255)' && style.color==='rgb(89, 57, 230)' && getComputedStyle(row.firstElementChild).color===style.color})()") as? Bool
                         highlighted = highlighted && selected==true
                     }
-                    try check(highlighted && trayPanel!.acceptsMouseMovedEvents && trayWeb.trackingAreas.contains{$0.options.contains(.activeAlways)},"All four inactive menu rows highlight blue with white text and checkmarks on native mouse movement")
+                    try check(highlighted && trayPanel!.acceptsMouseMovedEvents && trayWeb.trackingAreas.contains{$0.options.contains(.activeAlways)},"All four inactive menu rows use the website violet selection surface and readable text and checkmarks")
                     try await snapshot(trayWeb,to:directory.appendingPathComponent("macos-menu.png"))
                     trayWeb.onPointerMoved?(nil);try await Task.sleep(nanoseconds:80_000_000)
                     let cleared=try await trayWeb.evaluateJavaScript("document.querySelectorAll('.native-menu .host-hover').length===0") as? Bool
                     try check(cleared==true,"Menu hover selection clears when the pointer leaves the popup")
                 }else{throw StoreError.invalidText}
-                closeTray();checks += try checkHotKeyTransaction()
+                closeTray();collapse()
+                dismissalPointer = { NSPoint(x:self.activeScreen.frame.midX,y:self.activeScreen.visibleFrame.minY+10) }
+                pinSelection("Selected payload 📝\nSame desktop behavior")
+                try check(expanded && !pinned,"New selected text peeks without fixing the fan")
+                try check(peekUntil.timeIntervalSinceNow<=4.1,"Arrival peek is configured for four seconds")
+                for _ in 0..<65 {if !expanded {break};try await Task.sleep(nanoseconds:100_000_000)}
+                try check(!expanded && !pinned,"Collected notes collapse after the four-second peek when the pointer is outside; expanded=\(expanded), pinned=\(pinned), previewing=\(previewing), dragging=\(dragging), timer=\(dismiss?.isValid ?? false)")
+                reveal(focus:false)
+                try await Task.sleep(nanoseconds:350_000_000)
+                _ = try await web.evaluateJavaScript("document.querySelector('[data-focus=true]').dispatchEvent(new KeyboardEvent('keydown',{key:' ',code:'Space',bubbles:true}))")
+                try await Task.sleep(nanoseconds:350_000_000)
+                let previewOpen=try await web.evaluateJavaScript("!!document.querySelector('[data-native-region=__preview]') && document.querySelector('[data-native-region=__preview]').textContent.includes('Selected payload')") as? Bool
+                try check(previewing && !pinned && panel.frame.height>360 && previewOpen==true,"Space opens the full note in a larger native reading surface without pinning")
+                try await snapshot(web,to:directory.appendingPathComponent("macos-note-preview.png"))
+                _ = try await web.evaluateJavaScript("dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))")
+                try await Task.sleep(nanoseconds:250_000_000)
+                try check(!previewing && expanded && !pinned && panel.frame.height==360,"Escape closes only the reading surface and restores the unpinned fan")
+                _ = try await web.evaluateJavaScript("const r=document.createRange();r.selectNodeContents(document.querySelector('[data-focus=true] [data-note-text]'));const selection=getSelection();selection.removeAllRanges();selection.addRange(r)")
+                try await Task.sleep(nanoseconds:100_000_000)
+                let selectedPayload=try await web.evaluateJavaScript("getSelection().toString().trim()") as? String ?? ""
+                let chip=try await web.evaluateJavaScript("!!document.querySelector('.native-selection')") as? Bool
+                try check(chip==true,"Selectable note text exposes the same collect action in real WKWebView")
+                _ = try await web.evaluateJavaScript("document.querySelector('.native-selection').click()")
+                try await Task.sleep(nanoseconds:150_000_000)
+                try check(!selectedPayload.isEmpty && store.items.last?.text==selectedPayload && clipboard.string(forType:.string)==selectedPayload && !pinned,"Collecting selected note text preserves its full payload and unpinned state; observed \(String(reflecting:store.items.last?.text)), pinned=\(pinned)")
+                checks += try checkHotKeyTransaction()
                 try (checks.joined(separator:"\n")+"\n").write(to:directory.appendingPathComponent("macos-smoke.txt"),atomically:true,encoding:.utf8)
                 if CommandLine.arguments.contains("--keep-open") {reveal(focus:false);pinNotes()}else{NSApp.terminate(nil)}
             }catch{fatal(error)}
