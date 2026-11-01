@@ -56,7 +56,7 @@ public sealed class RailWindow : Window
     private Drawing.Icon? stateIcon;
     private (bool Pinned,bool CollectImages)? iconState;
     private HwndSource? source;
-    private bool expanded,pinned,arming,dragging,disposed;
+    private bool expanded,pinned,arming,dragging,disposed,previewing;
     private string appearance="glass";
     private readonly List<(double X,double Y,double Width,double Height,double Angle)> hitAreas=new();
     private bool collectImages=true;
@@ -85,7 +85,7 @@ public sealed class RailWindow : Window
         Topmost=true;ShowInTaskbar=false;ShowActivated=false;Width=SystemParameters.PrimaryScreenWidth;Height=360;Left=0;Top=0;
         Content=web;
         hover.Tick+=(_,_)=>{hover.Stop();if(EdgeWatcher.IsAtEdge()&&EdgeWatcher.CanReveal(source?.Handle??IntPtr.Zero))Reveal(false);};
-        dismiss.Tick+=(_,_)=>{dismiss.Stop();if(!KeepOpen()&&!pinned&&!dragging&&settingsMode!="tray")Collapse();};
+        dismiss.Tick+=(_,_)=>{dismiss.Stop();if(!KeepOpen()&&!pinned&&!dragging&&!previewing&&settingsMode!="tray")Collapse();};
         hide.Tick+=(_,_)=>{hide.Stop();if(!expanded)Hide();};
         SourceInitialized+=OnSource;
         DpiChanged+=(_,_)=>Dispatcher.BeginInvoke(Position);
@@ -141,6 +141,10 @@ public sealed class RailWindow : Window
         {
             case "ready":ready.Add(view);sentItems[view]=new();State();if(view==settingsWeb&&(settingsMode=="preferences"||settingsMode=="tray"))SendPreferences(view);if(lastError is not null)Post(view,new{type="error",message=lastError});break;
             case "collapse":Collapse();break;
+            case "closePreview":previewing=false;Position();State();ScheduleDismiss();break;
+            case "collectText":if(view==web&&Get("text") is string selected&&!string.IsNullOrWhiteSpace(selected)&&Encoding.UTF8.GetByteCount(selected)<=65536){previewing=false;CollectText(selected);}break;
+            case "dragText":if(view==web&&Get("text") is string dragText&&!string.IsNullOrWhiteSpace(dragText)&&Encoding.UTF8.GetByteCount(dragText)<=65536)DragText(dragText);break;
+            case "preview":if(view==web&&Guid.TryParse(Get("id"),out var previewId)&&items.Any(item=>item.Id==previewId&&item.Display==screen.DeviceName)){previewing=true;Reveal(true);}break;
             case "toggleRail":if(settingsMode=="tray")CloseSettings();if(expanded)Collapse();else Reveal(true);break;
             case "pin":Pin();break;
             case "unpin":Unpin();break;
@@ -163,7 +167,7 @@ public sealed class RailWindow : Window
             case "copy":case "remove":case "drag":
                 if(!Guid.TryParse(Get("id"),out var id))return;
                 var item=items.FirstOrDefault(item=>item.Id==id&&item.Display==screen.DeviceName);if(item is null)return;
-                if(Get("type")=="remove"){items.Remove(item);State();}
+                if(Get("type")=="remove"){previewing=false;Position();items.Remove(item);State();}
                 else if(Get("type")=="copy"){Copy(item);Post(web,new{type="copied",id=item.Id.ToString()});}
                 else Drag(item);
                 break;
@@ -175,9 +179,11 @@ public sealed class RailWindow : Window
         hitAreas.Clear();
         if(surfaces.ValueKind!=JsonValueKind.Array)return;
         foreach(var shape in surfaces.EnumerateArray().Take(9)){
-            if(!Guid.TryParse(shape.GetProperty("id").GetString(),out var id)||!items.Any(item=>item.Id==id&&item.Display==screen.DeviceName))continue;
+            var name=shape.GetProperty("id").GetString();
+            bool control=(name=="__preview"&&previewing)||(name=="__selection"&&expanded);
+            if(!control&&(!Guid.TryParse(name,out var id)||!items.Any(item=>item.Id==id&&item.Display==screen.DeviceName)))continue;
             double x=shape.GetProperty("x").GetDouble(),y=shape.GetProperty("y").GetDouble(),width=shape.GetProperty("width").GetDouble(),height=shape.GetProperty("height").GetDouble(),angle=shape.GetProperty("angle").GetDouble();
-            if(new[]{x,y,width,height,angle}.All(double.IsFinite)&&width>0&&width<500&&height>0&&height<300)hitAreas.Add((x,y,width,height,angle*Math.PI/180));
+            if(new[]{x,y,width,height,angle}.All(double.IsFinite)&&width>0&&width<=Math.Min(760,ActualWidth)&&height>0&&height<=ActualHeight)hitAreas.Add((x,y,width,height,angle*Math.PI/180));
         }
         UpdatePointers();
     }
@@ -194,25 +200,25 @@ public sealed class RailWindow : Window
     }
     private void Position()
     {
-        Height=360;
         if(source is null)return;
         var bounds=screen.Bounds;
         var area=screen.WorkingArea;
         // Use physical coordinates for monitor placement, including negative origins.
         var scale=source.CompositionTarget?.TransformToDevice.M22??1;
+        Height=previewing?Math.Min(720,area.Height/scale):360;
         SetWindowPos(source.Handle,new IntPtr(-1),bounds.Left,area.Top,bounds.Width,(int)Math.Ceiling(Height*scale),0x0010|(expanded?0x0040u:0u));
     }
     private void Reveal(bool focus,bool peek=false)
     {
         hover.Stop();dismiss.Stop();hide.Stop();if(!expanded&&!peek)screen=Forms.Screen.FromPoint(Forms.Cursor.Position);
-        expanded=true;arming=false;if(peek)peekUntil=DateTime.UtcNow.AddMilliseconds(2500);
+        expanded=true;arming=false;if(peek)peekUntil=DateTime.UtcNow.AddMilliseconds(4000);
         Position();Show();SetInteractive(true);State(focus);
         if(focus){Activate();web.Focus();}
         if(peek)ScheduleDismiss();
     }
     private void Collapse()
     {
-        hover.Stop();dismiss.Stop();hide.Stop();expanded=false;pinned=false;arming=false;SetInteractive(false);State();
+        hover.Stop();dismiss.Stop();hide.Stop();expanded=false;pinned=false;arming=false;previewing=false;SetInteractive(false);Position();State();
         if(SystemParameters.ClientAreaAnimation)hide.Start();else Hide();
     }
     private void Pin()
@@ -229,15 +235,25 @@ public sealed class RailWindow : Window
     private Func<Drawing.Point> dismissalPointer=()=>Forms.Cursor.Position;
     private bool KeepOpen()
     {
+        if(previewing||Forms.Control.MouseButtons.HasFlag(Forms.MouseButtons.Left))return true;
         if(!expanded)return false;var point=dismissalPointer();var scale=source?.CompositionTarget?.TransformToDevice.M22??1;
+        var local=web.PointFromScreen(new Point(point.X,point.Y));
+        if(hitAreas.Any(area=>{var dx=local.X-area.X;var dy=local.Y-area.Y;return Math.Abs(dx*Math.Cos(area.Angle)+dy*Math.Sin(area.Angle))<=area.Width/2+12&&Math.Abs(-dx*Math.Sin(area.Angle)+dy*Math.Cos(area.Angle))<=area.Height/2+12;}))return true;
         return NotesGeometry.IsPointerWithinRail(point.X,point.Y,screen.Bounds.Left,screen.WorkingArea.Top,screen.Bounds.Width,(int)Math.Ceiling(230*scale));
     }
     private void ScheduleDismiss()
     {
-        if(disposed||!expanded||pinned||dragging||settingsMode=="tray")return;
+        if(disposed||!expanded||pinned||dragging||previewing||settingsMode=="tray")return;
         dismiss.Stop();dismiss.Interval=TimeSpan.FromMilliseconds(Math.Max(450,(peekUntil-DateTime.UtcNow).TotalMilliseconds));dismiss.Start();
     }
-    private void Arrived(){Reveal(false,true);}
+    private void Arrived(){
+        Reveal(false,true);
+    }
+    private void CollectText(string text){
+        if(!expanded)screen=Forms.Screen.FromPoint(Forms.Cursor.Position);
+        var first=text.Split('\n')[0].Trim();Add(new InboxItem(first[..Math.Min(first.Length,30)],text));
+        Clipboard.SetText(text);ignoredClipboard=GetClipboardSequenceNumber();Arrived();
+    }
     private void Copy(InboxItem item)
     {
         try {
@@ -312,19 +328,27 @@ public sealed class RailWindow : Window
     {
         if(collectingText)return;collectingText=true;
         try {
-            string text=await SelectedText.ReadAsync();
+            string text;
+            if(IsActive&&ready.Contains(web)){
+                text=JsonSerializer.Deserialize<string>(await web.CoreWebView2.ExecuteScriptAsync("window.getSelection().toString()"))??"";
+            }else text=await SelectedText.ReadAsync();
             if(string.IsNullOrWhiteSpace(text))throw new InvalidOperationException("Select text first.");
             if(Encoding.UTF8.GetByteCount(text)>65536)throw new ArgumentException(Strings.Get("tooLarge"));
-            if(!expanded)screen=Forms.Screen.FromPoint(Forms.Cursor.Position);
-            Add(new InboxItem(text.Split('\n')[0].Trim()[..Math.Min(text.Split('\n')[0].Trim().Length,30)],text));
-            Clipboard.SetText(text);ignoredClipboard=GetClipboardSequenceNumber();Arrived();
+            CollectText(text);
         }catch(Exception ex) when(ex is InvalidOperationException or ArgumentException or ExternalException or IOException or UnauthorizedAccessException){Arrived();Error(ex.Message);}
         finally{collectingText=false;}
     }
     private void Drag(InboxItem item)
     {
+        var data=new DataObject();data.SetFileDropList(new StringCollection{item.ExportPath});
+        if(item.Text is not null)data.SetText(item.Text);
+        RunDrag(data);
+    }
+    private void DragText(string text){var data=new DataObject();data.SetText(text);RunDrag(data);}
+    private void RunDrag(DataObject data)
+    {
         dragging=true;dismiss.Stop();
-        try{var data=new DataObject();data.SetFileDropList(new StringCollection{item.ExportPath});DragDrop.DoDragDrop(web,data,DragDropEffects.Copy);}
+        try{var result=DragDrop.DoDragDrop(web,data,DragDropEffects.Copy);}
         finally{dragging=false;ScheduleDismiss();}
     }
     private void CloseSettings()=>closeSettings?.Invoke();
@@ -427,7 +451,7 @@ public sealed class RailWindow : Window
         icon=File.Exists(file)?new Drawing.Icon(file,small):(Drawing.Icon)Drawing.SystemIcons.Application.Clone();tray.Icon=icon;
         tray.MouseClick+=(_,eventArgs)=>Dispatcher.Invoke(()=>Safe(()=>{
             if(eventArgs.Button==Forms.MouseButtons.Right){if(settingsMode=="tray")CloseSettings();else OpenSettings("tray");}
-            else if(eventArgs.Button==Forms.MouseButtons.Left){if(expanded)Collapse();else Reveal(true);}
+            else if(eventArgs.Button==Forms.MouseButtons.Left){if(settingsMode=="tray")CloseSettings();else OpenSettings("tray");}
         }));
         UpdateTrayIcon();tray.Visible=true;
     }
@@ -451,7 +475,7 @@ public sealed class RailWindow : Window
                 float scale=size.Width/32f;
                 var dot=new Drawing.RectangleF(21*scale,21*scale,7*scale,7*scale);
                 using var ring=new Drawing.Pen(Drawing.Color.FromArgb(238,240,246),3*scale);
-                using var fill=new Drawing.SolidBrush(Drawing.Color.FromArgb(0,103,192));
+                using var fill=new Drawing.SolidBrush(Drawing.Color.FromArgb(108,77,255));
                 graphics.DrawEllipse(ring,dot);graphics.FillEllipse(fill,dot);
             }
         }
@@ -473,7 +497,7 @@ public sealed class RailWindow : Window
     private void ParametersChanged(object? sender,System.ComponentModel.PropertyChangedEventArgs e){if(e.PropertyName==nameof(SystemParameters.ClientAreaAnimation))State();}
     private IntPtr WndProc(IntPtr hwnd,int message,IntPtr wParam,IntPtr lParam,ref bool handled)
     {
-        if(message==0x0312){if(wParam.ToInt32()==3)CollectSelectedText();else if(expanded)Collapse();else Reveal(true);handled=true;}
+        if(message==0x0312){if(wParam.ToInt32()==3)CollectSelectedText();else Reveal(true);handled=true;}
         if(message==0x031D){ReceiveClipboardImage();handled=true;}
         if(message==0x0021&&!pinned){handled=true;return new IntPtr(3);}
         if(message==0x007E&&expanded){screen=Forms.Screen.FromPoint(Forms.Cursor.Position);Position();State();}
