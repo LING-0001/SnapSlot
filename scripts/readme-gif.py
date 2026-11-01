@@ -17,7 +17,7 @@ from PIL import Image
 
 media = Path(__file__).resolve().parent.parent / "docs" / "media"
 locales = sys.argv[1:] or sorted(p.name for p in media.iterdir() if p.is_dir())
-WIDTH = 640  # GitHub shows README images at most ~880 px wide
+WIDTH = 880  # Match the README display width without upscaling small text.
 FPS = 12
 
 for locale in locales:

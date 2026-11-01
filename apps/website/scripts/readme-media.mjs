@@ -20,7 +20,7 @@ const nativeEntry = pathToFileURL(path.join(repositoryRoot, "artifacts/native-ui
 const channel = process.platform === "win32" ? { channel: "msedge" } : process.platform === "darwin" ? { channel: "chrome" } : {};
 const browser = await chromium.launch(channel);
 
-async function open(locale, { mac = false, width = 1280, height = 800, scale = 2, mobile = false } = {}) {
+async function open(locale, { mac = true, width = 1280, height = 800, scale = 2, mobile = false } = {}) {
   const context = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: scale, ...(mobile ? { isMobile: true, hasTouch: true } : {}) });
   await context.addInitScript(({mac}) => {
     Object.defineProperty(navigator, "platform", { get: () => mac ? "MacIntel" : "Win32" });
@@ -71,8 +71,8 @@ async function nativeSettings(locale, dir) {
       postMessage: command => {
         const emit = data => window.receiveCapture({ data });
         if (command.type === "ready") {
-          emit({ type: "state", items: [], count: 0, locale, expanded: false, pinned: false, arming: false, appearance: "glass", reducedMotion: false, platform: "windows" });
-          emit({ type: "preferences", value: window.capturePreferences, platform: "windows" });
+          emit({ type: "state", items: [], count: 0, locale, expanded: false, pinned: false, arming: false, appearance: "glass", reducedMotion: false, platform: "macos" });
+          emit({ type: "preferences", value: window.capturePreferences, platform: "macos" });
         }
         if (command.type === "beginShortcutRecording") emit({ type: "recordingReady" });
       }
@@ -86,7 +86,7 @@ async function nativeSettings(locale, dir) {
     await page.evaluate(() => {
       const old = window.capturePreferences;
       const value = { ...old, textShortcut: { ...old.textShortcut, shift: true }, openShortcut: { ...old.openShortcut, shift: true } };
-      window.receiveCapture({ data: { type: "preferences", value, platform: "windows", shortcutChanges: [
+      window.receiveCapture({ data: { type: "preferences", value, platform: "macos", shortcutChanges: [
         { target: "text", requested: old.textShortcut, replacement: value.textShortcut },
         { target: "open", requested: old.openShortcut, replacement: value.openShortcut }
       ] } });
@@ -101,7 +101,7 @@ for (const locale of wanted) {
   const dir = path.join(root, locale);
   await mkdir(dir, { recursive: true });
 
-  // 1. Hero: notes fanned open on the Windows desktop.
+  // 1. Hero: notes fanned open on the macOS desktop.
   if (!menusOnly) {
     const page = await open(locale);
     await page.waitForTimeout(400);
@@ -113,11 +113,11 @@ for (const locale of wanted) {
     await page.waitForTimeout(1200);
     await holdOpen(page);
     const deskBox = await desk(page).boundingBox();
-    await page.screenshot({ path: path.join(dir, "hero.png"), clip: { x: deskBox.x, y: deskBox.y, width: deskBox.width, height: Math.min(deskBox.height, 330) } });
+    await page.screenshot({ path: path.join(dir, "hero.png"), clip: { x: deskBox.x, y: deskBox.y, width: deskBox.width, height: deskBox.height } });
     await page.context().close();
   }
 
-  // 2. Tray menu and settings window (Windows).
+  // 2. macOS menu and shared native settings.
   {
     const page = await open(locale);
     await skip(page);
@@ -125,8 +125,8 @@ for (const locale of wanted) {
     await page.waitForTimeout(350);
     const box = await desk(page).boundingBox();
     const menu = await page.locator("[role=menu]").boundingBox();
-    const right = box.x + box.width, bottom = box.y + box.height;
-    const clip = { x: menu.x - 40, y: menu.y - 40, width: right - (menu.x - 40), height: bottom - (menu.y - 40) };
+    const x = Math.max(box.x, menu.x - 20), y = Math.max(box.y, menu.y - 20);
+    const clip = { x, y, width: Math.min(menu.width + 40, box.x + box.width - x), height: Math.min(menu.height + 40, box.y + box.height - y) };
     await page.screenshot({ path: path.join(dir, "tray-menu.png"), clip });
     if (!menusOnly) {
       await nativeSettings(locale, dir);
