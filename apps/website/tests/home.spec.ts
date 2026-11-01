@@ -88,8 +88,13 @@ test('selected website text can be pinned explicitly with its shortcut',async({p
  await expect(page.locator('[data-note]')).toHaveCount(4);
  await expect(focused(page)).toContainText(text!);
 });
-test('keyboard menu navigation, settings dismissal and Escape preserve expected focus',async({page})=>{
+for(const [platform,os] of [['MacIntel','mac'],['Win32','win']] as const){
+test(`${os}: keyboard menu navigation, settings dismissal and Escape preserve expected focus`,async({page})=>{
+ await page.addInitScript(platform=>Object.defineProperty(navigator,'platform',{get:()=>platform}),platform);
  await page.goto('/en/');
+ // Hydration replaces the default Mac tray with the detected platform's tray.
+ // Focus the final control, rather than a server-rendered node about to unmount.
+ await expect(stage(page)).toHaveAttribute('data-os',os);
  const tray=page.locator('[data-coach=tray]');await tray.focus();await page.keyboard.press('ArrowDown');
  await expect(page.getByRole('menuitem').first()).toBeFocused();
  await page.keyboard.press('Enter');
@@ -101,6 +106,7 @@ test('keyboard menu navigation, settings dismissal and Escape preserve expected 
  await help(page);await page.getByRole('button',{name:demoCopy.en.reveal,exact:true}).click();
  await expect(focused(page)).toBeFocused();
 });
+}
 test('settings control collection, skins and the app locale without changing the website language',async({page})=>{
  await page.goto('/en/');await menu(page);await page.getByRole('menuitem',{name:homeCopy.en.menu.settings,exact:true}).click();
  await page.getByRole('button',{name:homeCopy.en.skins[2],exact:true}).click();
