@@ -8,6 +8,8 @@ Edit the strings here, never the generated files.
 from pathlib import Path
 import json
 import hashlib
+import subprocess
+from functools import lru_cache
 
 root = Path(__file__).resolve().parent.parent
 REPO = "https://github.com/LING-0001/SnapSlot"
@@ -16,6 +18,27 @@ VERSION = json.loads((root / "release.json").read_text())["version"]
 DOWNLOADS = f"{REPO}/releases/download/v{VERSION}"
 ORDER = ["zh-Hans", "en", "zh-Hant", "ja", "ko", "es"]
 NAMES = {"zh-Hans": "简体中文", "en": "English", "zh-Hant": "繁體中文", "ja": "日本語", "ko": "한국어", "es": "Español"}
+
+
+@lru_cache(maxsize=None)
+def committed_asset(relative: str):
+    """Pin committed images; GitHub's relative-image redirect drops query keys."""
+    data = (root / relative).read_bytes()
+    blob = hashlib.sha1(f"blob {len(data)}\0".encode() + data).hexdigest()
+    try:
+        tracked = subprocess.check_output(
+            ["git", "rev-parse", f"HEAD:{relative}"], cwd=root, stderr=subprocess.DEVNULL, text=True
+        ).strip()
+        if tracked == blob:
+            commit = subprocess.check_output(
+                ["git", "log", "-1", "--format=%H", "--", relative], cwd=root, text=True
+            ).strip()
+            if len(commit) == 40:
+                return f"https://raw.githubusercontent.com/LING-0001/SnapSlot/{commit}/{relative}"
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        pass
+    # Uncommitted captures and source ZIPs still preview their own local files.
+    return None
 
 T = {
     "zh-Hans": dict(
@@ -218,6 +241,9 @@ def build(locale: str) -> str:
     up = "" if locale == "zh-Hans" else "../../"
 
     def asset(relative: str) -> str:
+        pinned = committed_asset(relative)
+        if pinned:
+            return pinned
         digest = hashlib.sha256((root / relative).read_bytes()).hexdigest()[:12]
         return f"{up}{relative}?v={digest}"
 
