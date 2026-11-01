@@ -7,6 +7,7 @@ Edit the strings here, never the generated files.
 """
 from pathlib import Path
 import json
+import hashlib
 
 root = Path(__file__).resolve().parent.parent
 REPO = "https://github.com/LING-0001/SnapSlot"
@@ -18,11 +19,11 @@ NAMES = {"zh-Hans": "简体中文", "en": "English", "zh-Hant": "繁體中文", 
 
 T = {
     "zh-Hans": dict(
-        name="SnapSlot 快照贴", tagline="复制过的，都钉在屏幕顶上。",
-        sub="复制的图片、选中的文字，变成屏幕上沿的便签。点一下，就回到剪贴板。",
+        name="SnapSlot 快照贴", tagline="把重要的内容，留在眼前。",
+        sub="把截图和文字贴在屏幕上，让参考资料和临时想法随时可见。",
         badges="Windows 10 / 11 · macOS 13+ · 免费开源 · 不需要账号 · 不上传",
         site="在线体验", download="下载", contrib="参与贡献",
-        demo_alt="SnapSlot 演示：鼠标移到上沿，便签落下；复制图片后自动钉上；拖进文档",
+        demo_alt="快照贴交互演示：展开便签、收取文字、拖入文档",
         h_use="怎么用",
         s_edge=("移到上沿，停一下", "鼠标在屏幕最上沿停 0.5 秒，便签以扇形落下；往下移开就收起。滚轮转动扇形。"),
         s_drag=("拖出去就能用", "按住便签拖进任何应用或文件夹，作为 PNG / TXT 放下。"),
@@ -45,11 +46,11 @@ T = {
         contact="问题与建议", h_license="许可", license="代码以 MIT 许可开源。名称与图标不在 MIT 授权范围内，见 [BRANDING.md](BRANDING.md)。",
     ),
     "en": dict(
-        name="SnapSlot", tagline="Everything you copy, pinned to the top of your screen.",
-        sub="Copied images and selected text become notes along the top edge. Click one and it’s back on your clipboard.",
+        name="SnapSlot", tagline="Keep what matters, right in sight.",
+        sub="Pin screenshots and text above your work. Keep references and passing thoughts within reach.",
         badges="Windows 10 / 11 · macOS 13+ · Free and open source · No account · No uploads",
         site="Try it online", download="Download", contrib="Contribute",
-        demo_alt="SnapSlot demo: rest at the top edge and notes drop down; copied images pin themselves; drag one into a document",
+        demo_alt="Snapshot Pin interactive demo: reveal notes, collect text, and drag into a document",
         h_use="How it works",
         s_edge=("Rest at the top edge", "Pause the pointer at the very top for half a second and the notes fan down. Move away and they leave. Scroll to turn the fan."),
         s_drag=("Drag it where you need it", "Hold a note and drop it into any app or folder as a PNG or TXT file."),
@@ -72,11 +73,11 @@ T = {
         contact="Questions and ideas", h_license="License", license="Code is MIT licensed. The name and icon are not covered by the MIT license; see [BRANDING.md](BRANDING.md).",
     ),
     "zh-Hant": dict(
-        name="SnapSlot 快照貼", tagline="複製過的，都釘在螢幕頂端。",
-        sub="複製的圖片、選取的文字，會變成螢幕上緣的便箋。點一下，就回到剪貼簿。",
+        name="SnapSlot 快照貼", tagline="把重要的內容，留在眼前。",
+        sub="把截圖和文字貼在螢幕上方，讓參考資料和臨時想法隨時可見。",
         badges="Windows 10 / 11 · macOS 13+ · 免費開源 · 不需要帳號 · 不上傳",
         site="線上體驗", download="下載", contrib="參與貢獻",
-        demo_alt="SnapSlot 示範：滑鼠移到上緣，便箋落下；複製圖片後自動釘上；拖進文件",
+        demo_alt="快照貼互動示範：展開便箋、收取文字、拖入文件",
         h_use="怎麼用",
         s_edge=("移到上緣，停一下", "滑鼠在螢幕最上緣停 0.5 秒，便箋會呈扇形落下；往下移開就收起。滾輪可以轉動扇形。"),
         s_drag=("拖出去就能用", "按住便箋拖進任何應用程式或資料夾，會以 PNG / TXT 放下。"),
@@ -99,11 +100,11 @@ T = {
         contact="問題與建議", h_license="授權", license="程式碼以 MIT 授權開源。名稱與圖示不在 MIT 授權範圍內，見 [BRANDING.md](BRANDING.md)。",
     ),
     "ja": dict(
-        name="SnapSlot", tagline="コピーしたものは、画面の上にピン留め。",
-        sub="コピーした画像や選択したテキストが、画面の上端にメモとして並びます。クリックすれば、クリップボードに戻ります。",
+        name="SnapSlot", tagline="大切なものを、いつでも目の前に。",
+        sub="画像や文字を画面の手前に。参考資料や思いついたアイデアを、いつでも見える場所へ。",
         badges="Windows 10 / 11 · macOS 13+ · 無料・オープンソース · アカウント不要 · アップロードなし",
         site="オンラインで試す", download="ダウンロード", contrib="コントリビュート",
-        demo_alt="SnapSlot のデモ：上端で止まるとメモが下りてくる、コピーした画像が自動でピン留め、書類へドラッグ",
+        demo_alt="SnapSlot の操作デモ：メモを表示し、文字を取り込み、文書にドラッグ",
         h_use="使いかた",
         s_edge=("上端で、少し止まる", "画面のいちばん上で 0.5 秒止まると、メモが扇形に下りてきます。マウスを下ろすと閉じます。ホイールで扇を回せます。"),
         s_drag=("ドラッグして使う", "メモを押さえたまま、アプリやフォルダへ PNG / TXT としてドロップできます。"),
@@ -126,11 +127,11 @@ T = {
         contact="質問・提案", h_license="ライセンス", license="コードは MIT ライセンスです。名前とアイコンは MIT の対象外です。[BRANDING.md](BRANDING.md) を参照。",
     ),
     "ko": dict(
-        name="SnapSlot", tagline="복사한 모든 것을, 화면 위에 고정하세요.",
-        sub="복사한 이미지와 선택한 텍스트가 화면 위쪽 가장자리에 메모로 놓입니다. 클릭하면 다시 클립보드로 돌아와요.",
+        name="SnapSlot", tagline="중요한 내용을, 바로 눈앞에.",
+        sub="스크린샷과 텍스트를 화면 위에 붙여 참고 자료와 아이디어를 가까이 두세요.",
         badges="Windows 10 / 11 · macOS 13+ · 무료 오픈 소스 · 계정 불필요 · 업로드 없음",
         site="온라인으로 체험", download="다운로드", contrib="기여하기",
-        demo_alt="SnapSlot 데모: 위쪽 가장자리에 머물면 메모가 내려오고, 복사한 이미지가 자동으로 고정되고, 문서로 끌어다 놓기",
+        demo_alt="SnapSlot 사용 데모: 메모 펼치기, 텍스트 수집, 문서로 드래그",
         h_use="사용 방법",
         s_edge=("맨 위에서 잠시 멈추기", "마우스를 화면 맨 위에 0.5초 두면 메모가 부채꼴로 내려와요. 아래로 옮기면 닫혀요. 휠로 부채를 돌릴 수 있어요."),
         s_drag=("끌어다 놓아 쓰기", "메모를 누른 채 앱이나 폴더로 끌어다 놓으면 PNG / TXT 파일이 돼요."),
@@ -153,11 +154,11 @@ T = {
         contact="문의와 제안", h_license="라이선스", license="코드는 MIT 라이선스예요. 이름과 아이콘은 MIT 적용 대상이 아니에요. [BRANDING.md](BRANDING.md)를 보세요.",
     ),
     "es": dict(
-        name="SnapSlot", tagline="Todo lo que copias, fijado arriba en tu pantalla.",
-        sub="Las imágenes que copias y el texto que seleccionas se vuelven notas en el borde superior. Haz clic en una y vuelve a tu portapapeles.",
+        name="SnapSlot", tagline="Capturas y texto, siempre a la vista.",
+        sub="Fija capturas y notas sobre tu trabajo. Referencias e ideas, siempre cerca.",
         badges="Windows 10 / 11 · macOS 13+ · Gratis y de código abierto · Sin cuenta · Sin subidas",
         site="Pruébalo en línea", download="Descargar", contrib="Contribuir",
-        demo_alt="Demostración de SnapSlot: al detenerte en el borde superior bajan las notas, las imágenes copiadas se fijan solas, arrastra una a un documento",
+        demo_alt="Demostración de Snapshot Pin: mostrar notas, recoger texto y arrastrarlo a un documento",
         h_use="Cómo funciona",
         s_edge=("Detente en el borde superior", "Deja el cursor arriba del todo medio segundo y las notas bajan en abanico. Al apartarlo, se van. La rueda gira el abanico."),
         s_drag=("Arrástrala donde la necesites", "Mantén pulsada una nota y suéltala en cualquier app o carpeta como archivo PNG o TXT."),
@@ -185,7 +186,11 @@ T = {
 def build(locale: str) -> str:
     t = T[locale]
     up = "" if locale == "zh-Hans" else "../../"  # generated non-Chinese files live in docs/readme/
-    m = f"{up}docs/media/{locale}"
+    def asset(relative: str) -> str:
+        digest = hashlib.sha256((root / relative).read_bytes()).hexdigest()[:12]
+        return f"{up}{relative}?v={digest}"
+
+    media = lambda name: asset(f"docs/media/{locale}/{name}")
     link = lambda l: f"{up}README.md" if l == "zh-Hans" else (f"{up}docs/readme/README.{l}.md" if up == "" else f"README.{l}.md")
     langs = " · ".join(f"<b>{NAMES[l]}</b>" if l == locale else f'<a href="{link(l)}">{NAMES[l]}</a>' for l in ORDER)
     fix = lambda s: s.replace("](CONTRIBUTING.md)", f"]({up}CONTRIBUTING.md)").replace("](BRANDING.md)", f"]({up}BRANDING.md)").replace("](docs/releases/hosting.md)", f"]({up}docs/releases/hosting.md)")
@@ -193,7 +198,7 @@ def build(locale: str) -> str:
 
     def step(img, alt, pair, flip=False):
         title, body = pair
-        pic = f'<td width="56%"><img src="{m}/{img}" alt="{alt}"></td>'
+        pic = f'<td width="56%"><img src="{media(img)}" alt="{alt}"></td>'
         words = f'<td width="44%"><h3>{title}</h3><p>{md_inline(body)}</p></td>'
         return f"<tr>{words}{pic}</tr>" if flip else f"<tr>{pic}{words}</tr>"
 
@@ -205,7 +210,7 @@ def build(locale: str) -> str:
     keys = "\n".join(f"| {a} | {kbd(w)} | {kbd(m_)} |" for a, w, m_ in t["keys"])
     layout = "\n".join(f"| `{d}` | {x} |" for d, x in t["layout"])
     return f"""<!-- Generated by scripts/readme-build.py — edit that file, not this one. -->
-<p align="center"><img src="{up}apps/website/public/icon.svg" width="96" height="96" alt=""></p>
+<p align="center"><img src="{asset("apps/website/public/brand/current/snapslot.png")}" width="96" height="96" alt=""></p>
 
 <h1 align="center">{t["name"]}</h1>
 
@@ -224,8 +229,8 @@ def build(locale: str) -> str:
 
 <p align="center">v{VERSION} · <a href="{DOWNLOADS}/SnapSlot-{VERSION}-macOS-universal.dmg">macOS · DMG · Apple Silicon / Intel</a> · <a href="{DOWNLOADS}/SnapSlot-{VERSION}-windows-x64-setup.exe">Windows x64 · Setup</a></p>
 
-<p align="center"><img src="{m}/demo.gif" width="760" alt="{t["demo_alt"]}"></p>
-<p align="center"><a href="{m}/demo.mp4">MP4 · v{VERSION}</a></p>
+<p align="center"><img src="{media("demo.gif")}" width="760" alt="{t["demo_alt"]}"></p>
+<p align="center"><a href="{media("demo.mp4")}">MP4 · v{VERSION}</a></p>
 
 ## {t["h_use"]}
 
@@ -237,8 +242,8 @@ def build(locale: str) -> str:
 
 <table>
 <tr>
-<td width="50%"><img src="{m}/tray-menu.webp" alt="{t["alt_tray"]}"></td>
-<td width="50%"><img src="{m}/settings.webp" alt="{t["alt_settings"]}"></td>
+<td width="50%"><img src="{media("tray-menu.webp")}" alt="{t["alt_tray"]}"></td>
+<td width="50%"><img src="{media("settings.webp")}" alt="{t["alt_settings"]}"></td>
 </tr>
 </table>
 
@@ -248,8 +253,8 @@ def build(locale: str) -> str:
 
 <table>
 <tr>
-<td width="72%"><img src="{m}/macos.webp" alt="{t["alt_mac"]}"></td>
-<td width="28%"><img src="{m}/phone.webp" alt="{t["alt_phone"]}"></td>
+<td width="72%"><img src="{media("macos.webp")}" alt="{t["alt_mac"]}"></td>
+<td width="28%"><img src="{media("phone.webp")}" alt="{t["alt_phone"]}"></td>
 </tr>
 </table>
 
@@ -337,6 +342,7 @@ def md_inline(text: str, keep_md: bool = False) -> str:
 (root / "docs" / "readme").mkdir(parents=True, exist_ok=True)
 for locale in ORDER:
     target = root / "README.md" if locale == "zh-Hans" else root / "docs" / "readme" / f"README.{locale}.md"
+    content = build(locale)
     with target.open("w", encoding="utf-8", newline="\n") as output:
-        output.write(build(locale))
+        output.write(content)
     print(target.relative_to(root))
