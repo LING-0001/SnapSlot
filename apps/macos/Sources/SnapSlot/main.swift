@@ -1091,6 +1091,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
                 try check(peekUntil.timeIntervalSinceNow<=4.1,"Arrival peek is configured for four seconds")
                 for _ in 0..<65 {if !expanded {break};try await Task.sleep(nanoseconds:100_000_000)}
                 try check(!expanded && !pinned,"Collected notes collapse after the four-second peek when the pointer is outside; expanded=\(expanded), pinned=\(pinned), previewing=\(previewing), dragging=\(dragging), timer=\(dismiss?.isValid ?? false)")
+                // The next scenario selects text inside the note. Stop simulating
+                // a pointer outside the rail, which would dismiss it mid-selection.
+                dismissalPointer = { NSPoint(x:self.activeScreen.frame.midX,y:self.activeScreen.visibleFrame.maxY-100) }
                 reveal(focus:false)
                 try await Task.sleep(nanoseconds:350_000_000)
                 _ = try await web.evaluateJavaScript("document.querySelector('[data-focus=true]').dispatchEvent(new KeyboardEvent('keydown',{key:' ',code:'Space',bubbles:true}))")
@@ -1104,11 +1107,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
                 _ = try await web.evaluateJavaScript("const r=document.createRange();r.selectNodeContents(document.querySelector('[data-focus=true] [data-note-text]'));const selection=getSelection();selection.removeAllRanges();selection.addRange(r)")
                 try await Task.sleep(nanoseconds:100_000_000)
                 let selectedPayload=try await web.evaluateJavaScript("getSelection().toString().trim()") as? String ?? ""
+                try check(!selectedPayload.isEmpty,"Selected note text remains available while the pointer is inside the fan")
                 let chip=try await web.evaluateJavaScript("!!document.querySelector('.native-selection')") as? Bool
                 try check(chip==true,"Selectable note text exposes the same collect action in real WKWebView")
+                let previousSelectionID=store.items.last?.id
                 _ = try await web.evaluateJavaScript("document.querySelector('.native-selection').click()")
-                try await Task.sleep(nanoseconds:150_000_000)
-                try check(!selectedPayload.isEmpty && store.items.last?.text==selectedPayload && clipboard.string(forType:.string)==selectedPayload && !pinned,"Collecting selected note text preserves its full payload and unpinned state; observed \(String(reflecting:store.items.last?.text)), pinned=\(pinned)")
+                for _ in 0..<40 {
+                    if store.items.last?.id != previousSelectionID && store.items.last?.text==selectedPayload && clipboard.string(forType:.string)==selectedPayload && !pinned {break}
+                    try await Task.sleep(nanoseconds:50_000_000)
+                }
+                try check(store.items.last?.id != previousSelectionID && store.items.last?.text==selectedPayload && clipboard.string(forType:.string)==selectedPayload && !pinned,"Collecting selected note text creates a note and preserves its full payload, clipboard and unpinned state; selected characters=\(selectedPayload.count), new item=\(store.items.last?.id != previousSelectionID), clipboard matches=\(clipboard.string(forType:.string)==selectedPayload), pinned=\(pinned)")
                 checks += try checkHotKeyTransaction()
                 try (checks.joined(separator:"\n")+"\n").write(to:directory.appendingPathComponent("macos-smoke.txt"),atomically:true,encoding:.utf8)
                 if CommandLine.arguments.contains("--keep-open") {reveal(focus:false);pinNotes()}else{NSApp.terminate(nil)}
