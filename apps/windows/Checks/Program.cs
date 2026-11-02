@@ -51,5 +51,13 @@ try
     Check(true,"Exhausted alternatives fail without reporting an unregistered shortcut");
     var closeOnce=new CloseOnce();
     Check(closeOnce.TryBegin()&&!closeOnce.TryBegin(),"A deactivated tray window can request Close only once");
+    var bounds=TrayIconGeometry.VisibleBounds(256,256,(x,y)=>(byte)(x>=29&&x<227&&y>=31&&y<222?255:8));
+    Check(bounds==new System.Drawing.Rectangle(29,31,198,191),"Tray artwork bounds exclude transparent application-icon padding and faint fringes");
+    foreach(int pixels in new[]{16,20,24,32})
+    {
+        var fit=TrayIconGeometry.Fit(new System.Drawing.Size(pixels,pixels),bounds);
+        Check(fit.Left>=1&&fit.Top>=1&&fit.Right<=pixels-1&&fit.Bottom<=pixels-1&&Math.Abs(fit.Width/fit.Height-198f/191)<.001,"Tray artwork preserves its aspect ratio and safe edge at "+pixels+" pixels");
+        if(pixels==16)Check(fit.Width>=14,"A 16px tray slot renders 14px of artwork instead of the old 12px padded frame");
+    }
 }
 finally{Directory.Delete(root,true);}

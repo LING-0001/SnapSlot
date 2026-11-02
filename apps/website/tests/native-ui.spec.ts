@@ -40,6 +40,35 @@ async function host(page: Page, mode = "rail", count = 8, platform: "macos" | "w
 }
 const focused = (page: Page) => page.locator("[data-focus=true]");
 
+for(const platform of ['macos','windows'] as const){
+ test(`${platform}: quiet note index follows selection, arrivals and deletion without covering notes`,async({page})=>{
+  await page.setViewportSize({width:1280,height:360});
+  await host(page,'rail',8,platform);
+  const index=page.locator('[data-note-index]');
+  await expect(index).toBeVisible();
+  await expect(index).toHaveText('8 / 8');
+  await focused(page).focus();await page.keyboard.press('ArrowRight');
+  await expect(index).toHaveText('8 / 8');
+  await page.keyboard.press('ArrowLeft');
+  await expect(index).toHaveText('7 / 8');
+  await expect(index).toHaveCSS('pointer-events','none');
+  await expect.poll(async()=>{
+   const card=await focused(page).boundingBox(),position=await index.boundingBox();
+   return !!card&&!!position&&position.y>=card.y+card.height+4;
+  }).toBe(true);
+  expect((await index.boundingBox())!.height).toBeLessThanOrEqual(17);
+  await page.screenshot({path:path.join(output,`${platform}-note-index.png`),clip:{x:410,y:0,width:460,height:180}});
+  await page.evaluate(()=>{const w=window as any;w.state.items.push({id:'new-arrival',kind:'text',text:'New note'});w.state.count=9;w.emit(w.state)});
+  await expect(index).toHaveText('9 / 9');
+  await focused(page).focus();await page.keyboard.press('Delete');
+  await expect(index).toHaveText('8 / 8');
+  await page.evaluate(()=>{const w=window as any;w.state.items=w.state.items.slice(0,1);w.state.count=1;w.emit(w.state)});
+  await expect(index).toHaveCount(0);
+  await page.evaluate(()=>{const w=window as any;w.state.items=[];w.state.count=0;w.emit(w.state)});
+  await expect(index).toHaveCount(0);
+ });
+}
+
 test("fan shares website materials and animation while fitting the native host", async ({ page, context }) => {
   await page.setViewportSize({ width: 1280, height: 360 });
   await host(page);

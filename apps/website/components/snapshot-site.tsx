@@ -5,7 +5,8 @@ import {Apple} from '@linglinglab/web-ui/showcase-icons';
 import type {Locale} from '@/lib/locales';
 import {downloads} from '@/lib/releases';
 import {Home,GitHubMark} from './home';
-import {useState,type MouseEvent,type KeyboardEvent} from 'react';
+import {useEffect,useState,type MouseEvent,type KeyboardEvent} from 'react';
+import {clientPlatform} from '@/lib/client-platform';
 import {snapshotCopy,snapshotDeviceCopy} from '@/lib/snapshot-copy';
 import {landingDemoCopy} from '@/lib/landing-demo-copy';
 import {referenceCopy} from '@/lib/reference-copy';
@@ -15,6 +16,7 @@ function Chevron(){return <svg width="18" height="18" viewBox="0 0 20 20" fill="
 function DownloadIcon(){return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5"/></svg>}
 export default function SnapshotSite({locale}:{locale:Locale}){
  const [downloadPlatform,setDownloadPlatform]=useState<'mac'|'win'>('mac');
+ useEffect(()=>{setDownloadPlatform(clientPlatform());},[]);
  const r=referenceCopy[locale];
  const t=snapshotCopy[locale],d=snapshotDeviceCopy[locale],info=landingDemoCopy[locale],home=`${process.env.NEXT_PUBLIC_HOME_URL||'https://linglinglab.top'}/${locale}/`;
  const onDownloadKey=(event:KeyboardEvent<HTMLButtonElement>,platform:'mac'|'win')=>{

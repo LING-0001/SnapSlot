@@ -272,7 +272,7 @@ function App() {
             </div>;
           })}
           {!items.length && <p className={s.emptyFan}>{a.stage.empty}</p>}
-          {items.length > 1 && <p className={s.counter} data-native-counter aria-hidden="true">{pinned && <span className={s.pinnedDot}/ >}{focus + 1} / {items.length}</p>}
+          {items.length > 1 && <p className={s.counter} data-native-counter data-note-index aria-hidden="true">{focus + 1} / {items.length}</p>}
         </div>
       </>}
       {mode==="rail" && preview && <section className={`${s.notePreview} native-preview`} role="dialog" aria-label={interaction.zoom} data-native-region="__preview"><header><b>{interaction.zoom}</b><button ref={previewClose} aria-label={a.settings.close} onClick={closePreview}>×</button></header><div className={s.previewContent} data-preview-content>{preview.kind==="image"?<img src={preview.preview} alt={preview.title}/>:<p>{preview.text}</p>}</div></section>}

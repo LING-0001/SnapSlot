@@ -38,7 +38,7 @@ main.native-page .native-surface[data-mode][data-density]{display:block;padding:
 main.native-page .native-surface[data-mode=rail][data-density] [data-arm]{top:12px;height:116px}
 main.native-page .native-surface[data-mode=rail] [data-kind='text']{--card-w:150px}
 main.native-page .native-surface[data-mode=rail][data-density] [role='list']{top:0;height:200px;scale:1}
-main.native-page .native-surface[data-mode=rail] [data-native-counter]{top:158px;bottom:auto}
+main.native-page .native-surface[data-mode=rail] [data-native-counter]{top:calc(12px + var(--card-h) + 7px);bottom:auto}
 main.native-page .native-surface[data-mode=preferences] .native-window{position:relative;inset:auto;width:420px;max-height:100%;margin:0;translate:none;animation:none}
 main.native-page .native-surface[data-mode=preferences] [data-settings-row]{font-size:13px;min-height:48px}
 main.native-page .native-surface[data-mode=preferences] [data-settings-row] small{font-size:11px}

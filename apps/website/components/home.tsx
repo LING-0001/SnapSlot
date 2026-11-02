@@ -13,6 +13,7 @@ import {desktopFiles,desktopPhotos} from "@/lib/desktop-assets";
 import {interactionCopy} from "@/lib/interaction-copy";
 import {landingDemoCopy} from "@/lib/landing-demo-copy";
 import {referenceCopy} from "@/lib/reference-copy";
+import {clientPlatform} from "@/lib/client-platform";
 
 
 type Note =
@@ -284,7 +285,7 @@ export function Home({ locale, embedded = false }: { locale: Locale; embedded?: 
   }, [appLocale]);
 
   useEffect(() => {
-    setOs(/Mac|iPhone|iPad/.test(navigator.platform) ? "mac" : "win");
+    setOs(clientPlatform());
     const measureDemo = () => {
       const stage=stageRef.current!;
       if(embedded){const top=stage.getBoundingClientRect().top+window.scrollY;stage.style.setProperty("--stage-height",`${Math.max(280,window.innerHeight-top-5)}px`);}
@@ -785,7 +786,7 @@ export function Home({ locale, embedded = false }: { locale: Locale; embedded?: 
                 </div>;
               })}
               {notes.length === 0 && <p className={s.emptyFan}>{a.stage.empty}</p>}
-              {notes.length > 1 && <p className={s.counter} aria-hidden="true">{pinned && <span className={s.pinnedDot}/>}{focus + 1} / {notes.length}</p>}
+              {notes.length > 1 && <p className={s.counter} data-note-index aria-hidden="true">{focus + 1} / {notes.length}</p>}
             </div>
 
             {previewNote && <section className={s.notePreview} role="dialog" aria-label={guide.zoom} data-note-preview>

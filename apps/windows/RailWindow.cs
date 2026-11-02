@@ -53,8 +53,9 @@ public sealed class RailWindow : Window
     private readonly EdgeDwell edgeDwell=new();
     private Forms.NotifyIcon? tray;
     private Drawing.Icon? icon;
+    private Drawing.Rectangle iconSource;
     private Drawing.Icon? stateIcon;
-    private (bool Pinned,bool CollectImages)? iconState;
+    private (bool Pinned,bool CollectImages,Drawing.Size Size)? iconState;
     private HwndSource? source;
     private bool expanded,pinned,arming,dragging,disposed,previewing;
     private string appearance="glass";
@@ -88,7 +89,7 @@ public sealed class RailWindow : Window
         dismiss.Tick+=(_,_)=>{dismiss.Stop();if(!KeepOpen()&&!pinned&&!dragging&&!previewing&&settingsMode!="tray")Collapse();};
         hide.Tick+=(_,_)=>{hide.Stop();if(!expanded)Hide();};
         SourceInitialized+=OnSource;
-        DpiChanged+=(_,_)=>Dispatcher.BeginInvoke(Position);
+        DpiChanged+=(_,_)=>Dispatcher.BeginInvoke(new Action(()=>{Position();UpdateTrayIcon();}));
         Loaded+=async(_,_)=>{Hide();try{await InitializeWeb(web,"rail");if(!testing){_=PrepareTrayMenuAsync();_=PreparePreferencesAsync();}if(testing){Seed();Reveal(false);}else if(startupShortcutError is not null||shortcutChanges.Count>0){OpenSettings("preferences");}}catch(Exception ex){System.Windows.MessageBox.Show(ex.Message+"\nInstall Microsoft Edge WebView2 Runtime to run SnapSlot.","SnapSlot");Application.Current.Shutdown(1);}};
         Closed+=(_,_)=>Dispose();
         if(!testing)SetupTray();
@@ -447,8 +448,11 @@ public sealed class RailWindow : Window
     private void SetupTray()
     {
         tray=new Forms.NotifyIcon{Text="SnapSlot"};
-        var small=Forms.SystemInformation.SmallIconSize;var file=Path.Combine(AppContext.BaseDirectory,"SnapSlot.ico");
-        icon=File.Exists(file)?new Drawing.Icon(file,small):(Drawing.Icon)Drawing.SystemIcons.Application.Clone();tray.Icon=icon;
+        var file=Path.Combine(AppContext.BaseDirectory,"SnapSlot.ico");
+        // Start with the high-resolution master-derived frame, then fit its visible
+        // artwork to the tray metric instead of preserving application-icon padding.
+        icon=File.Exists(file)?new Drawing.Icon(file,new Drawing.Size(256,256)):(Drawing.Icon)Drawing.SystemIcons.Application.Clone();
+        using(var original=icon.ToBitmap())iconSource=TrayIconGeometry.VisibleBounds(original.Width,original.Height,(x,y)=>original.GetPixel(x,y).A);
         tray.MouseClick+=(_,eventArgs)=>Dispatcher.Invoke(()=>Safe(()=>{
             if(eventArgs.Button==Forms.MouseButtons.Right){if(settingsMode=="tray")CloseSettings();else OpenSettings("tray");}
             else if(eventArgs.Button==Forms.MouseButtons.Left){if(settingsMode=="tray")CloseSettings();else OpenSettings("tray");}
@@ -457,18 +461,22 @@ public sealed class RailWindow : Window
     }
     private void UpdateTrayIcon()
     {
-        if(tray is null||icon is null||iconState==(pinned,collectImages))return;
         var size=Forms.SystemInformation.SmallIconSize;
+        if(tray is null||icon is null||iconState==(pinned,collectImages,size))return;
         using var bitmap=new Drawing.Bitmap(size.Width,size.Height);
         using(var graphics=Drawing.Graphics.FromImage(bitmap)){
             graphics.SmoothingMode=Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            graphics.InterpolationMode=Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+            graphics.PixelOffsetMode=Drawing.Drawing2D.PixelOffsetMode.HighQuality;
             using var original=icon.ToBitmap();
-            if(collectImages)graphics.DrawImage(original,new Drawing.Rectangle(Drawing.Point.Empty,size));
+            var destination=TrayIconGeometry.Fit(size,iconSource);
+            if(collectImages)graphics.DrawImage(original,destination,iconSource,Drawing.GraphicsUnit.Pixel);
             else{
                 using var attributes=new Drawing.Imaging.ImageAttributes();
                 attributes.SetColorMatrix(new Drawing.Imaging.ColorMatrix(new[]{
                     new[]{.2126f,.2126f,.2126f,0f,0f},new[]{.7152f,.7152f,.7152f,0f,0f},new[]{.0722f,.0722f,.0722f,0f,0f},new[]{0f,0f,0f,.55f,0f},new[]{0f,0f,0f,0f,1f}}));
-                graphics.DrawImage(original,new Drawing.Rectangle(Drawing.Point.Empty,size),0,0,original.Width,original.Height,Drawing.GraphicsUnit.Pixel,attributes);
+                var corners=new[]{new Drawing.PointF(destination.Left,destination.Top),new Drawing.PointF(destination.Right,destination.Top),new Drawing.PointF(destination.Left,destination.Bottom)};
+                graphics.DrawImage(original,corners,iconSource,Drawing.GraphicsUnit.Pixel,attributes);
             }
             if(pinned){
                 // Website Windows marker: 7 px, right/bottom 4 px, 1.5 px light ring on a 32 px button.
@@ -481,7 +489,7 @@ public sealed class RailWindow : Window
         }
         var handle=bitmap.GetHicon();Drawing.Icon next;
         try{next=(Drawing.Icon)Drawing.Icon.FromHandle(handle).Clone();}finally{DestroyIcon(handle);}
-        var previous=stateIcon;tray.Icon=next;stateIcon=next;iconState=(pinned,collectImages);previous?.Dispose();
+        var previous=stateIcon;tray.Icon=next;stateIcon=next;iconState=(pinned,collectImages,size);previous?.Dispose();
     }
     private void OnSource(object? sender,EventArgs e)
     {
