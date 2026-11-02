@@ -19,8 +19,11 @@ internal static class TrayIconGeometry
     public static RectangleF Fit(Size canvas,Rectangle source)
     {
         float inset=Math.Max(1f,Math.Min(canvas.Width,canvas.Height)/32f);
-        float scale=Math.Min((canvas.Width-2*inset)/source.Width,(canvas.Height-2*inset)/source.Height);
-        float width=source.Width*scale,height=source.Height*scale;
+        float width=canvas.Width-2*inset,height=canvas.Height-2*inset;
+        // Keep the limiting axis exact rather than multiplying a rounded scale
+        // back into it; the other axis retains the artwork's aspect ratio.
+        if(source.Width*(double)height>=source.Height*(double)width)height=width*source.Height/source.Width;
+        else width=height*source.Width/source.Height;
         return new RectangleF((canvas.Width-width)/2,(canvas.Height-height)/2,width,height);
     }
 }
