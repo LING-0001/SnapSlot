@@ -13,8 +13,8 @@
 
 <p align="center"><a href="../../README.md">简体中文</a> · <a href="README.en.md">English</a> · <a href="README.zh-Hant.md">繁體中文</a> · <a href="README.ja.md">日本語</a> · <b>한국어</b> · <a href="README.es.md">Español</a></p>
 
-<p align="center"><a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/1af7d8bf104226b0951d8958ab79c3263363a160/docs/media/ko/demo.mp4"><img src="https://raw.githubusercontent.com/LING-0001/SnapSlot/1af7d8bf104226b0951d8958ab79c3263363a160/docs/media/ko/drag.webp" width="840" alt="SnapSlot 사용 데모: 메모 펼치기, 텍스트 수집, 문서로 드래그"></a></p>
-<p align="center"><sub><a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/1af7d8bf104226b0951d8958ab79c3263363a160/docs/media/ko/demo.mp4">데모 보기</a> · <a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/1af7d8bf104226b0951d8958ab79c3263363a160/docs/media/ko/demo.gif">GIF 보기</a> · <a href="https://github.com/LING-0001/SnapSlot/releases/tag/v1.1.2">v1.1.2</a> · <a href="../../docs/releases/hosting.md">설치 안내</a></sub></p>
+<p align="center"><a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/b9d562897b3821d4db235fdfa4ca0a49c70d9ba1/docs/media/ko/demo.mp4"><img src="https://raw.githubusercontent.com/LING-0001/SnapSlot/b9d562897b3821d4db235fdfa4ca0a49c70d9ba1/docs/media/ko/drag.webp" width="840" alt="SnapSlot 사용 데모: 메모 펼치기, 텍스트 수집, 문서로 드래그"></a></p>
+<p align="center"><sub><a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/b9d562897b3821d4db235fdfa4ca0a49c70d9ba1/docs/media/ko/demo.mp4">데모 보기</a> · <a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/b9d562897b3821d4db235fdfa4ca0a49c70d9ba1/docs/media/ko/demo.gif">GIF 보기</a> · <a href="https://github.com/LING-0001/SnapSlot/releases/tag/v1.1.2">v1.1.2</a> · <a href="../../docs/releases/hosting.md">설치 안내</a></sub></p>
 
 ## 사용 방법
 
@@ -29,7 +29,7 @@
 
 macOS 메뉴 막대 아이콘을 클릭하거나 Dock 아이콘을 우클릭하면 설정, 이미지 자동 수집, 메모 고정을 사용할 수 있습니다. Windows에서는 트레이 메뉴를 사용합니다. 설정에서 모양, 언어, 단축키를 변경하거나 현재 메모를 비울 수 있습니다.
 
-<p align="center"><img src="https://raw.githubusercontent.com/LING-0001/SnapSlot/1af7d8bf104226b0951d8958ab79c3263363a160/docs/media/ko/settings.webp" width="400" alt="설정 창"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/LING-0001/SnapSlot/b9d562897b3821d4db235fdfa4ca0a49c70d9ba1/docs/media/ko/settings.webp" width="400" alt="설정 창"></p>
 
 ## 단축키
 

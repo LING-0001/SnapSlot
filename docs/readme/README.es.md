@@ -13,8 +13,8 @@
 
 <p align="center"><a href="../../README.md">简体中文</a> · <a href="README.en.md">English</a> · <a href="README.zh-Hant.md">繁體中文</a> · <a href="README.ja.md">日本語</a> · <a href="README.ko.md">한국어</a> · <b>Español</b></p>
 
-<p align="center"><a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/1af7d8bf104226b0951d8958ab79c3263363a160/docs/media/es/demo.mp4"><img src="https://raw.githubusercontent.com/LING-0001/SnapSlot/1af7d8bf104226b0951d8958ab79c3263363a160/docs/media/es/drag.webp" width="840" alt="Demostración de Snapshot Pin: mostrar notas, recoger texto y arrastrarlo a un documento"></a></p>
-<p align="center"><sub><a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/1af7d8bf104226b0951d8958ab79c3263363a160/docs/media/es/demo.mp4">Ver la demostración</a> · <a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/1af7d8bf104226b0951d8958ab79c3263363a160/docs/media/es/demo.gif">Ver GIF</a> · <a href="https://github.com/LING-0001/SnapSlot/releases/tag/v1.1.2">v1.1.2</a> · <a href="../../docs/releases/hosting.md">Guía de instalación</a></sub></p>
+<p align="center"><a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/b9d562897b3821d4db235fdfa4ca0a49c70d9ba1/docs/media/es/demo.mp4"><img src="https://raw.githubusercontent.com/LING-0001/SnapSlot/b9d562897b3821d4db235fdfa4ca0a49c70d9ba1/docs/media/es/drag.webp" width="840" alt="Demostración de Snapshot Pin: mostrar notas, recoger texto y arrastrarlo a un documento"></a></p>
+<p align="center"><sub><a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/b9d562897b3821d4db235fdfa4ca0a49c70d9ba1/docs/media/es/demo.mp4">Ver la demostración</a> · <a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/b9d562897b3821d4db235fdfa4ca0a49c70d9ba1/docs/media/es/demo.gif">Ver GIF</a> · <a href="https://github.com/LING-0001/SnapSlot/releases/tag/v1.1.2">v1.1.2</a> · <a href="../../docs/releases/hosting.md">Guía de instalación</a></sub></p>
 
 ## Cómo funciona
 
@@ -29,7 +29,7 @@
 
 Haz clic en el icono de la barra de menús de macOS o clic derecho en el icono del Dock para abrir Ajustes, activar la captura de imágenes o fijar notas. En Windows, usa el menú de la bandeja. Ajustes permite cambiar el aspecto, el idioma, los atajos y borrar las notas actuales.
 
-<p align="center"><img src="https://raw.githubusercontent.com/LING-0001/SnapSlot/1af7d8bf104226b0951d8958ab79c3263363a160/docs/media/es/settings.webp" width="400" alt="Ventana de ajustes"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/LING-0001/SnapSlot/b9d562897b3821d4db235fdfa4ca0a49c70d9ba1/docs/media/es/settings.webp" width="400" alt="Ventana de ajustes"></p>
 
 ## Atajos
 

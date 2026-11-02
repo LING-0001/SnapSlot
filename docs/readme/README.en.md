@@ -13,8 +13,8 @@
 
 <p align="center"><a href="../../README.md">简体中文</a> · <b>English</b> · <a href="README.zh-Hant.md">繁體中文</a> · <a href="README.ja.md">日本語</a> · <a href="README.ko.md">한국어</a> · <a href="README.es.md">Español</a></p>
 
-<p align="center"><a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/1af7d8bf104226b0951d8958ab79c3263363a160/docs/media/en/demo.mp4"><img src="https://raw.githubusercontent.com/LING-0001/SnapSlot/1af7d8bf104226b0951d8958ab79c3263363a160/docs/media/en/drag.webp" width="840" alt="Snapshot Pin interactive demo: reveal notes, collect text, and drag into a document"></a></p>
-<p align="center"><sub><a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/1af7d8bf104226b0951d8958ab79c3263363a160/docs/media/en/demo.mp4">Watch the demo</a> · <a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/1af7d8bf104226b0951d8958ab79c3263363a160/docs/media/en/demo.gif">View GIF</a> · <a href="https://github.com/LING-0001/SnapSlot/releases/tag/v1.1.2">v1.1.2</a> · <a href="../../docs/releases/hosting.md">Installation guide</a></sub></p>
+<p align="center"><a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/b9d562897b3821d4db235fdfa4ca0a49c70d9ba1/docs/media/en/demo.mp4"><img src="https://raw.githubusercontent.com/LING-0001/SnapSlot/b9d562897b3821d4db235fdfa4ca0a49c70d9ba1/docs/media/en/drag.webp" width="840" alt="Snapshot Pin interactive demo: reveal notes, collect text, and drag into a document"></a></p>
+<p align="center"><sub><a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/b9d562897b3821d4db235fdfa4ca0a49c70d9ba1/docs/media/en/demo.mp4">Watch the demo</a> · <a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/b9d562897b3821d4db235fdfa4ca0a49c70d9ba1/docs/media/en/demo.gif">View GIF</a> · <a href="https://github.com/LING-0001/SnapSlot/releases/tag/v1.1.2">v1.1.2</a> · <a href="../../docs/releases/hosting.md">Installation guide</a></sub></p>
 
 ## How it works
 
@@ -29,7 +29,7 @@
 
 Click the macOS menu-bar icon or right-click the Dock icon to open Settings, toggle image collection, or pin notes. On Windows, use the tray menu. Settings also controls appearance, language, shortcuts, and clearing the current notes.
 
-<p align="center"><img src="https://raw.githubusercontent.com/LING-0001/SnapSlot/1af7d8bf104226b0951d8958ab79c3263363a160/docs/media/en/settings.webp" width="400" alt="Settings window"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/LING-0001/SnapSlot/b9d562897b3821d4db235fdfa4ca0a49c70d9ba1/docs/media/en/settings.webp" width="400" alt="Settings window"></p>
 
 ## Shortcuts
 

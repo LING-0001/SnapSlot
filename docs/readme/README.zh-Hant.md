@@ -13,8 +13,8 @@
 
 <p align="center"><a href="../../README.md">简体中文</a> · <a href="README.en.md">English</a> · <b>繁體中文</b> · <a href="README.ja.md">日本語</a> · <a href="README.ko.md">한국어</a> · <a href="README.es.md">Español</a></p>
 
-<p align="center"><a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/1af7d8bf104226b0951d8958ab79c3263363a160/docs/media/zh-Hant/demo.mp4"><img src="https://raw.githubusercontent.com/LING-0001/SnapSlot/1af7d8bf104226b0951d8958ab79c3263363a160/docs/media/zh-Hant/drag.webp" width="840" alt="快照貼互動示範：展開便箋、收取文字、拖入文件"></a></p>
-<p align="center"><sub><a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/1af7d8bf104226b0951d8958ab79c3263363a160/docs/media/zh-Hant/demo.mp4">觀看示範</a> · <a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/1af7d8bf104226b0951d8958ab79c3263363a160/docs/media/zh-Hant/demo.gif">查看動圖</a> · <a href="https://github.com/LING-0001/SnapSlot/releases/tag/v1.1.2">v1.1.2</a> · <a href="../../docs/releases/hosting.md">安裝說明</a></sub></p>
+<p align="center"><a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/b9d562897b3821d4db235fdfa4ca0a49c70d9ba1/docs/media/zh-Hant/demo.mp4"><img src="https://raw.githubusercontent.com/LING-0001/SnapSlot/b9d562897b3821d4db235fdfa4ca0a49c70d9ba1/docs/media/zh-Hant/drag.webp" width="840" alt="快照貼互動示範：展開便箋、收取文字、拖入文件"></a></p>
+<p align="center"><sub><a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/b9d562897b3821d4db235fdfa4ca0a49c70d9ba1/docs/media/zh-Hant/demo.mp4">觀看示範</a> · <a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/b9d562897b3821d4db235fdfa4ca0a49c70d9ba1/docs/media/zh-Hant/demo.gif">查看動圖</a> · <a href="https://github.com/LING-0001/SnapSlot/releases/tag/v1.1.2">v1.1.2</a> · <a href="../../docs/releases/hosting.md">安裝說明</a></sub></p>
 
 ## 怎麼用
 
@@ -29,7 +29,7 @@
 
 點選 macOS 選單列圖示，或在 Dock 圖示上按右鍵，即可開啟設定、切換自動收取與固定便箋。Windows 使用系統匣右鍵選單。設定中可更換外觀、語言與快速鍵，也可以清空目前便箋。
 
-<p align="center"><img src="https://raw.githubusercontent.com/LING-0001/SnapSlot/1af7d8bf104226b0951d8958ab79c3263363a160/docs/media/zh-Hant/settings.webp" width="400" alt="設定視窗"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/LING-0001/SnapSlot/b9d562897b3821d4db235fdfa4ca0a49c70d9ba1/docs/media/zh-Hant/settings.webp" width="400" alt="設定視窗"></p>
 
 ## 快速鍵
 

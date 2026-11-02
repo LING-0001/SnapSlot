@@ -13,8 +13,8 @@
 
 <p align="center"><b>简体中文</b> · <a href="docs/readme/README.en.md">English</a> · <a href="docs/readme/README.zh-Hant.md">繁體中文</a> · <a href="docs/readme/README.ja.md">日本語</a> · <a href="docs/readme/README.ko.md">한국어</a> · <a href="docs/readme/README.es.md">Español</a></p>
 
-<p align="center"><a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/1af7d8bf104226b0951d8958ab79c3263363a160/docs/media/zh-Hans/demo.mp4"><img src="https://raw.githubusercontent.com/LING-0001/SnapSlot/1af7d8bf104226b0951d8958ab79c3263363a160/docs/media/zh-Hans/drag.webp" width="840" alt="快照贴交互演示：展开便签、收取文字、拖入文档"></a></p>
-<p align="center"><sub><a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/1af7d8bf104226b0951d8958ab79c3263363a160/docs/media/zh-Hans/demo.mp4">观看演示</a> · <a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/1af7d8bf104226b0951d8958ab79c3263363a160/docs/media/zh-Hans/demo.gif">查看动图</a> · <a href="https://github.com/LING-0001/SnapSlot/releases/tag/v1.1.2">v1.1.2</a> · <a href="docs/releases/hosting.md">安装说明</a></sub></p>
+<p align="center"><a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/b9d562897b3821d4db235fdfa4ca0a49c70d9ba1/docs/media/zh-Hans/demo.mp4"><img src="https://raw.githubusercontent.com/LING-0001/SnapSlot/b9d562897b3821d4db235fdfa4ca0a49c70d9ba1/docs/media/zh-Hans/drag.webp" width="840" alt="快照贴交互演示：展开便签、收取文字、拖入文档"></a></p>
+<p align="center"><sub><a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/b9d562897b3821d4db235fdfa4ca0a49c70d9ba1/docs/media/zh-Hans/demo.mp4">观看演示</a> · <a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/b9d562897b3821d4db235fdfa4ca0a49c70d9ba1/docs/media/zh-Hans/demo.gif">查看动图</a> · <a href="https://github.com/LING-0001/SnapSlot/releases/tag/v1.1.2">v1.1.2</a> · <a href="docs/releases/hosting.md">安装说明</a></sub></p>
 
 ## 怎么用
 
@@ -29,7 +29,7 @@
 
 点按 macOS 菜单栏图标，或右键 Dock 图标，即可打开设置、切换自动收取和固定便签。Windows 使用托盘右键菜单。设置中可以更换外观、语言与快捷键，也可以清空当前便签。
 
-<p align="center"><img src="https://raw.githubusercontent.com/LING-0001/SnapSlot/1af7d8bf104226b0951d8958ab79c3263363a160/docs/media/zh-Hans/settings.webp" width="400" alt="设置窗口"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/LING-0001/SnapSlot/b9d562897b3821d4db235fdfa4ca0a49c70d9ba1/docs/media/zh-Hans/settings.webp" width="400" alt="设置窗口"></p>
 
 ## 快捷键
 
