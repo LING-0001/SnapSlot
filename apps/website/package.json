@@ -1,6 +1,6 @@
 {
   "name": "snapslot-website",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "private": true,
   "scripts": {
     "dev": "next dev --hostname 127.0.0.1 --port 4325",
