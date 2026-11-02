@@ -6,7 +6,10 @@ import { fileURLToPath } from "node:url";
 import { verifySourceVersion } from "./verify-source.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const version = await verifySourceVersion(root);
+const sourceVersion = await verifySourceVersion(root);
+const version = process.env.NEXT_PUBLIC_SNAPSLOT_RELEASE_VERSION || sourceVersion;
+if (!/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(version)) throw new Error('Invalid website download version');
+if (process.env.GITHUB_REF_TYPE === 'tag' && version !== sourceVersion) throw new Error('A tagged release must use its own installers');
 const folder = path.join(root, "apps/website/public/downloads", `v${version}`);
 const manifest = JSON.parse(await readFile(path.join(folder, "manifest.json"), "utf8"));
 if (manifest.version !== version || manifest.tag !== `v${version}`) throw new Error("Release manifest version mismatch");

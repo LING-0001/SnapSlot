@@ -1,90 +1,33 @@
-# Current product contract
+# SnapSlot 术语
 
-The current website (`apps/website/components/home.tsx`, `home.module.css` and
-`lib/home-copy.ts`) is the only visual and interaction reference. The desktop
-hosts use `apps/native-ui`; there is no second note renderer or appearance editor.
+产品规则与交互约束见 [AGENTS.md](AGENTS.md)，验证步骤见 [原生验收](docs/native-testing.md)。本文只定义术语，不另维护尺寸、时长或第二套界面规范。
 
-## Product
+**便签（note）**：当前会话中的一段图片或文字内容。
+_Avoid_：永久收藏、截图历史、云笔记
 
-SnapSlot / 快照贴 / 快照貼 is a local, temporary clipboard transfer tool. New image
-bytes written by another application become notes when automatic collection is
-on. Selected text becomes a note only when the user presses its shortcut (default
-Control+Option+T on macOS or Ctrl+Alt+T on Windows). Ordinary copied text and launch clipboard content
-are ignored. Copying an existing note does not add it again.
+**自动收取（automatic collection）**：开启后，将其他应用新复制的图片收为便签。
+_Avoid_：主动截屏、扫描相册、复制文字即自动收取
 
-The app does not capture the screen, scan screenshot folders, import arbitrary
-files, compose manual notes, upload content or require an account. Images copied
-by an operating-system screenshot tool are ordinary clipboard images.
+**收取选中文字（collect selected text）**：用户选中允许复制的文字，并显式触发快捷键或收取动作。
+_Avoid_：读取旧剪贴板冒充选区、绕过应用的复制限制
 
-Each session holds at most 30 notes, oldest first. A new note evicts the oldest.
-Normal startup is empty; normal exit removes session-owned exports. Removing or
-clearing notes keeps their PNG/TXT exports alive until exit for pending file drops.
-Text is limited to 64 KB UTF-8. A local development update may explicitly hand off
-an existing session; this is not a permanent library or a normal restart restore.
+**临时展示（peek）**：收到内容后短暂展开便签，随后按当前交互规则收起。
+_Avoid_：固定、永久展开
 
-## Presentation
+**固定（pin）**：用户明确选择持续展开便签的状态。
+_Avoid_：已复制、已保存到文件
 
-Notes form a rotating fan: image cards 220 × 144 px, text cards 200 × 144 px,
-14 px rounded faces, a 1500 px rotation radius and a 7.2 degree step. Narrow
-surfaces use the website's responsive geometry. The current note is centered;
-wheel and arrow navigation change it. Images cover their face without stretching.
-Three appearances apply uniformly to the current session: glass, paper and graphite.
-There is no JSON skin, size editor, artwork upload or per-note styling.
+**复制（copy）**：将便签内容写入系统剪贴板，提供便签角落的短暂反馈。
+_Avoid_：收取、固定
 
-Hover reveals a remove button at the upper right and lowers the face by 5 px.
-Click copies the original image or full text; a centered overlay confirms the copy.
-Holding and moving starts a native file-copy drag. Delete removes; Escape closes.
+**放大阅读（full-note reading）**：查看完整图片或文字的阅读层，关闭后回到原便签状态。
+_Avoid_：修改便签默认尺寸
 
-The top-edge dwell is 500 ms. Departure grace is 450 ms; arrivals peek for 2500 ms.
-Entry is 420 ms with a 260 ms fade, exit 240 ms with a 200 ms fade. Fan rotation
-uses 520 ms; fresh arrivals use a gentler 520 ms. Use the website CSS values rather than
-maintaining duplicate animations. Reduced motion removes animation. Hidden notes
-and transparent regions must not intercept another application's clicks.
+**会话（session）**：App 本次运行中的临时便签集合。正常退出按清理规则处理，不是长期备份。
+_Avoid_：持久笔记库、崩溃后保证即时擦除
 
-## Menu and settings
+**网页演示（website demo）**：官网当前页面内的模拟桌面与操作体验。
+_Avoid_：真实系统桌面、真实 App 的引导
 
-The tray/menu-bar popup has four entries: Settings…, automatically collect
-clipboard images, pin notes, and Quit. Collection and pinning show their checked
-state. Quit sits below a separator and performs normal session cleanup.
-Windows uses right click for the menu and left click to show/hide notes. Mac accepts
-left or right click. Menu hover follows the website's platform-specific highlight,
-including inactive-window pointer movement; hovering does not trigger actions.
-
-The compact settings window contains the two switches, three appearance swatches,
-six-language selector, selected-text shortcut, open-notes shortcut and note count
-with Clear all. These are the only settings controls. Pinning opens the fan; closing
-settings, copying, receiving new notes and dragging preserve the pinned state.
-
-On macOS and Windows, both shortcut combinations are editable by clicking their keys. Occupied
-combinations receive alternatives only after successful system registration; settings
-shows the old combination and actual replacement until the user changes that action.
-Recording temporarily releases this app's registrations and restores them on cancel,
-focus loss or closing settings. Escape cancels recording without closing the window.
-Reopening a minimized settings window restores that same window and activates it.
-Unpinned notes still dismiss on pointer departure while settings is foreground,
-background or minimized; settings does not suppress top-edge reveal.
-
-macOS shows a Dock icon and menu-bar icon. Both use the current brand render;
-Windows uses the matching ICO. Pinning adds the website's lower-right status marker:
-5 px in the Mac label color; Windows uses a 7 px blue dot with a light ring (scaled
-to its system tray image). Unpinning, Escape and hiding notes clear it immediately.
-Windows dims/desaturates the mark when automatic collection is off, as on the site.
-Quit is available from the status/tray popup and the operating-system application menu.
-Distribution uses a Mac DMG and a Windows Setup installer. No auto-start preference,
-update service or account is implemented.
-
-## Hosts and validation
-
-AppKit/WKWebView and WPF/WebView2 Composition own clipboard bytes, selected-text
-access, global shortcuts, screen placement and file dragging. The shared offline
-React bundle uses item IDs and a bounded command protocol; it does not receive
-arbitrary filesystem/process authority. All six locales are supported: en, zh-Hans,
-zh-Hant, ja, ko, es. User content is not translated.
-
-Mac supplies behind-window material for the website's glass appearances and native
-pointer tracking. Preferences persist atomically. Native hosts accept old preference
-field names only to retain the user's collection choice during migration.
-
-A browser comparison, compile, isolated native check and physical-machine acceptance
-are separate evidence. macOS checks do not establish Windows rendering, real external
-file drops, screen-reader behavior, multiple-display correctness or performance.
+**共享原生界面（NativeUI）**：两端宿主加载的同一离线界面；剪贴板、快捷键、窗口与文件拖放由各自宿主处理。
+_Avoid_：在浏览器中已验证所有操作系统行为

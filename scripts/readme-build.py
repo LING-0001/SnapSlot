@@ -70,7 +70,7 @@ T = {
         h_layout="仓库结构",
         layout=[('apps/website', '官网与六语言交互演示'), ('apps/native-ui', '两端共用的扇形便签、菜单与设置'), ('apps/windows', 'Windows 客户端（C# / WPF + WebView2）'), ('apps/macos', 'macOS 客户端（Swift / AppKit + WKWebView）'), ('docs', '当前规范、测试清单、README 图片')],
         h_test="测试", test_note='构建、自动化测试和实机验收命令见 [CONTRIBUTING.md](CONTRIBUTING.md) 与 `docs/native-testing.md`。',
-        contrib_text="欢迎 Issue 和 PR。一个提交只做一件事、一次只改一个平台，写清楚为什么改、改了什么、测试结果。详见 [CONTRIBUTING.md](CONTRIBUTING.md)。",
+        contrib_text="欢迎 Issue 和 PR。围绕一个需求组织提交，写清涉及平台、行为变化与实际验证。详见 [CONTRIBUTING.md](CONTRIBUTING.md)。",
         contact="问题与建议", h_license="许可", license="代码以 MIT 许可开源。名称与图标不在 MIT 授权范围内，见 [BRANDING.md](BRANDING.md)。",
     ),
     "en": dict(
@@ -102,7 +102,7 @@ T = {
         h_layout="Repository layout",
         layout=[('apps/website', 'Website and interactive demo in six languages'), ('apps/native-ui', 'Fan notes, menu and settings shared by both clients'), ('apps/windows', 'Windows client (C# / WPF + WebView2)'), ('apps/macos', 'macOS client (Swift / AppKit + WKWebView)'), ('docs', 'Current specifications, test checklists, README images')],
         h_test="Tests", test_note='Build, automated test and physical-machine acceptance commands are in [CONTRIBUTING.md](CONTRIBUTING.md) and `docs/native-testing.md`.',
-        contrib_text="Issues and PRs welcome. One change per commit, one platform per commit, and say why, what changed, and what the tests showed. See [CONTRIBUTING.md](CONTRIBUTING.md) (Chinese).",
+        contrib_text="Issues and PRs welcome. Keep commits focused on one need and describe the affected platforms, behavior changes, and actual verification. See [CONTRIBUTING.md](CONTRIBUTING.md) (Chinese).",
         contact="Questions and ideas", h_license="License", license="Code is MIT licensed. The name and icon are not covered by the MIT license; see [BRANDING.md](BRANDING.md).",
     ),
     "zh-Hant": dict(
@@ -134,7 +134,7 @@ T = {
         h_layout="儲存庫結構",
         layout=[('apps/website', '官網與六語言互動示範'), ('apps/native-ui', '兩端共用的扇形便箋、選單與設定'), ('apps/windows', 'Windows 用戶端（C# / WPF + WebView2）'), ('apps/macos', 'macOS 用戶端（Swift / AppKit + WKWebView）'), ('docs', '目前規範、測試清單、README 圖片')],
         h_test="測試", test_note='建置、自動化測試及實機驗收指令見 [CONTRIBUTING.md](CONTRIBUTING.md) 與 `docs/native-testing.md`。',
-        contrib_text="歡迎 Issue 和 PR。一個提交只做一件事、一次只改一個平台，寫清楚為什麼改、改了什麼、測試結果。詳見 [CONTRIBUTING.md](CONTRIBUTING.md)（簡體中文）。",
+        contrib_text="歡迎 Issue 和 PR。圍繞一項需求組織提交，說明涉及平台、行為變更與實際驗證。詳見 [CONTRIBUTING.md](CONTRIBUTING.md)（簡體中文）。",
         contact="問題與建議", h_license="授權", license="程式碼以 MIT 授權開源。名稱與圖示不在 MIT 授權範圍內，見 [BRANDING.md](BRANDING.md)。",
     ),
     "ja": dict(
@@ -166,7 +166,7 @@ T = {
         h_layout="リポジトリ構成",
         layout=[('apps/website', '6 言語のサイトとインタラクティブデモ'), ('apps/native-ui', '両クライアント共通の扇形メモ・メニュー・設定'), ('apps/windows', 'Windows クライアント（C# / WPF + WebView2）'), ('apps/macos', 'macOS クライアント（Swift / AppKit + WKWebView）'), ('docs', '現在の仕様、テスト項目、README 画像')],
         h_test="テスト", test_note='ビルド、自動テスト、実機確認のコマンドは [CONTRIBUTING.md](CONTRIBUTING.md) と `docs/native-testing.md` を参照してください。',
-        contrib_text="Issue と PR を歓迎します。1 コミット 1 つの変更、1 コミット 1 プラットフォーム。理由・変更内容・テスト結果を書いてください。詳細は [CONTRIBUTING.md](CONTRIBUTING.md)（中国語）。",
+        contrib_text="Issue と PR を歓迎します。一つの要件に沿ってコミットをまとめ、対象プラットフォーム、動作の変更、実際の検証を記載してください。詳細は [CONTRIBUTING.md](CONTRIBUTING.md)（中国語）。",
         contact="質問・提案", h_license="ライセンス", license="コードは MIT ライセンスです。名前とアイコンは MIT の対象外です。[BRANDING.md](BRANDING.md) を参照。",
     ),
     "ko": dict(
@@ -198,7 +198,7 @@ T = {
         h_layout="저장소 구조",
         layout=[('apps/website', '6개 언어 웹사이트와 대화형 데모'), ('apps/native-ui', '두 클라이언트 공용 부채꼴 메모·메뉴·설정'), ('apps/windows', 'Windows 클라이언트(C# / WPF + WebView2)'), ('apps/macos', 'macOS 클라이언트(Swift / AppKit + WKWebView)'), ('docs', '현재 사양, 테스트 항목, README 이미지')],
         h_test="테스트", test_note='빌드, 자동 테스트, 실기기 확인 명령은 [CONTRIBUTING.md](CONTRIBUTING.md)와 `docs/native-testing.md`를 보세요.',
-        contrib_text="Issue와 PR을 환영해요. 커밋 하나에 변경 하나, 플랫폼 하나. 이유·변경 내용·테스트 결과를 적어 주세요. 자세한 내용은 [CONTRIBUTING.md](CONTRIBUTING.md)(중국어).",
+        contrib_text="Issue와 PR을 환영해요. 하나의 요구사항에 맞춰 커밋을 정리하고, 관련 플랫폼과 동작 변경, 실제 검증 결과를 적어 주세요. 자세한 내용은 [CONTRIBUTING.md](CONTRIBUTING.md)(중국어).",
         contact="문의와 제안", h_license="라이선스", license="코드는 MIT 라이선스예요. 이름과 아이콘은 MIT 적용 대상이 아니에요. [BRANDING.md](BRANDING.md)를 보세요.",
     ),
     "es": dict(
@@ -230,7 +230,7 @@ T = {
         h_layout="Estructura del repositorio",
         layout=[('apps/website', 'Sitio y demostración interactiva en seis idiomas'), ('apps/native-ui', 'Notas en abanico, menú y ajustes compartidos'), ('apps/windows', 'Cliente de Windows (C# / WPF + WebView2)'), ('apps/macos', 'Cliente de macOS (Swift / AppKit + WKWebView)'), ('docs', 'Especificaciones actuales, listas de pruebas, imágenes del README')],
         h_test="Pruebas", test_note='Los comandos de compilación, pruebas automáticas y aceptación en equipos reales están en [CONTRIBUTING.md](CONTRIBUTING.md) y `docs/native-testing.md`.',
-        contrib_text="Se agradecen Issues y PR. Un cambio por commit y una plataforma por commit; explica el porqué, qué cambió y qué mostraron las pruebas. Consulta [CONTRIBUTING.md](CONTRIBUTING.md) (en chino).",
+        contrib_text="Se agradecen Issues y PR. Agrupa los commits por una necesidad e indica las plataformas afectadas, los cambios de comportamiento y la verificación realizada. Consulta [CONTRIBUTING.md](CONTRIBUTING.md) (en chino).",
         contact="Preguntas e ideas", h_license="Licencia", license="El código tiene licencia MIT. El nombre y el icono no están cubiertos por la MIT; consulta [BRANDING.md](BRANDING.md).",
     ),
 }

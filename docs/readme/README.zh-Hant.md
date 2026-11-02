@@ -87,7 +87,7 @@ open artifacts/macos/SnapSlot.app
 
 建置、自動化測試及實機驗收指令見 [CONTRIBUTING.md](../../CONTRIBUTING.md) 與 `docs/native-testing.md`。
 
-歡迎 Issue 和 PR。一個提交只做一件事、一次只改一個平台，寫清楚為什麼改、改了什麼、測試結果。詳見 [CONTRIBUTING.md](../../CONTRIBUTING.md)（簡體中文）。
+歡迎 Issue 和 PR。圍繞一項需求組織提交，說明涉及平台、行為變更與實際驗證。詳見 [CONTRIBUTING.md](../../CONTRIBUTING.md)（簡體中文）。
 
 </details>
 

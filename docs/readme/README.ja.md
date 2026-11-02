@@ -87,7 +87,7 @@ open artifacts/macos/SnapSlot.app
 
 ビルド、自動テスト、実機確認のコマンドは [CONTRIBUTING.md](../../CONTRIBUTING.md) と `docs/native-testing.md` を参照してください。
 
-Issue と PR を歓迎します。1 コミット 1 つの変更、1 コミット 1 プラットフォーム。理由・変更内容・テスト結果を書いてください。詳細は [CONTRIBUTING.md](../../CONTRIBUTING.md)（中国語）。
+Issue と PR を歓迎します。一つの要件に沿ってコミットをまとめ、対象プラットフォーム、動作の変更、実際の検証を記載してください。詳細は [CONTRIBUTING.md](../../CONTRIBUTING.md)（中国語）。
 
 </details>
 

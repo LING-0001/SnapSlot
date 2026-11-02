@@ -49,7 +49,13 @@ npm ci --prefix apps/website
 npm run build --prefix apps/website
 ```
 
-构建前自动检查源码版本，从对应 GitHub Release 下载两个安装包、清单和 SHA-256。已有完整且校验通过的缓存会直接复用；下载不完整或校验失败会阻止构建，禁止部署失效下载按钮。构建产物为 `apps/website/out/`，须同步整个目录，包括 downloads。
+构建默认从源码版本对应的 GitHub Release 下载两个安装包、清单和 SHA-256。只更新官网、继续使用已发布客户端时，可显式指定下载版本：
+
+```bash
+NEXT_PUBLIC_SNAPSLOT_RELEASE_VERSION=1.1.1 npm run build --prefix apps/website
+```
+
+指定版本必须已经公开，页面链接和附件校验使用同一版本；正式标签构建必须使用自身版本。已有完整且校验通过的缓存会直接复用；下载不完整或校验失败会阻止构建。构建产物为 `apps/website/out/`，须同步整个目录，包括 downloads。
 
 服务器只需要 Node.js，不需要 Swift、.NET 或安装包工具。如果要单独准备缓存：
 

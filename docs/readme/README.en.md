@@ -87,7 +87,7 @@ Download the DMG / Setup installer above to install the app. Source-build output
 
 Build, automated test and physical-machine acceptance commands are in [CONTRIBUTING.md](../../CONTRIBUTING.md) and `docs/native-testing.md`.
 
-Issues and PRs welcome. One change per commit, one platform per commit, and say why, what changed, and what the tests showed. See [CONTRIBUTING.md](../../CONTRIBUTING.md) (Chinese).
+Issues and PRs welcome. Keep commits focused on one need and describe the affected platforms, behavior changes, and actual verification. See [CONTRIBUTING.md](../../CONTRIBUTING.md) (Chinese).
 
 </details>
 

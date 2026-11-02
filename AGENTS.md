@@ -17,7 +17,7 @@
 - 发布流水线还校验原始触发者、重跑者、仓库、分支、main 提交来源和版本，阻止其他账号触发正式发布。权限必须在 GitHub 服务端执行，不能只依赖本文件或 workflow 条件。
 - 正式编译、DMG / EXE 打包、Windows 安装与卸载检查、演示素材生成在 GitHub runner 执行；本地仅做轻量验证和文本准备，不先构建安装包再 push。
 - CI 检查全部通过后，自动给该 main 提交创建 `vX.Y.Z` 标签，上传安装包、SHA-256、清单、官网部署 ZIP 和六语言素材 ZIP。先上传至草稿并核验附件，最后公开 Release；已公开版本不可覆盖。
-- 安装包不再加入 Git。官网构建时自动从对应 GitHub Release 下载并校验安装包，继续使用本站直链。仅源码 CI 使用 `SNAPSLOT_SOURCE_CHECK_ONLY=1`，该预览不包含安装包，不可拿来部署。
+- 安装包不再加入 Git。官网构建时自动从对应 GitHub Release 下载并校验安装包，继续使用本站直链。独立更新官网而不发行客户端时，可用 NEXT_PUBLIC_SNAPSLOT_RELEASE_VERSION 明确选择已公开的版本，仍须完整校验该版本清单与双端安装包；正式标签构建必须使用自身版本。仅源码 CI 使用 `SNAPSLOT_SOURCE_CHECK_ONLY=1`，该预览不包含安装包，不可拿来部署。
 - 发布成功后可下载 CI 的 `media.zip`，将通过验证的 README / 图片 / GIF / MP4 同步回 main；此步骤只下载和提交素材，不重新录制或构建，不回写受保护的 release 分支。
 
 ## 产品与 UI 规则

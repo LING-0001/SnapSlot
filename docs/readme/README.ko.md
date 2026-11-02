@@ -87,7 +87,7 @@ open artifacts/macos/SnapSlot.app
 
 빌드, 자동 테스트, 실기기 확인 명령은 [CONTRIBUTING.md](../../CONTRIBUTING.md)와 `docs/native-testing.md`를 보세요.
 
-Issue와 PR을 환영해요. 커밋 하나에 변경 하나, 플랫폼 하나. 이유·변경 내용·테스트 결과를 적어 주세요. 자세한 내용은 [CONTRIBUTING.md](../../CONTRIBUTING.md)(중국어).
+Issue와 PR을 환영해요. 하나의 요구사항에 맞춰 커밋을 정리하고, 관련 플랫폼과 동작 변경, 실제 검증 결과를 적어 주세요. 자세한 내용은 [CONTRIBUTING.md](../../CONTRIBUTING.md)(중국어).
 
 </details>
 

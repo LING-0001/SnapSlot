@@ -87,7 +87,7 @@ Descarga el instalador DMG / Setup de arriba para instalar la aplicación. Los r
 
 Los comandos de compilación, pruebas automáticas y aceptación en equipos reales están en [CONTRIBUTING.md](../../CONTRIBUTING.md) y `docs/native-testing.md`.
 
-Se agradecen Issues y PR. Un cambio por commit y una plataforma por commit; explica el porqué, qué cambió y qué mostraron las pruebas. Consulta [CONTRIBUTING.md](../../CONTRIBUTING.md) (en chino).
+Se agradecen Issues y PR. Agrupa los commits por una necesidad e indica las plataformas afectadas, los cambios de comportamiento y la verificación realizada. Consulta [CONTRIBUTING.md](../../CONTRIBUTING.md) (en chino).
 
 </details>
 
