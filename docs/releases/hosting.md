@@ -9,7 +9,7 @@
 1. 在 main 准备版本号、发布说明及 README，提交并推送。明确版本号优先；未指定时使用当前未发布版本，已经发布则默认递增 patch。
 2. 将该 main 提交正常推送到 `release`、`releasev1.2.0` 或 `release/v1.2.0`。例如 `git push origin main:releasev1.2.0`。日常 main push 和手工 tag push 均不触发正式发布。
 3. `Publish release` 校验发布者是 `LING-0001`，重跑者也是该账号；源码提交须在远端 main 历史中，版本须与版本分支、两端项目和网站一致。已经公开的版本会被拒绝，不覆盖安装包或标签。
-4. GitHub 的 macOS runner 使用现有打包脚本，从这个提交编译 Mac 双架构应用及 Windows x64 自包含应用，生成 DMG、NSIS 安装器、清单与 SHA-256。Windows runner 实际安装、运行界面冒烟检查并卸载，确认用户文件保留。
+4. GitHub 的 macOS runner 导入 Developer ID 证书到独立临时钥匙串，从这个提交编译 Mac 双架构应用及 Windows x64 自包含应用。Mac 应用启用 Hardened Runtime 和安全时间戳，完成签名、公证、附加票据和 Gatekeeper 检查后执行原生冒烟检查；生成 DMG 后再签名、公证、附加票据和验证，最后生成清单与 SHA-256。Windows runner 实际安装、运行界面冒烟检查并卸载，确认用户文件保留。
 5. Ubuntu runner 刷新六语言截图、引导、GIF / MP4 和 README，并构建包含完整安装包的静态网站。
 6. 全部检查通过后，以最初触发的提交 SHA 创建 `v1.2.0` 标签，先上传并验证草稿附件，再公开 GitHub Release。
 
@@ -68,4 +68,24 @@ node scripts/verify-release.mjs
 
 Nginx 的 root 指向静态产物目录，保持已有附件下载与 Range 配置。项目自带静态服务器同样支持 HEAD、附件 MIME、ETag 和单段 Range。部署后检查 DMG / EXE 为 200，断点请求为 206。
 
-Mac 包仍为 ad-hoc 签名、未公证；Windows 包仍未签名。获得相应证书后应在生成最终安装包前签名并验证。
+## Mac Developer ID 与公证配置
+
+已公开的 v1.1.2 Mac 包仍为 ad-hoc 签名、未公证；新流程需要以下配置和实际公证通过后才能发行签名包，不覆盖已经公开的附件或校验值。Windows 签名状态不变。
+
+在 `LING-0001/SnapSlot` 的 GitHub Actions Secrets 中配置：
+
+| Secret | 用途 |
+| --- | --- |
+| `MACOS_CERTIFICATE_P12_BASE64` | 包含私钥的 Developer ID Application 证书 `.p12`，以 Base64 编码 |
+| `MACOS_CERTIFICATE_PASSWORD` | 该 `.p12` 的导出密码 |
+| `APPLE_ID` | 开发者 Apple 账号 |
+| `APPLE_APP_SPECIFIC_PASSWORD` | 该账号为公证生成的 App 专用密码，不能使用登录密码 |
+| `APPLE_TEAM_ID` | 证书所属的 10 位 Developer Team ID |
+
+证书应为 **Developer ID Application**；Apple Development / Apple Distribution 不能代替官网分发证书。Xcode 的 Apple Accounts → Manage Certificates 可以创建证书。公证密码由账号持有人在 Apple 账号的安全设置中生成；不要写入源码、文档、日志或聊天，也不要提交 `.p12` 或私钥。创建证书及将凭据存入 GitHub Secrets 前由账号持有人授权。
+
+`setup-macos-signing.sh` 在 runner 上验证证书团队和公证凭据；`cleanup-macos-signing.sh` 在成功或失败后删除独立钥匙串。打包脚本只在资源齐全后做最终签名，不授予额外的 Hardened Runtime 例外权限。应用与 DMG 均须由 Apple 返回 `Accepted`，并通过 `stapler validate` 与 `spctl`；凭据缺失、超时、拒绝或验证失败都会阻止发布，不回退到临时签名。
+
+`manifest.json` 保存实际签名方式、团队和两次公证的 submission ID。校验值在最终 DMG 附加票据后计算。首次公证处理可能较慢；当前每次最多等待 20 分钟，超时仍须查询原 submission 状态及日志再重试，不把“已上传”当作“已通过”。macOS 仍可能出现正常的首次打开确认，签名与公证不等于取消所有系统提示。
+
+要求来自 [Apple 的 macOS 公证说明](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution)；本地 `scripts/build-macos.sh` 仍使用开发用 ad-hoc 签名，不能作为正式下载包。

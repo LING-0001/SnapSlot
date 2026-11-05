@@ -5,8 +5,8 @@ import {Apple} from '@linglinglab/web-ui/showcase-icons';
 import type {Locale} from '@/lib/locales';
 import {downloads} from '@/lib/releases';
 import {Home,GitHubMark} from './home';
-import {useEffect,useState,type MouseEvent,type KeyboardEvent} from 'react';
-import {clientPlatform} from '@/lib/client-platform';
+import {type MouseEvent,type KeyboardEvent} from 'react';
+import {useDesktopPlatform} from '@/lib/client-platform';
 import {snapshotCopy,snapshotDeviceCopy} from '@/lib/snapshot-copy';
 import {landingDemoCopy} from '@/lib/landing-demo-copy';
 import {referenceCopy} from '@/lib/reference-copy';
@@ -15,8 +15,8 @@ function Symbol({kind}:{kind:number}){return <svg viewBox="0 0 24 24" fill="none
 function Chevron(){return <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="m4 7 6 6 6-6"/></svg>}
 function DownloadIcon(){return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5"/></svg>}
 export default function SnapshotSite({locale}:{locale:Locale}){
- const [downloadPlatform,setDownloadPlatform]=useState<'mac'|'win'>('mac');
- useEffect(()=>{setDownloadPlatform(clientPlatform());},[]);
+ const [platform,setDownloadPlatform]=useDesktopPlatform();
+ const downloadPlatform=platform??'win';
  const r=referenceCopy[locale];
  const t=snapshotCopy[locale],d=snapshotDeviceCopy[locale],info=landingDemoCopy[locale],home=`${process.env.NEXT_PUBLIC_HOME_URL||'https://linglinglab.top'}/${locale}/`;
  const onDownloadKey=(event:KeyboardEvent<HTMLButtonElement>,platform:'mac'|'win')=>{
@@ -47,9 +47,11 @@ export default function SnapshotSite({locale}:{locale:Locale}){
    <section className="ll-shell ss-use-cases" id="features" aria-labelledby="use-title"><div className="ll-section-heading"><h2 id="use-title">{t.section}</h2><p>{t.sub}</p></div><div className="ss-use-grid">{t.features.map(([title,description],i)=><article className="ss-use-card" key={title}><span className="ss-feature-icon"><Symbol kind={i}/></span><h3>{title}</h3><p>{description}</p></article>)}</div><div className="ss-product-information"><article><h3>{info.rules}</h3><p>{info.appRules}</p></article><article><h3>{info.privacy}</h3><p>{info.privacyText}</p></article></div></section>
    <section className="ll-shell ss-downloads" id="downloads" aria-labelledby="download-title">
     <img className="ss-download-icon" src="/brand/current/snapslot.png" width="88" height="88" alt="" loading="lazy"/><h2 id="download-title">{r.downloadTitle}</h2>
+    <div className="ss-download-choice" style={{visibility:platform?undefined:'hidden'}}>
     <div className="ss-download-tabs" role="tablist" aria-label={r.navDownload}>{(['mac','win'] as const).map(platform=><button type="button" role="tab" key={platform} id={`download-tab-${platform}`} aria-selected={downloadPlatform===platform} tabIndex={downloadPlatform===platform?0:-1} onKeyDown={event=>onDownloadKey(event,platform)} aria-controls={`download-panel-${platform}`} onClick={()=>setDownloadPlatform(platform)}>{platform==='mac'?<Apple size={18}/>:<Windows/>}{platform==='mac'?'macOS':'Windows'}</button>)}</div>
     {(['mac','win'] as const).map(platform=><div key={platform} className="ss-download-panel" id={`download-panel-${platform}`} role="tabpanel" aria-labelledby={`download-tab-${platform}`} hidden={downloadPlatform!==platform} data-platform={platform}><p>{platform==='mac'?'macOS 13+ · Apple Silicon / Intel':info.windowsSystem}</p>{platform==='win'&&<p className="ss-runtime-requirement">{info.requirements}<a href="https://developer.microsoft.com/microsoft-edge/webview2/#download" target="_blank" rel="noopener noreferrer">{info.runtimeHelp}</a></p>}<a className="ll-button" href={downloads[platform].href} download={downloads[platform].filename} title={downloads[platform].title}><DownloadIcon/>{d[platform]}</a></div>)}
-    <noscript><p className="ss-no-script-download"><a href={downloads.win.href} download={downloads.win.filename}>{d.win}</a> · {info.windowsSystem} · {info.requirements}<a href="https://developer.microsoft.com/microsoft-edge/webview2/#download">{info.runtimeHelp}</a></p></noscript>
+    </div>
+    <noscript><style>{'.ss-download-choice{display:none}'}</style><p className="ss-no-script-download"><a href={downloads.mac.href} download={downloads.mac.filename}>{d.mac}</a> · macOS 13+ · Apple Silicon / Intel</p><p className="ss-no-script-download"><a href={downloads.win.href} download={downloads.win.filename}>{d.win}</a> · {info.windowsSystem} · {info.requirements}<a href="https://developer.microsoft.com/microsoft-edge/webview2/#download">{info.runtimeHelp}</a></p></noscript>
    </section>
   </main>
   <footer className="ll-shell ll-footer ss-footer"><div><a className="ll-brand" href={home}><img src="/brand/current/lingling.png" width="44" height="44" alt=""/><span>LingLing</span></a><p className="ss-copyright">© {new Date().getFullYear()} LingLing.</p></div><nav className="ll-footer-links" aria-label={t.support}><a href={home}>{t.back}</a><a href="mailto:e1347605313@gmail.com">{t.support}</a><a href="https://github.com/LING-0001/SnapSlot" target="_blank" rel="noopener noreferrer">GitHub</a></nav></footer>

@@ -13,7 +13,7 @@ import {desktopFiles,desktopPhotos} from "@/lib/desktop-assets";
 import {interactionCopy} from "@/lib/interaction-copy";
 import {landingDemoCopy} from "@/lib/landing-demo-copy";
 import {referenceCopy} from "@/lib/reference-copy";
-import {clientPlatform} from "@/lib/client-platform";
+import {useDesktopPlatform} from "@/lib/client-platform";
 
 
 type Note =
@@ -106,7 +106,8 @@ export function Home({ locale, embedded = false }: { locale: Locale; embedded?: 
     { id: "s3", kind: "image", src: ART[1], label: files[1].label },
   ]);
   const [focus, setFocus] = useState(1);
-  const [os, setOs] = useState<Os>(embedded ? "mac" : "win");
+  const [platform,setOs] = useDesktopPlatform();
+  const os: Os = platform ?? "win";
   const [running, setRunning] = useState(true);
   const [pinned, setPinned] = useState(false);
   const [dragging,setDragging] = useState(false);
@@ -285,7 +286,6 @@ export function Home({ locale, embedded = false }: { locale: Locale; embedded?: 
   }, [appLocale]);
 
   useEffect(() => {
-    setOs(clientPlatform());
     const measureDemo = () => {
       const stage=stageRef.current!;
       if(embedded){const top=stage.getBoundingClientRect().top+window.scrollY;stage.style.setProperty("--stage-height",`${Math.max(280,window.innerHeight-top-5)}px`);}
@@ -663,7 +663,7 @@ export function Home({ locale, embedded = false }: { locale: Locale; embedded?: 
     </div>
 
     <Main id="top" className={s.main}>
-      <div className={s.fold} data-os={os}>
+      <div className={s.fold} data-os={os} style={{visibility:platform?undefined:"hidden"}}>
         <section className={s.hero}>
           <div className={s.heroCopy}><h1>{t.headline}</h1>
           <p className={s.sub}>{t.sub}</p>

@@ -92,8 +92,8 @@ for(const [platform,os] of [['MacIntel','mac'],['Win32','win']] as const){
 test(`${os}: keyboard menu navigation, settings dismissal and Escape preserve expected focus`,async({page})=>{
  await page.addInitScript(platform=>Object.defineProperty(navigator,'platform',{get:()=>platform}),platform);
  await page.goto('/en/');
- // Hydration replaces the default Mac tray with the detected platform's tray.
- // Focus the final control, rather than a server-rendered node about to unmount.
+ // Wait for the detected platform before focusing its tray control.
+ await expect(stage(page)).toBeVisible();
  await expect(stage(page)).toHaveAttribute('data-os',os);
  const tray=page.locator('[data-coach=tray]');await tray.focus();await page.keyboard.press('ArrowDown');
  await expect(page.getByRole('menuitem').first()).toBeFocused();
@@ -121,7 +121,10 @@ test('settings control collection, skins and the app locale without changing the
 });
 test('removing an earlier note keeps the selected note and keyboard deletion remains available',async({page})=>{
  await page.goto('/en/');await reveal(page);const selected=await focused(page).getAttribute('data-note');
- await page.getByRole('button',{name:homeCopy.en.stage.remove,exact:true}).first().click({force:true});
+ // The earlier card is partly covered by the selected card. Exercise its remove
+ // action directly; a forced pointer click can land on the overlapping card.
+ await page.getByRole('button',{name:homeCopy.en.stage.remove,exact:true}).first().evaluate(node=>(node as HTMLButtonElement).click());
+ await expect(page.locator('[data-note]')).toHaveCount(2);
  await expect(focused(page)).toHaveAttribute('data-note',selected!);
  await focused(page).focus();await page.keyboard.press('Delete');
  await expect(page.locator('[data-note]')).toHaveCount(1);
@@ -194,7 +197,12 @@ test('back-to-top appears after scrolling and returns keyboard focus to the bran
 });
 test('content and download links remain available without JavaScript; reduced motion disables transitions',async({browser,page})=>{
  const context=await browser.newContext({baseURL,javaScriptEnabled:false});const plain=await context.newPage();await plain.goto('/en/');
- await expect(plain.locator('#snapshot-title')).toBeVisible();await expect(plain.locator('.ss-use-grid article')).toHaveCount(3);await expect(plain.locator('#downloads [data-platform=mac] a[download]')).toBeVisible();await expect(plain.locator('#downloads noscript a[download]')).toBeVisible();await context.close();
+ await expect(plain.locator('#snapshot-title')).toBeVisible();await expect(plain.locator('.ss-use-grid article')).toHaveCount(3);
+ for(const platform of ['mac','win'] as const){
+  const link=plain.locator(`#downloads noscript a[download="${downloads[platform].filename}"]`);
+  await expect(link).toBeVisible();await expect(link).toHaveAttribute('href',downloads[platform].href);
+ }
+ await context.close();
  await page.emulateMedia({reducedMotion:'reduce'});await page.goto('/en/');
  expect(await focused(page).evaluate(node=>getComputedStyle(node).transitionDuration)).toBe('0s');
 });

@@ -6,11 +6,14 @@ import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { distributionConfig, macSigning, notarizeApp, notarizeDmg, validateMacNotarization } from './macos-distribution.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const { version } = JSON.parse(await readFile(path.join(root, "release.json"), "utf8"));
 if (!/^\d+\.\d+\.\d+$/.test(version)) throw new Error("Invalid release version");
 if (process.platform !== "darwin") throw new Error("Prepare the Mac DMG + Windows installer on macOS.");
+// Formal packaging never falls back to the local development/ad-hoc signature.
+const signing = distributionConfig();
 const args = process.argv.slice(2);
 let suppliedStage, replace = false;
 for (let i = 0; i < args.length; i++) {
@@ -67,9 +70,6 @@ try {
   run("lipo", [path.join(app, "Contents/MacOS/SnapSlot"), "-verify_arch", "arm64", "x86_64"]);
   const stamp = spawnSync("/usr/libexec/PlistBuddy", ["-c", "Print :CFBundleShortVersionString", path.join(app, "Contents/Info.plist")], { encoding: "utf8" });
   if (stamp.status !== 0 || stamp.stdout.trim() !== version) throw new Error("Mac version does not match release.json");
-  for (const mode of ["smoke-test", "status-icon-check", "dock-menu-check"]) {
-    run(path.join(app, "Contents/MacOS/SnapSlot"), [`--${mode}`, path.join(temporary, mode)]);
-  }
   if ((await readFile(path.join(windows, "SnapSlot.exe"))).toString("ascii", 0, 2) !== "MZ") throw new Error("Invalid Windows executable");
   const notices = path.join(windows, "ThirdPartyNotices");
   await mkdir(notices, { recursive: true });
@@ -98,13 +98,17 @@ try {
     await cp(path.join(root, "LICENSE"), path.join(folder, "SNAPSLOT-LICENSE.txt"));
     await cp(path.join(root, "BRANDING.md"), path.join(folder, "BRANDING.md"));
   }
-  await writeFile(path.join(legal, "Installation.txt"), `SnapSlot ${version}\n\n打开 DMG，将 SnapSlot 拖到“应用程序”，再从“应用程序”启动。\n选中文字功能需要辅助功能权限。此包使用 ad-hoc 签名，未经 Apple 公证，系统可能阻止首次启动。\n\nOpen the DMG, drag SnapSlot to Applications, then open it from Applications.\nSelected-text collection requires Accessibility permission. This package is ad-hoc signed and not notarized; macOS may block the first launch.\n`);
+  await writeFile(path.join(legal, "Installation.txt"), `SnapSlot ${version}\n\n打开 DMG，将 SnapSlot 拖到“应用程序”，再从“应用程序”启动。\n选中文字功能需要辅助功能权限。此包使用 Developer ID 签名，并经 Apple 公证。首次打开时 macOS 仍可能要求确认打开。\n\nOpen the DMG, drag SnapSlot to Applications, then open it from Applications.\nSelected-text collection requires Accessibility permission. This package is Developer ID signed and notarized by Apple. macOS may still ask you to confirm the first launch.\n`);
   await writeFile(path.join(windows, "README.txt"), `SnapSlot ${version}\n\n安装后可从桌面或开始菜单打开 SnapSlot。从 Windows 设置的“已安装的应用”中可卸载。\n缺少必要显示组件时，安装器会自动联网安装 Microsoft Edge WebView2 Runtime。已包含 .NET 运行时。\n\nOpen SnapSlot from your desktop or Start menu. Uninstall through Windows Settings > Installed apps.\nSetup installs Microsoft Edge WebView2 Runtime online if it is missing. The .NET runtime is included.\n`);
-  run("codesign", ["--force", "--deep", "--sign", "-", app]);
-  run("codesign", ["--verify", "--deep", "--strict", app]);
+  const appSubmission = notarizeApp(app, temporary, signing);
+  // Exercise the actual hardened, notarized app, after its final resources/signature.
+  for (const mode of ["smoke-test", "status-icon-check", "dock-menu-check"]) {
+    run(path.join(app, "Contents/MacOS/SnapSlot"), [`--${mode}`, path.join(temporary, mode)]);
+  }
   const bundle = path.join(temporary, "ready"); await mkdir(bundle);
   const files = { macos: `SnapSlot-${version}-macOS-universal.dmg`, windows: `SnapSlot-${version}-windows-x64-setup.exe` };
   run(process.execPath, ["scripts/installers/build-macos-dmg.mjs", app, path.join(bundle, files.macos)]);
+  const dmgSubmission = notarizeDmg(path.join(bundle, files.macos), signing);
 
   const bootstrapperURL = "https://go.microsoft.com/fwlink/p/?LinkId=2124703";
   const bootstrapper = path.join(temporary, "MicrosoftEdgeWebview2Setup.exe");
@@ -135,9 +139,11 @@ try {
     const data = await readFile(path.join(bundle, file));
     if (data.length >= 2 * 1024 * 1024 * 1024) throw new Error(`${file} exceeds the 2 GiB release asset limit`);
     const sha256 = createHash("sha256").update(data).digest("hex");
-    manifest.packages[platform] = { file, url: `/downloads/v${version}/${file}`, size: data.length, sha256, format: platform === "macos" ? "dmg" : "nsis", architecture: platform === "macos" ? "universal (arm64, x86_64)" : "x64", minimumOS: platform === "macos" ? "macOS 13" : "Windows 10", signing: platform === "macos" ? "ad-hoc app, DMG not notarized" : "unsigned" };
+    manifest.packages[platform] = { file, url: `/downloads/v${version}/${file}`, size: data.length, sha256, format: platform === "macos" ? "dmg" : "nsis", architecture: platform === "macos" ? "universal (arm64, x86_64)" : "x64", minimumOS: platform === "macos" ? "macOS 13" : "Windows 10", signing: platform === "macos" ? macSigning : "unsigned" };
+    if (platform === 'macos') manifest.packages[platform].notarization = { status: 'Accepted', teamId: signing.teamId, appSubmission, dmgSubmission };
     sums.push(`${sha256}  ${file}`);
   }
+  validateMacNotarization(manifest.packages.macos, signing.teamId);
   await writeFile(path.join(bundle, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n");
   await writeFile(path.join(bundle, "SHA256SUMS.txt"), sums.join("\n") + "\n");
   await mkdir(downloads, { recursive: true });

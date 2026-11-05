@@ -9,6 +9,7 @@ from pathlib import Path
 import json
 import hashlib
 import subprocess
+import os
 from functools import lru_cache
 
 root = Path(__file__).resolve().parent.parent
@@ -18,6 +19,31 @@ VERSION = json.loads((root / "release.json").read_text())["version"]
 DOWNLOADS = f"{REPO}/releases/download/v{VERSION}"
 ORDER = ["zh-Hans", "en", "zh-Hant", "ja", "ko", "es"]
 NAMES = {"zh-Hans": "简体中文", "en": "English", "zh-Hant": "繁體中文", "ja": "日本語", "ko": "한국어", "es": "Español"}
+
+
+@lru_cache(maxsize=None)
+def notarized_mac_release():
+    manifest = root / "apps/website/public/downloads" / f"v{VERSION}" / "manifest.json"
+    if not manifest.exists():
+        return False
+    package = json.loads(manifest.read_text())["packages"]["macos"]
+    if "notarization" not in package:
+        return False
+    # Never rewrite public installation claims from an unverified manifest.
+    subprocess.run(["node", "scripts/verify-release.mjs"], cwd=root, check=True,
+                   env={**os.environ, "SNAPSLOT_REQUIRE_MAC_NOTARIZATION": "1",
+                        "NEXT_PUBLIC_SNAPSLOT_RELEASE_VERSION": VERSION}, stdout=subprocess.DEVNULL)
+    return True
+
+
+SIGNED_MAC_NOTES = {
+    "zh-Hans": "用户可直接下载上方 DMG / Setup 安装包。正式 Mac 包使用 Developer ID 签名并经 Apple 公证；macOS 仍可能要求确认首次打开。源码构建产物供开发调试，使用临时签名。发布与服务器部署见 [发布指南](docs/releases/hosting.md)。",
+    "en": "Download the DMG / Setup installer above. The release Mac package is Developer ID signed and notarized by Apple; macOS may still ask you to confirm the first launch. Source builds use ad-hoc signatures for development. See the [release and hosting guide](docs/releases/hosting.md).",
+    "zh-Hant": "使用者可直接下載上方 DMG / Setup 安裝套件。正式 Mac 套件使用 Developer ID 簽署並經 Apple 公證；macOS 仍可能要求確認首次開啟。原始碼建置使用臨時簽署，供開發測試。請參閱[發布與部署指南](docs/releases/hosting.md)。",
+    "ja": "上の DMG / Setup インストーラーからインストールできます。正式な Mac 版は Developer ID で署名され、Apple の公証を受けています。初回起動の確認が表示される場合があります。ソースビルドは開発用の ad-hoc 署名です。[公開・配信ガイド](docs/releases/hosting.md)を参照してください。",
+    "ko": "위의 DMG / Setup 설치 파일을 다운로드하세요. 정식 Mac 패키지는 Developer ID 서명과 Apple 공증을 받았으며 첫 실행 확인이 표시될 수 있습니다. 소스 빌드는 개발용 ad-hoc 서명을 사용합니다. [릴리스 및 배포 안내](docs/releases/hosting.md)를 참고하세요.",
+    "es": "Descarga el instalador DMG / Setup de arriba. El paquete oficial de Mac está firmado con Developer ID y notarizado por Apple; macOS puede pedir confirmación al abrirlo por primera vez. Las compilaciones de desarrollo usan firma ad-hoc. Consulta la [guía de publicación y alojamiento](docs/releases/hosting.md).",
+}
 
 
 @lru_cache(maxsize=None)
@@ -237,7 +263,9 @@ T = {
 
 
 def build(locale: str) -> str:
-    t = T[locale]
+    t = dict(T[locale])
+    if notarized_mac_release():
+        t["b_note"] = SIGNED_MAC_NOTES[locale]
     up = "" if locale == "zh-Hans" else "../../"
 
     def asset(relative: str) -> str:

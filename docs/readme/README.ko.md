@@ -6,15 +6,15 @@
 <p align="center"><b>중요한 내용을, 바로 눈앞에.</b><br>스크린샷과 텍스트를 화면 위에 붙여 참고 자료와 아이디어를 가까이 두세요.</p>
 
 <p align="center">
-  <a href="https://github.com/LING-0001/SnapSlot/releases/download/v1.1.2/SnapSlot-1.1.2-macOS-universal.dmg"><b>macOS 버전 다운로드</b></a> ·
-  <a href="https://github.com/LING-0001/SnapSlot/releases/download/v1.1.2/SnapSlot-1.1.2-windows-x64-setup.exe"><b>Windows 버전 다운로드</b></a> ·
+  <a href="https://github.com/LING-0001/SnapSlot/releases/download/v1.1.3/SnapSlot-1.1.3-macOS-universal.dmg"><b>macOS 버전 다운로드</b></a> ·
+  <a href="https://github.com/LING-0001/SnapSlot/releases/download/v1.1.3/SnapSlot-1.1.3-windows-x64-setup.exe"><b>Windows 버전 다운로드</b></a> ·
   <a href="https://snapslot.linglinglab.top/ko/">온라인으로 체험</a>
 </p>
 
 <p align="center"><a href="../../README.md">简体中文</a> · <a href="README.en.md">English</a> · <a href="README.zh-Hant.md">繁體中文</a> · <a href="README.ja.md">日本語</a> · <b>한국어</b> · <a href="README.es.md">Español</a></p>
 
 <p align="center"><a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/b9d562897b3821d4db235fdfa4ca0a49c70d9ba1/docs/media/ko/demo.mp4"><img src="https://raw.githubusercontent.com/LING-0001/SnapSlot/b9d562897b3821d4db235fdfa4ca0a49c70d9ba1/docs/media/ko/drag.webp" width="840" alt="SnapSlot 사용 데모: 메모 펼치기, 텍스트 수집, 문서로 드래그"></a></p>
-<p align="center"><sub><a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/b9d562897b3821d4db235fdfa4ca0a49c70d9ba1/docs/media/ko/demo.mp4">데모 보기</a> · <a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/b9d562897b3821d4db235fdfa4ca0a49c70d9ba1/docs/media/ko/demo.gif">GIF 보기</a> · <a href="https://github.com/LING-0001/SnapSlot/releases/tag/v1.1.2">v1.1.2</a> · <a href="../../docs/releases/hosting.md">설치 안내</a></sub></p>
+<p align="center"><sub><a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/b9d562897b3821d4db235fdfa4ca0a49c70d9ba1/docs/media/ko/demo.mp4">데모 보기</a> · <a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/b9d562897b3821d4db235fdfa4ca0a49c70d9ba1/docs/media/ko/demo.gif">GIF 보기</a> · <a href="https://github.com/LING-0001/SnapSlot/releases/tag/v1.1.3">v1.1.3</a> · <a href="../../docs/releases/hosting.md">설치 안내</a></sub></p>
 
 ## 사용 방법
 

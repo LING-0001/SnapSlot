@@ -6,15 +6,15 @@
 <p align="center"><b>大切なものを、いつでも目の前に。</b><br>画像や文字を画面の手前に。参考資料や思いついたアイデアを、いつでも見える場所へ。</p>
 
 <p align="center">
-  <a href="https://github.com/LING-0001/SnapSlot/releases/download/v1.1.2/SnapSlot-1.1.2-macOS-universal.dmg"><b>macOS 版をダウンロード</b></a> ·
-  <a href="https://github.com/LING-0001/SnapSlot/releases/download/v1.1.2/SnapSlot-1.1.2-windows-x64-setup.exe"><b>Windows 版をダウンロード</b></a> ·
+  <a href="https://github.com/LING-0001/SnapSlot/releases/download/v1.1.3/SnapSlot-1.1.3-macOS-universal.dmg"><b>macOS 版をダウンロード</b></a> ·
+  <a href="https://github.com/LING-0001/SnapSlot/releases/download/v1.1.3/SnapSlot-1.1.3-windows-x64-setup.exe"><b>Windows 版をダウンロード</b></a> ·
   <a href="https://snapslot.linglinglab.top/ja/">オンラインで試す</a>
 </p>
 
 <p align="center"><a href="../../README.md">简体中文</a> · <a href="README.en.md">English</a> · <a href="README.zh-Hant.md">繁體中文</a> · <b>日本語</b> · <a href="README.ko.md">한국어</a> · <a href="README.es.md">Español</a></p>
 
 <p align="center"><a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/b9d562897b3821d4db235fdfa4ca0a49c70d9ba1/docs/media/ja/demo.mp4"><img src="https://raw.githubusercontent.com/LING-0001/SnapSlot/b9d562897b3821d4db235fdfa4ca0a49c70d9ba1/docs/media/ja/drag.webp" width="840" alt="SnapSlot の操作デモ：メモを表示し、文字を取り込み、文書にドラッグ"></a></p>
-<p align="center"><sub><a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/b9d562897b3821d4db235fdfa4ca0a49c70d9ba1/docs/media/ja/demo.mp4">デモを見る</a> · <a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/b9d562897b3821d4db235fdfa4ca0a49c70d9ba1/docs/media/ja/demo.gif">GIF を見る</a> · <a href="https://github.com/LING-0001/SnapSlot/releases/tag/v1.1.2">v1.1.2</a> · <a href="../../docs/releases/hosting.md">インストール方法</a></sub></p>
+<p align="center"><sub><a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/b9d562897b3821d4db235fdfa4ca0a49c70d9ba1/docs/media/ja/demo.mp4">デモを見る</a> · <a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/b9d562897b3821d4db235fdfa4ca0a49c70d9ba1/docs/media/ja/demo.gif">GIF を見る</a> · <a href="https://github.com/LING-0001/SnapSlot/releases/tag/v1.1.3">v1.1.3</a> · <a href="../../docs/releases/hosting.md">インストール方法</a></sub></p>
 
 ## 使いかた
 

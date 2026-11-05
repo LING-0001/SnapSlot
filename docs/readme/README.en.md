@@ -6,15 +6,15 @@
 <p align="center"><b>Keep what matters, right in sight.</b><br>Pin screenshots and text above your work. Keep references and passing thoughts within reach.</p>
 
 <p align="center">
-  <a href="https://github.com/LING-0001/SnapSlot/releases/download/v1.1.2/SnapSlot-1.1.2-macOS-universal.dmg"><b>Download for macOS</b></a> ·
-  <a href="https://github.com/LING-0001/SnapSlot/releases/download/v1.1.2/SnapSlot-1.1.2-windows-x64-setup.exe"><b>Download for Windows</b></a> ·
+  <a href="https://github.com/LING-0001/SnapSlot/releases/download/v1.1.3/SnapSlot-1.1.3-macOS-universal.dmg"><b>Download for macOS</b></a> ·
+  <a href="https://github.com/LING-0001/SnapSlot/releases/download/v1.1.3/SnapSlot-1.1.3-windows-x64-setup.exe"><b>Download for Windows</b></a> ·
   <a href="https://snapslot.linglinglab.top/en/">Try it online</a>
 </p>
 
 <p align="center"><a href="../../README.md">简体中文</a> · <b>English</b> · <a href="README.zh-Hant.md">繁體中文</a> · <a href="README.ja.md">日本語</a> · <a href="README.ko.md">한국어</a> · <a href="README.es.md">Español</a></p>
 
 <p align="center"><a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/b9d562897b3821d4db235fdfa4ca0a49c70d9ba1/docs/media/en/demo.mp4"><img src="https://raw.githubusercontent.com/LING-0001/SnapSlot/b9d562897b3821d4db235fdfa4ca0a49c70d9ba1/docs/media/en/drag.webp" width="840" alt="Snapshot Pin interactive demo: reveal notes, collect text, and drag into a document"></a></p>
-<p align="center"><sub><a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/b9d562897b3821d4db235fdfa4ca0a49c70d9ba1/docs/media/en/demo.mp4">Watch the demo</a> · <a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/b9d562897b3821d4db235fdfa4ca0a49c70d9ba1/docs/media/en/demo.gif">View GIF</a> · <a href="https://github.com/LING-0001/SnapSlot/releases/tag/v1.1.2">v1.1.2</a> · <a href="../../docs/releases/hosting.md">Installation guide</a></sub></p>
+<p align="center"><sub><a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/b9d562897b3821d4db235fdfa4ca0a49c70d9ba1/docs/media/en/demo.mp4">Watch the demo</a> · <a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/b9d562897b3821d4db235fdfa4ca0a49c70d9ba1/docs/media/en/demo.gif">View GIF</a> · <a href="https://github.com/LING-0001/SnapSlot/releases/tag/v1.1.3">v1.1.3</a> · <a href="../../docs/releases/hosting.md">Installation guide</a></sub></p>
 
 ## How it works
 

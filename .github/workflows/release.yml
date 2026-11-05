@@ -7,6 +7,8 @@ on:
       - 'release/v*'
 permissions:
   contents: read
+env:
+  SNAPSLOT_REQUIRE_MAC_NOTARIZATION: '1'
 concurrency:
   # Serialize all release branches; main development never cancels a release.
   group: snapslot-release
@@ -35,7 +37,7 @@ jobs:
   package:
     needs: authorize
     runs-on: macos-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     env:
       HOMEBREW_NO_AUTO_UPDATE: 1
     steps:
@@ -51,6 +53,14 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Import Developer ID and validate Apple notarization credentials
+        env:
+          MACOS_CERTIFICATE_P12_BASE64: ${{ secrets.MACOS_CERTIFICATE_P12_BASE64 }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: bash scripts/setup-macos-signing.sh
       - run: npm ci --prefix apps/website
       - name: Install packaging tools on the GitHub runner
         run: |
@@ -58,6 +68,8 @@ jobs:
           python -m venv .tools/dmgbuild
           .tools/dmgbuild/bin/pip install dmgbuild==1.6.7
       - name: Build universal Mac DMG and Windows x64 installer from this commit
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: node scripts/prepare-release.mjs
       - run: node scripts/verify-release.mjs
       - uses: actions/upload-artifact@v4
@@ -66,6 +78,9 @@ jobs:
           path: apps/website/public/downloads/v${{ needs.authorize.outputs.version }}/
           if-no-files-found: error
           retention-days: 14
+      - name: Remove the temporary signing keychain
+        if: always()
+        run: bash scripts/cleanup-macos-signing.sh
 
   verify-windows-installer:
     needs: [authorize, package]

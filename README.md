@@ -6,15 +6,15 @@
 <p align="center"><b>把重要的内容，留在眼前。</b><br>把截图和文字贴在屏幕上，让参考资料和临时想法随时可见。</p>
 
 <p align="center">
-  <a href="https://github.com/LING-0001/SnapSlot/releases/download/v1.1.2/SnapSlot-1.1.2-macOS-universal.dmg"><b>下载 macOS 版</b></a> ·
-  <a href="https://github.com/LING-0001/SnapSlot/releases/download/v1.1.2/SnapSlot-1.1.2-windows-x64-setup.exe"><b>下载 Windows 版</b></a> ·
+  <a href="https://github.com/LING-0001/SnapSlot/releases/download/v1.1.3/SnapSlot-1.1.3-macOS-universal.dmg"><b>下载 macOS 版</b></a> ·
+  <a href="https://github.com/LING-0001/SnapSlot/releases/download/v1.1.3/SnapSlot-1.1.3-windows-x64-setup.exe"><b>下载 Windows 版</b></a> ·
   <a href="https://snapslot.linglinglab.top/zh-Hans/">在线体验</a>
 </p>
 
 <p align="center"><b>简体中文</b> · <a href="docs/readme/README.en.md">English</a> · <a href="docs/readme/README.zh-Hant.md">繁體中文</a> · <a href="docs/readme/README.ja.md">日本語</a> · <a href="docs/readme/README.ko.md">한국어</a> · <a href="docs/readme/README.es.md">Español</a></p>
 
 <p align="center"><a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/b9d562897b3821d4db235fdfa4ca0a49c70d9ba1/docs/media/zh-Hans/demo.mp4"><img src="https://raw.githubusercontent.com/LING-0001/SnapSlot/b9d562897b3821d4db235fdfa4ca0a49c70d9ba1/docs/media/zh-Hans/drag.webp" width="840" alt="快照贴交互演示：展开便签、收取文字、拖入文档"></a></p>
-<p align="center"><sub><a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/b9d562897b3821d4db235fdfa4ca0a49c70d9ba1/docs/media/zh-Hans/demo.mp4">观看演示</a> · <a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/b9d562897b3821d4db235fdfa4ca0a49c70d9ba1/docs/media/zh-Hans/demo.gif">查看动图</a> · <a href="https://github.com/LING-0001/SnapSlot/releases/tag/v1.1.2">v1.1.2</a> · <a href="docs/releases/hosting.md">安装说明</a></sub></p>
+<p align="center"><sub><a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/b9d562897b3821d4db235fdfa4ca0a49c70d9ba1/docs/media/zh-Hans/demo.mp4">观看演示</a> · <a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/b9d562897b3821d4db235fdfa4ca0a49c70d9ba1/docs/media/zh-Hans/demo.gif">查看动图</a> · <a href="https://github.com/LING-0001/SnapSlot/releases/tag/v1.1.3">v1.1.3</a> · <a href="docs/releases/hosting.md">安装说明</a></sub></p>
 
 ## 怎么用
 

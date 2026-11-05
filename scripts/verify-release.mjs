@@ -4,6 +4,7 @@ import { readFile, readdir, stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { verifySourceVersion } from "./verify-source.mjs";
+import { validateMacNotarization } from './macos-distribution.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const sourceVersion = await verifySourceVersion(root);
@@ -13,6 +14,7 @@ if (process.env.GITHUB_REF_TYPE === 'tag' && version !== sourceVersion) throw ne
 const folder = path.join(root, "apps/website/public/downloads", `v${version}`);
 const manifest = JSON.parse(await readFile(path.join(folder, "manifest.json"), "utf8"));
 if (manifest.version !== version || manifest.tag !== `v${version}`) throw new Error("Release manifest version mismatch");
+if (process.env.SNAPSLOT_REQUIRE_MAC_NOTARIZATION === '1') validateMacNotarization(manifest.packages?.macos, process.env.APPLE_TEAM_ID);
 if (process.env.GITHUB_REF_TYPE === "tag" && process.env.GITHUB_REF_NAME !== manifest.tag) throw new Error("The Git tag does not match release.json");
 const expected = { macos: `SnapSlot-${version}-macOS-universal.dmg`, windows: `SnapSlot-${version}-windows-x64-setup.exe` };
 const sums = [];
