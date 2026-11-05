@@ -37,7 +37,7 @@ jobs:
   package:
     needs: authorize
     runs-on: macos-latest
-    timeout-minutes: 60
+    timeout-minutes: 150
     env:
       HOMEBREW_NO_AUTO_UPDATE: 1
     steps:
@@ -70,6 +70,8 @@ jobs:
       - name: Build universal Mac DMG and Windows x64 installer from this commit
         env:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          SNAPSLOT_NOTARY_CHECKPOINT_DIR: ${{ github.workspace }}/artifacts/notarization
+          SNAPSLOT_NOTARY_REUSE_APP_SUBMISSION: ${{ vars.SNAPSLOT_NOTARY_REUSE_APP_SUBMISSION }}
         run: node scripts/prepare-release.mjs
       - run: node scripts/verify-release.mjs
       - uses: actions/upload-artifact@v4
@@ -77,6 +79,14 @@ jobs:
           name: release-installers
           path: apps/website/public/downloads/v${{ needs.authorize.outputs.version }}/
           if-no-files-found: error
+          retention-days: 14
+      - name: Preserve signed payload and submission IDs if notarization times out
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mac-notarization-checkpoint
+          path: artifacts/notarization/
+          if-no-files-found: ignore
           retention-days: 14
       - name: Remove the temporary signing keychain
         if: always()

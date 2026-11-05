@@ -86,6 +86,8 @@ Nginx 的 root 指向静态产物目录，保持已有附件下载与 Range 配�
 
 `setup-macos-signing.sh` 在 runner 上验证证书团队和公证凭据，并将临时钥匙串加入签名搜索范围，保留原有搜索项与默认钥匙串；`cleanup-macos-signing.sh` 在成功或失败后恢复搜索列表并删除独立钥匙串。打包脚本只在资源齐全后做最终签名，不授予额外的 Hardened Runtime 例外权限。应用与 DMG 均须由 Apple 返回 `Accepted`，并通过 `stapler validate` 与 `spctl`；凭据缺失、超时、拒绝或验证失败都会阻止发布，不回退到临时签名。
 
-`manifest.json` 保存实际签名方式、团队和两次公证的 submission ID。校验值在最终 DMG 附加票据后计算。首次公证处理可能较慢；当前每次最多等待 20 分钟，超时仍须查询原 submission 状态及日志再重试，不把“已上传”当作“已通过”。macOS 仍可能出现正常的首次打开确认，签名与公证不等于取消所有系统提示。
+`manifest.json` 保存实际签名方式、团队和两次公证的 submission ID。校验值在最终 DMG 附加票据后计算。首次公证处理可能较慢；每次最多等待 60 分钟，先记录 submission ID 再等待。失败时 CI 保存 `mac-notarization-checkpoint`，其中只有提交的签名包及其 ID、团队、摘要，没有凭据。超时后须先查询原 submission 状态及日志，不能把“已上传”当作“已通过”，也不要立即重复提交。macOS 仍可能出现正常的首次打开确认，签名与公证不等于取消所有系统提示。
+
+原应用提交通过后，可在这次恢复期间设置 Actions variable `SNAPSLOT_NOTARY_REUSE_APP_SUBMISSION` 为原 ID。流程核对原状态为 `Accepted`，对当前实际签名的应用获取并验证匹配票据，再通过 Gatekeeper；任何一步失败均停止，不冒用旧票据或自动重复上传。恢复结束后移除该临时 variable，后续版本默认提交新的公证。DMG 仍须完成自己的公证与票据验证。
 
 要求来自 [Apple 的 macOS 公证说明](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution)；本地 `scripts/build-macos.sh` 仍使用开发用 ad-hoc 签名，不能作为正式下载包。

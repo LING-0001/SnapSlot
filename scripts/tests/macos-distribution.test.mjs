@@ -40,11 +40,46 @@ test('signed app is notarized before stapling and assessed with Gatekeeper', () 
   assert.ok(sign[1].includes('--timestamp') && sign[1].includes('runtime'));
   assert.ok(!sign[1].includes('--deep'));
   assert.deepEqual(calls.filter(([tool, args]) => tool === 'xcrun').map(([, args]) => args.slice(0, 2)), [
-    ['notarytool', 'submit'], ['stapler', 'staple'], ['stapler', 'validate'],
+    ['notarytool', 'submit'], ['notarytool', 'wait'], ['stapler', 'staple'], ['stapler', 'validate'],
   ]);
   const submit = calls.find(([tool, args]) => tool === 'xcrun' && args[0] === 'notarytool')[1];
-  assert.ok(submit.includes('--wait') && submit.includes(config.profile) && submit.includes(config.keychain));
+  assert.ok(submit.includes('--no-wait') && submit.includes(config.profile) && submit.includes(config.keychain));
+  const wait = calls.find(([tool, args]) => tool === 'xcrun' && args[1] === 'wait')[1];
+  assert.ok(wait.includes(submission) && wait.includes('--timeout'));
   assert.deepEqual(calls.at(-1), ['spctl', ['--assess', '--type', 'execute', '--verbose=2', '/tmp/SnapSlot.app']]);
+});
+
+test('a notarization timeout retains the exact signed payload and original submission ID', async () => {
+  const folder = await mkdtemp(path.join(tmpdir(), 'snapslot-notary-check-'));
+  try {
+    const archive = path.join(folder, 'SnapSlot-notarization.zip');
+    const payload = Buffer.from('signed payload fixture');
+    await writeFile(archive, payload);
+    const checkpointDir = path.join(folder, 'checkpoint');
+    const fixture = toolFixture();
+    const run = (tool, args, capture) => {
+      if (tool === 'xcrun' && args[0] === 'notarytool' && args[1] === 'wait') throw new Error('Apple processing exceeded the wait limit');
+      return fixture.run(tool, args, capture);
+    };
+    assert.throws(() => notarizeApp('/tmp/SnapSlot.app', folder, { ...config, checkpointDir }, run), /wait limit/);
+    assert.deepEqual(await readFile(path.join(checkpointDir, path.basename(archive))), payload);
+    const receipt = JSON.parse(await readFile(path.join(checkpointDir, path.basename(archive) + '.json'), 'utf8'));
+    assert.equal(receipt.id, submission);assert.equal(receipt.status, 'Submitted');
+    assert.ok(!fixture.calls.some(([tool, args]) => tool === 'xcrun' && args[0] === 'stapler'));
+  } finally { await rm(folder, { recursive: true, force: true }); }
+});
+
+test('an accepted original app submission resumes only if its ticket applies to the actual signed app', () => {
+  const { calls, run } = toolFixture();
+  assert.equal(notarizeApp('/tmp/SnapSlot.app', '/tmp/stage', { ...config, reuseAppSubmission: submission }, run), submission);
+  assert.ok(!calls.some(([tool, args]) => tool === '/usr/bin/ditto' || (tool === 'xcrun' && args[1] === 'submit')));
+  assert.ok(calls.some(([tool, args]) => tool === 'xcrun' && args[1] === 'info'));
+  assert.equal(calls.at(-1)[0], 'spctl');
+  for (const options of [{ status: 'In Progress' }, { failStaple: true }, { failGatekeeper: true }]) {
+    const fixture = toolFixture(options);
+    assert.throws(() => notarizeApp('/tmp/SnapSlot.app', '/tmp/stage', { ...config, reuseAppSubmission: submission }, fixture.run));
+    assert.ok(!fixture.calls.some(([tool, args]) => tool === 'xcrun' && args[1] === 'submit'));
+  }
 });
 
 test('final DMG gets its own signature, notarization and offline ticket', () => {
