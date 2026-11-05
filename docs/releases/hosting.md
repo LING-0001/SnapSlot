@@ -84,7 +84,7 @@ Nginx 的 root 指向静态产物目录，保持已有附件下载与 Range 配�
 
 证书应为 **Developer ID Application**；Apple Development / Apple Distribution 不能代替官网分发证书。Xcode 的 Apple Accounts → Manage Certificates 可以创建证书。公证密码由账号持有人在 Apple 账号的安全设置中生成；不要写入源码、文档、日志或聊天，也不要提交 `.p12` 或私钥。创建证书及将凭据存入 GitHub Secrets 前由账号持有人授权。
 
-`setup-macos-signing.sh` 在 runner 上验证证书团队和公证凭据；`cleanup-macos-signing.sh` 在成功或失败后删除独立钥匙串。打包脚本只在资源齐全后做最终签名，不授予额外的 Hardened Runtime 例外权限。应用与 DMG 均须由 Apple 返回 `Accepted`，并通过 `stapler validate` 与 `spctl`；凭据缺失、超时、拒绝或验证失败都会阻止发布，不回退到临时签名。
+`setup-macos-signing.sh` 在 runner 上验证证书团队和公证凭据，并将临时钥匙串加入签名搜索范围，保留原有搜索项与默认钥匙串；`cleanup-macos-signing.sh` 在成功或失败后恢复搜索列表并删除独立钥匙串。打包脚本只在资源齐全后做最终签名，不授予额外的 Hardened Runtime 例外权限。应用与 DMG 均须由 Apple 返回 `Accepted`，并通过 `stapler validate` 与 `spctl`；凭据缺失、超时、拒绝或验证失败都会阻止发布，不回退到临时签名。
 
 `manifest.json` 保存实际签名方式、团队和两次公证的 submission ID。校验值在最终 DMG 附加票据后计算。首次公证处理可能较慢；当前每次最多等待 20 分钟，超时仍须查询原 submission 状态及日志再重试，不把“已上传”当作“已通过”。macOS 仍可能出现正常的首次打开确认，签名与公证不等于取消所有系统提示。
 

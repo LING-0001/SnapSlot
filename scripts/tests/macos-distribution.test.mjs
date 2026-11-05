@@ -84,6 +84,11 @@ test('CI setup validates credentials and cleans only its own temporary keychain 
     await writeFile(path.join(bin, 'security'), `#!/usr/bin/env node
 const fs=require('fs'),args=process.argv.slice(2);
 fs.appendFileSync(process.env.FIXTURE_CALLS,args[0]+'\\n');
+if(args[0]==='list-keychains'){
+ const state=process.env.FIXTURE_KEYCHAIN_LIST;
+ if(args.includes('-s'))fs.writeFileSync(state,JSON.stringify(args.slice(args.indexOf('-s')+1)));
+ else for(const item of JSON.parse(fs.readFileSync(state,'utf8')))console.log('    "'+item+'"');
+}
 if(args[0]==='create-keychain')fs.writeFileSync(args.at(-1),'fixture');
 if(args[0]==='find-identity')console.log('1) ${'A'.repeat(40)} "Developer ID Application: Fixture (TESTTEAM01)"');
 if(args[0]==='delete-keychain')fs.unlinkSync(args.at(-1));
@@ -94,7 +99,11 @@ if(args[0]==='delete-keychain')fs.unlinkSync(args.at(-1));
       await mkdir(workspace);
       const githubEnv = path.join(workspace, 'env');
       const calls = path.join(workspace, 'calls');
+      const keychainList = path.join(workspace, 'keychains');
+      const originalKeychains = ['/tmp/fixture-login.keychain-db'];
+      await writeFile(keychainList, JSON.stringify(originalKeychains));
       const environment = { ...process.env, PATH: `${bin}:${process.env.PATH}`, RUNNER_TEMP: workspace, GITHUB_ENV: githubEnv, FIXTURE_CALLS: calls,
+        FIXTURE_KEYCHAIN_LIST: keychainList,
         MACOS_CERTIFICATE_P12_BASE64: Buffer.from('fixture').toString('base64'), MACOS_CERTIFICATE_PASSWORD: 'fixture-password', APPLE_ID: 'fixture@example.test',
         APPLE_APP_SPECIFIC_PASSWORD: 'fixture-notary-password', APPLE_TEAM_ID: config.teamId, FIXTURE_NOTARY_FAILURE: failure };
       const setup = spawnSync('bash', ['scripts/setup-macos-signing.sh'], { env: environment, encoding: 'utf8' });
@@ -105,13 +114,15 @@ if(args[0]==='delete-keychain')fs.unlinkSync(args.at(-1));
       }));
       if (failure === '0') assert.equal(exported.SNAPSLOT_MAC_SIGN_IDENTITY, config.identity);
       else assert.ok(!exported.SNAPSLOT_NOTARY_PROFILE);
+      assert.deepEqual(JSON.parse(await readFile(keychainList, 'utf8')), [exported.SNAPSLOT_MAC_KEYCHAIN, ...originalKeychains]);
       const cleanup = spawnSync('bash', ['scripts/cleanup-macos-signing.sh'], { env: { ...environment, ...exported }, encoding: 'utf8' });
       assert.equal(cleanup.status, 0);
-      assert.deepEqual((await readdir(workspace)).sort(), ['calls', 'env']);
+      assert.deepEqual((await readdir(workspace)).sort(), ['calls', 'env', 'keychains']);
+      assert.deepEqual(JSON.parse(await readFile(keychainList, 'utf8')), originalKeychains);
       assert.ok((await readFile(calls, 'utf8')).includes('delete-keychain'));
       const refused = spawnSync('bash', ['scripts/cleanup-macos-signing.sh'], { env: { ...environment, SNAPSLOT_MAC_KEYCHAIN_DIR: workspace }, encoding: 'utf8' });
       assert.equal(refused.status, 1);
-      assert.deepEqual((await readdir(workspace)).sort(), ['calls', 'env']);
+      assert.deepEqual((await readdir(workspace)).sort(), ['calls', 'env', 'keychains']);
     }
   } finally { await rm(root, { recursive: true, force: true }); }
 });
