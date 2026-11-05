@@ -10,6 +10,8 @@ import json
 import hashlib
 import subprocess
 import os
+import sys
+import re
 from functools import lru_cache
 
 root = Path(__file__).resolve().parent.parent
@@ -92,7 +94,7 @@ T = {
         h_privacy="隐私", privacy="自动收取新复制的图片；文字只在你选中并按下快捷键时收取。内容在本机处理，不上传便签。最多 30 张，满额移除最早一张，正常退出后清空当前便签会话。",
         h_build="从源码构建",
         b_site="官网", b_win="Windows（需要 .NET 10 SDK、Node.js 22+）", b_mac="macOS（需要 Command Line Tools、Node.js 22+）",
-        b_note="用户可直接下载上方 DMG / Setup 安装包。源码构建产物供开发调试。Mac 包为 ad-hoc 签名，未做 Apple 公证，系统可能阻止首次启动。发布与服务器部署见 [发布指南](docs/releases/hosting.md)。",
+        b_note="用户可直接下载上方 DMG / Setup 安装包。Mac 源码构建使用临时签名，仅供开发调试。发布与服务器部署见 [发布指南](docs/releases/hosting.md)。",
         h_layout="仓库结构",
         layout=[('apps/website', '官网与六语言交互演示'), ('apps/native-ui', '两端共用的扇形便签、菜单与设置'), ('apps/windows', 'Windows 客户端（C# / WPF + WebView2）'), ('apps/macos', 'macOS 客户端（Swift / AppKit + WKWebView）'), ('docs', '当前规范、测试清单、README 图片')],
         h_test="测试", test_note='构建、自动化测试和实机验收命令见 [CONTRIBUTING.md](CONTRIBUTING.md) 与 `docs/native-testing.md`。',
@@ -124,7 +126,7 @@ T = {
         h_privacy="Privacy", privacy="Newly copied images are collected automatically. Text is collected only after you select it and press the shortcut. Notes are processed locally and are not uploaded. Keep up to 30 notes; the oldest is removed when full, and a normal exit clears the current note session.",
         h_build="Build from source",
         b_site="Website", b_win="Windows (.NET 10 SDK, Node.js 22+)", b_mac="macOS (Command Line Tools, Node.js 22+)",
-        b_note="Download the DMG / Setup installer above to install the app. Source-build outputs are intended for development. The Mac package is ad-hoc signed and not notarized; the system may block its first launch. See the [release and hosting guide](docs/releases/hosting.md).",
+        b_note="Download the DMG / Setup installer above to install the app. Mac source builds use ad-hoc signing and are intended for development. See the [release and hosting guide](docs/releases/hosting.md).",
         h_layout="Repository layout",
         layout=[('apps/website', 'Website and interactive demo in six languages'), ('apps/native-ui', 'Fan notes, menu and settings shared by both clients'), ('apps/windows', 'Windows client (C# / WPF + WebView2)'), ('apps/macos', 'macOS client (Swift / AppKit + WKWebView)'), ('docs', 'Current specifications, test checklists, README images')],
         h_test="Tests", test_note='Build, automated test and physical-machine acceptance commands are in [CONTRIBUTING.md](CONTRIBUTING.md) and `docs/native-testing.md`.',
@@ -156,7 +158,7 @@ T = {
         h_privacy="隱私", privacy="自動收取新複製的圖片；文字只在你選取並按下快速鍵時收取。內容在本機處理，不上傳便箋。最多 30 張，額滿移除最早一張，正常結束後清空目前便箋工作階段。",
         h_build="從原始碼建置",
         b_site="官網", b_win="Windows（需要 .NET 10 SDK、Node.js 22+）", b_mac="macOS（需要 Command Line Tools、Node.js 22+）",
-        b_note="使用者可直接下載上方 DMG / Setup 安裝套件。原始碼建置產物供開發測試。Mac 套件為 ad-hoc 簽署，尚未經 Apple 公證，系統可能阻止首次啟動。請參閱[發布與部署指南](docs/releases/hosting.md)。",
+        b_note="使用者可直接下載上方 DMG / Setup 安裝套件。Mac 原始碼建置使用臨時簽署，僅供開發測試。請參閱[發布與部署指南](docs/releases/hosting.md)。",
         h_layout="儲存庫結構",
         layout=[('apps/website', '官網與六語言互動示範'), ('apps/native-ui', '兩端共用的扇形便箋、選單與設定'), ('apps/windows', 'Windows 用戶端（C# / WPF + WebView2）'), ('apps/macos', 'macOS 用戶端（Swift / AppKit + WKWebView）'), ('docs', '目前規範、測試清單、README 圖片')],
         h_test="測試", test_note='建置、自動化測試及實機驗收指令見 [CONTRIBUTING.md](CONTRIBUTING.md) 與 `docs/native-testing.md`。',
@@ -188,7 +190,7 @@ T = {
         h_privacy="プライバシー", privacy="新しくコピーした画像を自動で取り込みます。テキストは選択してショートカットを押したときだけ取り込みます。メモは端末内で処理し、アップロードしません。最大30件で、上限時は最も古いメモを削除し、通常の終了時に現在のセッションを消去します。",
         h_build="ソースからビルド",
         b_site="Web サイト", b_win="Windows（.NET 10 SDK、Node.js 22+）", b_mac="macOS（Command Line Tools、Node.js 22+）",
-        b_note="上の DMG / Setup インストーラーからインストールできます。ソースのビルド出力は開発用です。Mac 版は ad-hoc 署名で Apple の公証を受けていないため、初回起動がブロックされる場合があります。[公開・配信ガイド](docs/releases/hosting.md)も参照してください。",
+        b_note="上の DMG / Setup インストーラーからインストールできます。Mac のソースビルドは開発用の ad-hoc 署名を使用します。[公開・配信ガイド](docs/releases/hosting.md)も参照してください。",
         h_layout="リポジトリ構成",
         layout=[('apps/website', '6 言語のサイトとインタラクティブデモ'), ('apps/native-ui', '両クライアント共通の扇形メモ・メニュー・設定'), ('apps/windows', 'Windows クライアント（C# / WPF + WebView2）'), ('apps/macos', 'macOS クライアント（Swift / AppKit + WKWebView）'), ('docs', '現在の仕様、テスト項目、README 画像')],
         h_test="テスト", test_note='ビルド、自動テスト、実機確認のコマンドは [CONTRIBUTING.md](CONTRIBUTING.md) と `docs/native-testing.md` を参照してください。',
@@ -220,7 +222,7 @@ T = {
         h_privacy="개인정보", privacy="새로 복사한 이미지를 자동으로 수집합니다. 텍스트는 선택한 뒤 단축키를 눌렀을 때만 수집합니다. 메모는 기기 안에서 처리하며 업로드하지 않습니다. 최대 30개이며, 가득 차면 가장 오래된 메모를 삭제하고 정상 종료 시 현재 메모 세션을 비웁니다.",
         h_build="소스에서 빌드",
         b_site="웹사이트", b_win="Windows(.NET 10 SDK, Node.js 22+)", b_mac="macOS(Command Line Tools, Node.js 22+)",
-        b_note="위의 DMG / Setup 설치 파일을 다운로드해 설치하세요. 소스 빌드 결과물은 개발용입니다. Mac 패키지는 ad-hoc 서명이며 Apple 공증을 받지 않아 첫 실행이 차단될 수 있어요. [릴리스 및 배포 안내](docs/releases/hosting.md)를 참고하세요.",
+        b_note="위의 DMG / Setup 설치 파일을 다운로드해 설치하세요. Mac 소스 빌드는 개발용 ad-hoc 서명을 사용합니다. [릴리스 및 배포 안내](docs/releases/hosting.md)를 참고하세요.",
         h_layout="저장소 구조",
         layout=[('apps/website', '6개 언어 웹사이트와 대화형 데모'), ('apps/native-ui', '두 클라이언트 공용 부채꼴 메모·메뉴·설정'), ('apps/windows', 'Windows 클라이언트(C# / WPF + WebView2)'), ('apps/macos', 'macOS 클라이언트(Swift / AppKit + WKWebView)'), ('docs', '현재 사양, 테스트 항목, README 이미지')],
         h_test="테스트", test_note='빌드, 자동 테스트, 실기기 확인 명령은 [CONTRIBUTING.md](CONTRIBUTING.md)와 `docs/native-testing.md`를 보세요.',
@@ -252,7 +254,7 @@ T = {
         h_privacy="Privacidad", privacy="Recoge automáticamente las imágenes recién copiadas. El texto solo se recoge cuando lo seleccionas y pulsas el atajo. Las notas se procesan localmente y no se suben. Conserva hasta 30 notas; al llenarse se elimina la más antigua y, al cerrar normalmente, se borra la sesión actual.",
         h_build="Compilar desde el código",
         b_site="Sitio web", b_win="Windows (.NET 10 SDK, Node.js 22+)", b_mac="macOS (Command Line Tools, Node.js 22+)",
-        b_note="Descarga el instalador DMG / Setup de arriba para instalar la aplicación. Los resultados de compilar el código son para desarrollo. El paquete de Mac tiene firma ad-hoc y no está notarizado por Apple; el sistema puede bloquear el primer inicio. Consulta la [guía de publicación y alojamiento](docs/releases/hosting.md).",
+        b_note="Descarga el instalador DMG / Setup de arriba para instalar la aplicación. Las compilaciones de Mac desde el código usan firma ad-hoc y son para desarrollo. Consulta la [guía de publicación y alojamiento](docs/releases/hosting.md).",
         h_layout="Estructura del repositorio",
         layout=[('apps/website', 'Sitio y demostración interactiva en seis idiomas'), ('apps/native-ui', 'Notas en abanico, menú y ajustes compartidos'), ('apps/windows', 'Cliente de Windows (C# / WPF + WebView2)'), ('apps/macos', 'Cliente de macOS (Swift / AppKit + WKWebView)'), ('docs', 'Especificaciones actuales, listas de pruebas, imágenes del README')],
         h_test="Pruebas", test_note='Los comandos de compilación, pruebas automáticas y aceptación en equipos reales están en [CONTRIBUTING.md](CONTRIBUTING.md) y `docs/native-testing.md`.',
@@ -380,9 +382,26 @@ def kbd(keys: str) -> str:
 
 
 (root / "docs" / "readme").mkdir(parents=True, exist_ok=True)
+pin_only = sys.argv[1:] == ["--pin-assets-only"]
+if sys.argv[1:] and not pin_only:
+    raise SystemExit("Usage: python scripts/readme-build.py [--pin-assets-only]")
+
+def pin_release_assets(content: str) -> str:
+    """Keep verified CI copy intact while pinning its now-committed media."""
+    def replace(match):
+        url = match[2]
+        relative = url.removeprefix("../../").split("?", 1)[0]
+        if not relative.startswith(("docs/media/", "apps/website/public/brand/current/")):
+            return match[0]
+        pinned = committed_asset(relative)
+        if not pinned:
+            raise ValueError(f"Commit this release asset before pinning: {relative}")
+        return match[1] + pinned + '"'
+    return re.sub(r'(\b(?:src|href)=")([^"]+)"', replace, content)
+
 for locale in ORDER:
     target = root / "README.md" if locale == "zh-Hans" else root / "docs" / "readme" / f"README.{locale}.md"
-    content = build(locale)
+    content = pin_release_assets(target.read_text()) if pin_only else build(locale)
     with target.open("w", encoding="utf-8", newline="\n") as output:
         output.write(content)
     print(target.relative_to(root))

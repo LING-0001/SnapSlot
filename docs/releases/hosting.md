@@ -37,6 +37,8 @@
 - `SnapSlot-X.Y.Z-website.zip`：可直接部署的完整静态网站，包含本站下载文件。
 - `SnapSlot-X.Y.Z-media.zip`：本次生成的 README、六语言截图、引导素材和 GIF / MP4。发布后可将此 ZIP 中的 README 与 docs 素材同步回 main，无需重新生成；不要回写 release 分支。
 
+同步经过校验的媒体 ZIP 后，先提交 `docs/media`，再执行 `python scripts/readme-build.py --pin-assets-only`。该模式保留 CI 已验证的发行说明及安装状态，只把本地素材引用固定到实际图片提交，不需要为了更新图片链接再下载两端安装包。最后提交 README 与 `docs/readme`，只推送 main。
+
 历史 Release 保留。安装包不再跟踪在 Git 中；已有历史提交和 v1.1.0 Release 不改写。
 
 ## 官网部署
@@ -88,6 +90,6 @@ Nginx 的 root 指向静态产物目录，保持已有附件下载与 Range 配�
 
 `manifest.json` 保存实际签名方式、团队和两次公证的 submission ID。校验值在最终 DMG 附加票据后计算。首次公证处理可能较慢；每次最多等待 60 分钟，先记录 submission ID 再等待。失败时 CI 保存 `mac-notarization-checkpoint`，其中只有提交的签名包及其 ID、团队、摘要，没有凭据。超时后须先查询原 submission 状态及日志，不能把“已上传”当作“已通过”，也不要立即重复提交。macOS 仍可能出现正常的首次打开确认，签名与公证不等于取消所有系统提示。
 
-原应用提交通过后，可在这次恢复期间设置 Actions variable `SNAPSLOT_NOTARY_REUSE_APP_SUBMISSION` 为原 ID。流程核对原状态为 `Accepted`，对当前实际签名的应用获取并验证匹配票据，再通过 Gatekeeper；任何一步失败均停止，不冒用旧票据或自动重复上传。恢复结束后移除该临时 variable，后续版本默认提交新的公证。DMG 仍须完成自己的公证与票据验证。
+恢复原提交时，必须先从检查点还原同一份应用产物，不能重新编译后仅凭旧 ID 复用公证。只有恢复了原产物，才可在恢复期间设置 Actions variable `SNAPSLOT_NOTARY_REUSE_APP_SUBMISSION` 为原 ID。流程核对原状态为 `Accepted`，对实际签名的应用获取并验证匹配票据，再通过 Gatekeeper；任何一步失败均停止。标准流水线重新编译时应移除该 variable，为最终构建提交新的公证。恢复结束后同样移除临时 variable；DMG 仍须完成自己的公证与票据验证。
 
 要求来自 [Apple 的 macOS 公证说明](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution)；本地 `scripts/build-macos.sh` 仍使用开发用 ad-hoc 签名，不能作为正式下载包。
