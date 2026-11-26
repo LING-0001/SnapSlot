@@ -788,11 +788,11 @@ public sealed class RailWindow : Window
                     }
                     else if (DropTextExtensions.Contains(ext) && info.Length > 0 && info.Length <= 65536)
                     {
-                        var text = File.ReadAllText(file, Encoding.UTF8);
-                        if (!string.IsNullOrWhiteSpace(text))
+                        var fileText = File.ReadAllText(file, Encoding.UTF8);
+                        if (!string.IsNullOrWhiteSpace(fileText))
                         {
-                            var first = text.Split('\n').FirstOrDefault(line => !string.IsNullOrWhiteSpace(line))?.Trim() ?? info.Name;
-                            Add(new InboxItem(first[..Math.Min(first.Length, 30)], text));
+                            var first = fileText.Split('\n').FirstOrDefault(line => !string.IsNullOrWhiteSpace(line))?.Trim() ?? info.Name;
+                            Add(new InboxItem(first[..Math.Min(first.Length, 30)], fileText));
                             added = true;
                         }
                     }
@@ -816,10 +816,10 @@ public sealed class RailWindow : Window
                     added = true;
                 }
             }
-            if (!added && e.Data.GetDataPresent(DataFormats.UnicodeText) && e.Data.GetData(DataFormats.UnicodeText) is string text && !string.IsNullOrWhiteSpace(text) && Encoding.UTF8.GetByteCount(text) <= 65536)
+            if (!added && e.Data.GetDataPresent(DataFormats.UnicodeText) && e.Data.GetData(DataFormats.UnicodeText) is string droppedText && !string.IsNullOrWhiteSpace(droppedText) && Encoding.UTF8.GetByteCount(droppedText) <= 65536)
             {
-                var first = text.Split('\n').FirstOrDefault(line => !string.IsNullOrWhiteSpace(line))?.Trim() ?? "Note";
-                Add(new InboxItem(first[..Math.Min(first.Length, 30)], text));
+                var first = droppedText.Split('\n').FirstOrDefault(line => !string.IsNullOrWhiteSpace(line))?.Trim() ?? "Note";
+                Add(new InboxItem(first[..Math.Min(first.Length, 30)], droppedText));
                 added = true;
             }
         });
