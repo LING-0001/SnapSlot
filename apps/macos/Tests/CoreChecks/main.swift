@@ -48,6 +48,34 @@ final class StoreChecks {
         let migrated=PreferencesStore(url:url);expectFalse(migrated.value.collectImages);expectEqual(migrated.value.textShortcut,Shortcut(key:"KeyT"));expectEqual(migrated.value.openShortcut,.open)
         try migrated.save(migrated.value)
         let saved=try String(contentsOf:url,encoding:.utf8);expectFalse(saved.contains("captureShortcut"));expectFalse(saved.contains("collectScreenshots"));expectTrue(saved.contains("openShortcut"))
+        expectFalse(migrated.value.launchAtLogin);expectTrue(migrated.value.showInDock)
+        var toggles=migrated.value;toggles.launchAtLogin=true;toggles.showInDock=false
+        try store.save(toggles);let reloaded=PreferencesStore(url:url).value
+        expectTrue(reloaded.launchAtLogin);expectFalse(reloaded.showInDock)
+    }
+    func testDeduplicationReadableNamesEditAndSemVer() throws {
+        let directory=root();defer{try? FileManager.default.removeItem(at:directory)}
+        let store=try SessionStore(root:directory)
+        let first=try store.addText("Design review: Q4/Q5*",display:"A")
+        expectTrue(first.fileURL.lastPathComponent.hasPrefix("Design review Q4 Q5"))
+        expectTrue(first.fileURL.pathExtension=="txt")
+        let dup=try store.addText("Design review: Q4/Q5*",display:"B")
+        expectEqual(store.items.count,1)
+        expectEqual(store.items.last?.id,dup.id)
+        let edited=try store.updateText(id:dup.id,text:"Design review updated")
+        expectEqual(edited.text,"Design review updated")
+        expectEqual(try String(contentsOf:edited.fileURL,encoding:.utf8),"Design review updated")
+        let png=Data([137,80,78,71,13,10,26,10,0,0,0,0])
+        let img1=try store.addPNG(png,title:"Figma · 14:25",display:"A",width:1200,height:800,fileStem:"mock/shot")
+        expectTrue(img1.fileURL.lastPathComponent.hasPrefix("mock shot"))
+        let img2=try store.addPNG(png,title:"Figma · 14:26",display:"B",width:1200,height:800)
+        expectEqual(store.items.filter{$0.kind=="image"}.count,1)
+        expectEqual(store.items.last?.id,img2.id)
+        expectTrue(SemVer.isNewer("v1.2.0",than:"1.1.3"))
+        expectTrue(SemVer.isNewer("1.1.4",than:"1.1.3"))
+        expectFalse(SemVer.isNewer("v1.1.3",than:"1.1.3"))
+        expectFalse(SemVer.isNewer("v1.0.9",than:"1.1.3"))
+        store.cleanup()
     }
 }
 
@@ -61,3 +89,4 @@ try checks.testTextRoundTripRemovalAndSessionCleanup();print("PASS: full text, r
 try checks.testCapacityAndClearPreserveExports();print("PASS: 30-note capacity, oldest eviction, clear and export lifetime")
 try checks.testCleanupDoesNotTouchUnownedFolders();print("PASS: original files and unowned directories preserved")
 try checks.testPreferencesPersistAndRejectConflicts();print("PASS: both shortcuts persist; legacy opening defaults migrate; duplicate, Copy and modifier-free shortcuts rejected")
+try checks.testDeduplicationReadableNamesEditAndSemVer();print("PASS: deduplication, readable filenames, in-place text edits and semver comparison")

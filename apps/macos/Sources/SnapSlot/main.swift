@@ -2,6 +2,9 @@ import AppKit
 import WebKit
 import Carbon
 import ApplicationServices
+import ImageIO
+import ServiceManagement
+import UniformTypeIdentifiers
 import SnapSlotCore
 
 final class NotePanel: NSPanel {
@@ -81,20 +84,35 @@ final class NativeWebView: WKWebView, NSDraggingSource {
     func draggingSession(_ session: NSDraggingSession, endedAt screenPoint: NSPoint, operation: NSDragOperation) { onDragEnded?(operation) }
 }
 final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler {
+    struct FloatSession {
+        let id: String
+        let panel: NotePanel
+        let web: NativeWebView
+        let material: NSVisualEffectView
+        var opacity: Double
+        var mouseDown: NSEvent?
+    }
     let testing = CommandLine.arguments.contains("--smoke-test") || CommandLine.arguments.contains("--dock-menu-check") || CommandLine.arguments.contains("--status-icon-check")
     var previewing=false
+    var composing=false
     var uiRoot: URL!
     var store: SessionStore!
     var panel: NotePanel!
     var web: NativeWebView!
+    var dropView: DropTargetView!
+    var dropArmed = false
+    var dropHovering = false
+    var lastDragCount = NSPasteboard(name: .drag).changeCount
     var settings: NSWindow?
     var settingsWeb: NativeWebView?
     var trayPanel: NotePanel?
     var trayWeb: NativeWebView?
+    var floats: [String: FloatSession] = [:]
     var materialViews: [String:NSVisualEffectView] = [:]
     var cardHitAreas: [(center:NSPoint,size:NSSize,angle:Double)] = []
     var arming = false
     var appearance = "glass"
+    var currentVersion: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.1.3" }
     var allViews: [NativeWebView] { [web,settingsWeb,trayWeb].compactMap{$0} }
     var status: NSStatusItem?
     var statusSymbolPinned:Bool?
@@ -134,6 +152,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
     let names = ["English","简体中文","繁體中文","日本語","한국어","Español"]
     let locales = ["en","zh-Hans","zh-Hant","ja","ko","es"]
     func label(_ en: String, _ zh: String) -> String { menuCopy[locale]?[en] ?? (locale.hasPrefix("zh") ? zh : en) }
+    func localizedError(_ error: Error) -> String {
+        if let storeError = error as? StoreError, let key = storeError.errorKey, let text = menuCopy[locale]?[key] { return text }
+        if let prefError = error as? PreferencesError, let text = menuCopy[locale]?[prefError.errorKey] { return text }
+        let ns = error as NSError
+        if let text = menuCopy[locale]?[ns.localizedDescription] { return text }
+        return error.localizedDescription
+    }
     func argument(_ key: String) -> String? { guard let index = CommandLine.arguments.firstIndex(of:key), index+1 < CommandLine.arguments.count else { return nil };return CommandLine.arguments[index+1] }
     func applicationDidFinishLaunching(_ notification: Notification) {
         do {
@@ -148,7 +173,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
             if testing {testingDataRoot=appData}
             store = try SessionStore(root:appData.appendingPathComponent("Sessions",isDirectory:true))
             preferences=PreferencesStore(url:appData.appendingPathComponent("preferences.json"),legacyCollection:testing || UserDefaults.standard.object(forKey:"collectImages") as? Bool != false)
-            if !testing {try restoreUpdateHandoff(appData:appData)}
+            if !testing {
+                NSApp.setActivationPolicy(preferences.value.showInDock ? .regular : .accessory)
+                try restoreUpdateHandoff(appData:appData)
+            }
             let preferred = UserDefaults.standard.string(forKey:"locale") ?? Locale.preferredLanguages.first ?? "en"
             locale = preferred.hasPrefix("zh") ? (preferred.contains("Hant") || preferred.contains("TW") || preferred.contains("HK") ? "zh-Hant":"zh-Hans") : locales.first(where:{preferred.hasPrefix($0)}) ?? "en"
             appearance = testing ? "glass" : UserDefaults.standard.string(forKey:"websiteAppearance") ?? "glass"
@@ -161,6 +189,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
             panel.isReleasedWhenClosed=false;panel.title="SnapSlot";panel.delegate=self
             let surface=NSView(frame:panel.contentView!.bounds);surface.autoresizingMask=[.width,.height]
             web=makeWebView(mode:"rail");web.frame=surface.bounds;web.autoresizingMask=[.width,.height];surface.addSubview(web)
+            dropView=DropTargetView(frame:surface.bounds);dropView.autoresizingMask=[.width,.height]
+            dropView.onDragHoverChanged={ [weak self] active in self?.handleDropHover(active) }
+            dropView.onDropped={ [weak self] payloads in self?.handleDroppedPayloads(payloads) }
+            surface.addSubview(dropView)
             panel.contentView=surface
             // Create the menu-bar entry independently of clipboard intake and
             // WebKit readiness. A failed secondary feature must not remove it.
@@ -175,7 +207,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
                     shortcutChanges=result.changes
                     if !shortcutChanges.isEmpty {DispatchQueue.main.async{self.openSettings(mode:"preferences")}}
                 } catch {self.error(error);DispatchQueue.main.async{self.openSettings(mode:"preferences")}}
-                hotkeys?.action={ [weak self] id in guard let self else{return};if id==3 {self.collectSelectedText()}else { self.reveal(focus:true) } }
+                hotkeys?.action={ [weak self] id in guard let self else{return};if id==3 {self.collectSelectedText()}else { self.toggleRailFromShortcut() } }
             }
             NSWorkspace.shared.notificationCenter.addObserver(self,selector:#selector(willSleep),name:NSWorkspace.willSleepNotification,object:nil)
             NotificationCenter.default.addObserver(self,selector:#selector(screenChanged),name:NSApplication.didChangeScreenParametersNotification,object:nil)
@@ -214,37 +246,67 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
     }
     func preview(_ url:URL) -> String {
         if let cached=previews[url] {return cached}
-        guard let image=NSImage(contentsOf:url) else { return "" }
-        let pixels=NSSize(width:image.representations.map{$0.pixelsWide}.max().map{CGFloat($0)} ?? image.size.width,height:image.representations.map{$0.pixelsHigh}.max().map{CGFloat($0)} ?? image.size.height)
-        let ratio=min(1,1024/max(pixels.width,pixels.height)),size=NSSize(width:max(1,pixels.width*ratio),height:max(1,pixels.height*ratio))
-        let bitmap=NSBitmapImageRep(bitmapDataPlanes:nil,pixelsWide:Int(size.width),pixelsHigh:Int(size.height),bitsPerSample:8,samplesPerPixel:4,hasAlpha:true,isPlanar:false,colorSpaceName:.deviceRGB,bytesPerRow:0,bitsPerPixel:0)!
-        NSGraphicsContext.saveGraphicsState();NSGraphicsContext.current=NSGraphicsContext(bitmapImageRep:bitmap)
-        image.draw(in:NSRect(origin:.zero,size:size));NSGraphicsContext.restoreGraphicsState()
-        let value="data:image/png;base64,"+(bitmap.representation(using:.png,properties:[:])?.base64EncodedString() ?? "")
+        guard let source=CGImageSourceCreateWithURL(url as CFURL,nil),let cgImage=CGImageSourceCreateImageAtIndex(source,0,nil) else { return "" }
+        let value=ClipboardIntake.encodeThumbnailDataURI(from:cgImage)
         previews[url]=value;return value
+    }
+    func loadFullPreview(for item:InboxItem,into view:WKWebView) {
+        guard item.kind=="image" else{return}
+        let url=item.fileURL,id=item.id
+        DispatchQueue.global(qos:.userInitiated).async { [weak self,weak view] in
+            guard let source=CGImageSourceCreateWithURL(url as CFURL,nil),
+                  let cgImage=CGImageSourceCreateImageAtIndex(source,0,nil) else{return}
+            let src:String
+            if max(cgImage.width,cgImage.height)<=2560,let raw=try? Data(contentsOf:url),raw.count<=6*1024*1024 {
+                src="data:image/png;base64,"+raw.base64EncodedString()
+            } else {
+                src=ClipboardIntake.encodeThumbnailDataURI(from:cgImage,maxEdge:2560)
+            }
+            guard !src.isEmpty else{return}
+            DispatchQueue.main.async {
+                guard let self,let view,self.readyViews.contains(ObjectIdentifier(view)) else{return}
+                self.send(["type":"previewImage","id":id,"src":src],to:view)
+            }
+        }
     }
     func state(focus:Bool=false) {
         updateStatusIndicator()
         for view in allViews where readyViews.contains(ObjectIdentifier(view)) {
             let key=ObjectIdentifier(view),known=sentItems[key] ?? []
-            let visible=view===web ? store.items.filter{$0.display==displayID(activeScreen)}:[]
+            let visible=view===web ? store.items:[]
             let data:[[String:Any]]=visible.map { item in
                 var value:[String:Any]=["id":item.id,"kind":item.kind,"title":item.title]
+                if let w=item.width {value["width"]=w}
+                if let h=item.height {value["height"]=h}
                 if !known.contains(item.id) {
                     if let text=item.text {value["text"]=text} else {value["preview"]=preview(item.fileURL)}
                 }
                 return value
             }
-            let message:[String:Any]=["type":"state","items":data,"locale":locale,"expanded":expanded,"reducedMotion":NSWorkspace.shared.accessibilityDisplayShouldReduceMotion,"focus":focus,"pinned":pinned,"arming":arming,"appearance":appearance,"count":store.items.count,"platform":"macos"]
+            let message:[String:Any]=["type":"state","items":data,"locale":locale,"expanded":expanded,"reducedMotion":NSWorkspace.shared.accessibilityDisplayShouldReduceMotion,"focus":focus,"pinned":pinned,"arming":arming,"appearance":appearance,"count":store.items.count,"platform":"macos","version":currentVersion]
             send(message,to:view)
             sentItems[key]=Set(visible.map{$0.id})
         }
+        syncFloats()
     }
-    func error(_ error:Error) { lastError=error.localizedDescription;for view in allViews { send(["type":"error","message":error.localizedDescription],to:view) } }
+    func error(_ error:Error) {
+        let message=localizedError(error)
+        lastError=message
+        for view in allViews { send(["type":"error","message":message],to:view) }
+    }
     func sizePanel() {
         // Side cards rotate below the 230 px dial; leave room for their shadows.
         let screen=activeScreen,height=previewing ? min(CGFloat(720),activeScreen.visibleFrame.height):CGFloat(360)
         panel.setFrame(NSRect(x:screen.frame.minX,y:screen.visibleFrame.maxY-height,width:screen.frame.width,height:height),display:true)
+    }
+    func toggleRailFromShortcut() {
+        let target=screenAtPointer() ?? NSScreen.main ?? activeScreen
+        if expanded && displayID(target)==displayID(activeScreen) {
+            collapse()
+        } else {
+            currentScreen=target
+            reveal(focus:true)
+        }
     }
     func reveal(focus:Bool,peek:Bool=false) {
         hover?.invalidate();dismiss?.invalidate();hideWork?.cancel();arming=false
@@ -257,23 +319,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         if !testing {setupMenu()}
     }
     func collapse() {
-        hover?.invalidate();dismiss?.invalidate();hideWork?.cancel();expanded=false;pinned=false;arming=false;previewing=false;panel.keyboardAccess=false
+        hover?.invalidate();dismiss?.invalidate();hideWork?.cancel();expanded=false;pinned=false;arming=false;previewing=false;composing=false;panel.keyboardAccess=false
+        disarmDropTarget()
         closeTray()
         panel.ignoresMouseEvents=true;pointerInside=false;send(["type":"pointer","x":NSNull(),"y":NSNull()],to:web);state()
         if !testing {setupMenu()}
-        let work=DispatchWorkItem{ [weak self] in guard let self,!self.expanded,!self.arming else{return};self.panel.orderOut(nil);self.materialViews.values.forEach{$0.removeFromSuperview()};self.materialViews.removeAll() }
+        let work=DispatchWorkItem{ [weak self] in guard let self,!self.expanded,!self.arming,!self.dropArmed else{return};self.panel.orderOut(nil);self.materialViews.values.forEach{$0.removeFromSuperview()};self.materialViews.removeAll() }
         hideWork=work;DispatchQueue.main.asyncAfter(deadline:.now()+(NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? 0:0.24),execute:work)
     }
     func scheduleDismiss() {
         dismiss?.invalidate()
-        guard expanded,!pinned,!dragging,!previewing,trayPanel==nil else{return}
+        guard expanded,!pinned,!dragging,!previewing,!composing,!dropHovering,trayPanel==nil else{return}
         let delay=max(0.45,peekUntil.timeIntervalSinceNow)
         dismiss=Timer.scheduledTimer(withTimeInterval:delay,repeats:false){ [weak self] _ in guard let self else{return};if !self.keepOpenAtPointer() { self.collapse() } }
     }
     var dismissalPointer: () -> NSPoint = { NSEvent.mouseLocation }
     var dismissalButtons: () -> Int = { NSEvent.pressedMouseButtons }
     func keepOpenAtPointer() -> Bool {
-        if previewing || dismissalButtons() != 0 {return true}
+        if previewing || composing || dropHovering || dismissalButtons() != 0 {return true}
         let point=dismissalPointer(),screen=activeScreen
         let local=web.convert(panel.convertPoint(fromScreen:point),from:nil)
         let y=web.isFlipped ? local.y:web.bounds.height-local.y
@@ -289,11 +352,65 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
             if (rect["X"] ?? .infinity)<=screen.frame.minX+1 && (rect["Y"] ?? .infinity)<=primaryTop-screen.frame.maxY+1 && (rect["Width"] ?? 0)>=screen.frame.width-1 && (rect["Height"] ?? 0)>=screen.frame.height-1 { return false }
         };return true
     }
+    func armDropTarget(on screen:NSScreen) {
+        guard !dropArmed else{return}
+        dropArmed=true;currentScreen=screen;hideWork?.cancel();sizePanel()
+        dropView.isHidden=false;panel.ignoresMouseEvents=false;panel.orderFrontRegardless()
+        send(["type":"dropTarget","active":true],to:web)
+    }
+    func disarmDropTarget() {
+        let wasArmed=dropArmed
+        dropArmed=false;dropHovering=false;dropView?.isHidden=true
+        if wasArmed {
+            send(["type":"dropTarget","active":false],to:web)
+            if !expanded && !arming { panel.ignoresMouseEvents=true;panel.orderOut(nil) }
+            else { updatePointerHitTest() }
+        }
+    }
+    func handleDropHover(_ active:Bool) {
+        dropHovering=active
+        send(["type":"dropTarget","active":active],to:web)
+        if active && !expanded { reveal(focus:false) }
+        if !active && NSEvent.pressedMouseButtons==0 { disarmDropTarget();scheduleDismiss() }
+    }
+    func handleDroppedPayloads(_ payloads:[DroppedPayload]) {
+        disarmDropTarget()
+        var added=false
+        for payload in payloads {
+            do {
+                switch payload {
+                case let .image(pngData,title,fileStem,width,height,thumbnail):
+                    let item=try store.addPNG(pngData,title:title,display:displayID(activeScreen),width:width,height:height,fileStem:fileStem)
+                    if !thumbnail.isEmpty { previews[item.fileURL]=thumbnail }
+                    added=true
+                case let .text(text):
+                    try store.addText(text,display:displayID(activeScreen))
+                    added=true
+                }
+            } catch { self.error(error) }
+        }
+        if added { arrived() }
+    }
     func pointerMoved(_ event:NSEvent) {
         lastMouse=event
         updateTrayPointer()
+        let buttons=NSEvent.pressedMouseButtons
+        if buttons == 0 && dropArmed { disarmDropTarget() }
+        if (buttons & 1) != 0 && !dragging, let screen=screenAtPointer() {
+            let dragPB=NSPasteboard(name:.drag)
+            let point=NSEvent.mouseLocation
+            if dragPB.changeCount != lastDragCount || dropArmed {
+                lastDragCount=dragPB.changeCount
+                if point.y >= screen.frame.maxY - 6 {
+                    armDropTarget(on:screen)
+                    return
+                } else if dropArmed && !dropHovering && point.y < screen.visibleFrame.maxY - 220 {
+                    disarmDropTarget()
+                }
+            }
+        }
         if expanded { updatePointerFeedback();if keepOpenAtPointer() { dismiss?.invalidate() } else if dismiss?.isValid != true { scheduleDismiss() };return }
-        guard NSEvent.pressedMouseButtons==0,let screen=screenAtPointer() else{cancelArming();previousEdge=false;return}
+        guard buttons==0,let screen=screenAtPointer() else{cancelArming();previousEdge=false;return}
         let point=NSEvent.mouseLocation,atEdge=point.y>=screen.frame.maxY-2
         if atEdge && !previousEdge && canReveal(on:screen) {
             hover?.invalidate();currentScreen=screen;hideWork?.cancel();arming=true;sizePanel();panel.ignoresMouseEvents=true;panel.orderFrontRegardless();state()
@@ -321,7 +438,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         send(["type":"pointer","x":inside ? local.x as Any:NSNull(),"y":inside ? (web.isFlipped ? local.y:web.bounds.height-local.y) as Any:NSNull()],to:web)
     }
     func updatePointerHitTest(at screenPoint:NSPoint=NSEvent.mouseLocation) {
-        guard expanded,!dragging else{return}
+        guard expanded,!dragging,!dropArmed else{return}
         let local=web.convert(panel.convertPoint(fromScreen:screenPoint),from:nil)
         let point=NSPoint(x:local.x,y:web.isFlipped ? local.y:web.bounds.height-local.y)
         let hit=cardHitAreas.contains { area in
@@ -335,9 +452,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
     func configureClipboardIntake() {
         if clipboardIntake==nil {
             let intake=ClipboardIntake(clipboard:testing ? NSPasteboard(name:NSPasteboard.Name("app.snapslot.smoke")):.general);clipboardIntake=intake
-            intake.onImage={ [weak self] data,title in
+            intake.onImage={ [weak self] payload in
                 guard let self else{return}
-                do {self.chooseScreenIfHidden();try self.store.addPNG(data,title:title,display:self.displayID(self.activeScreen));self.arrived()}catch{self.error(error)}
+                do {
+                    self.chooseScreenIfHidden()
+                    let item=try self.store.addPNG(payload.pngData,title:payload.title,display:self.displayID(self.activeScreen),width:payload.width,height:payload.height)
+                    if !payload.thumbnailDataURI.isEmpty { self.previews[item.fileURL]=payload.thumbnailDataURI }
+                    self.arrived()
+                }catch{self.error(error)}
             }
         }
         if preferences.value.collectImages {clipboardIntake?.start()}else{clipboardIntake?.stop()}
@@ -345,7 +467,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
     func sendPreferences(to view:WKWebView) {
         guard let data=try? JSONEncoder().encode(preferences.value),let value=try? JSONSerialization.jsonObject(with:data) else{return}
         let changes=(try? JSONSerialization.jsonObject(with:JSONEncoder().encode(shortcutChanges))) ?? []
-        send(["type":"preferences","value":value,"platform":"macos","shortcutChanges":changes],to:view)
+        send(["type":"preferences","value":value,"platform":"macos","shortcutChanges":changes,"version":currentVersion],to:view)
     }
     // Re-register both bindings before showing settings, including shortcuts
     // claimed by another application since SnapSlot started.
@@ -358,8 +480,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
             }
             shortcutChanges.removeAll {change in result.changes.contains(where:{$0.target==change.target})}
             shortcutChanges.append(contentsOf:result.changes)
-            for view in [settingsWeb,trayWeb].compactMap({$0}) {sendPreferences(to:view)}
+            for view in [web,settingsWeb,trayWeb].compactMap({$0}) {sendPreferences(to:view)}
         } catch {self.error(error)}
+    }
+    func applyLaunchAtLogin(_ enabled:Bool) {
+        guard !testing else{return}
+        do {
+            if enabled {
+                if SMAppService.mainApp.status != .enabled { try SMAppService.mainApp.register() }
+            } else {
+                if SMAppService.mainApp.status == .enabled || SMAppService.mainApp.status == .requiresApproval { try SMAppService.mainApp.unregister() }
+            }
+        } catch {
+            self.error(NSError(domain:"SnapSlot.LoginItem",code:1,userInfo:[NSLocalizedDescriptionKey:"err.launchAtLogin"]))
+        }
+    }
+    func applyDockVisibility(_ visible:Bool) {
+        guard !testing else{return}
+        NSApp.setActivationPolicy(visible ? .regular : .accessory)
+        if settings != nil {
+            DispatchQueue.main.async { [weak self] in self?.presentSettings() }
+        }
     }
     func savePreferences(_ next:AppPreferences,editing:ShortcutTarget? = nil) throws {
         let old=preferences.value
@@ -371,8 +512,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         recordingShortcut=false;shortcutRecording.end()
         shortcutChanges.removeAll {change in change.target==editing || changes.contains(where:{$0.target==change.target}) || (change.target == .text && next.textShortcut != old.textShortcut) || (change.target == .open && next.openShortcut != old.openShortcut)}
         shortcutChanges.append(contentsOf:changes)
+        if effective.launchAtLogin != old.launchAtLogin { applyLaunchAtLogin(effective.launchAtLogin) }
+        if effective.showInDock != old.showInDock { applyDockVisibility(effective.showInDock) }
         configureClipboardIntake();lastError=nil;if !testing{setupMenu()}
-        for view in [settingsWeb,trayWeb].compactMap({$0}) {sendPreferences(to:view)}
+        for view in [web,settingsWeb,trayWeb].compactMap({$0}) {sendPreferences(to:view)}
         state()
     }
     func finishShortcutRecording(cancelled:Bool=true) {
@@ -399,7 +542,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
     }
     func startPointerObservation() {
         globalMonitor=NSEvent.addGlobalMonitorForEvents(matching:[.mouseMoved,.leftMouseDragged,.rightMouseDragged,.leftMouseDown,.rightMouseDown,.leftMouseUp]){ [weak self] event in
-
+            if event.type == .leftMouseUp { self?.disarmDropTarget() }
             if event.type == .leftMouseDown || event.type == .rightMouseDown {self?.closeTray();self?.scheduleDismiss()}else{self?.pointerMoved(event)}
         }
         startLocalObservation()
@@ -412,26 +555,211 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
                 if event.type == .flagsChanged {return nil}
             }
             if event.type == .leftMouseDown,event.window===self?.settings {self?.settingsMouseDown=event}
-            if event.type == .leftMouseUp {self?.settingsMouseDown=nil;}
+            if event.type == .leftMouseDown,let self,let window=event.window {
+                for (id,var session) in self.floats where session.panel===window {
+                    session.mouseDown=event;self.floats[id]=session
+                }
+            }
+            if event.type == .leftMouseUp {
+                self?.settingsMouseDown=nil
+                if let self {
+                    for (id,var session) in self.floats { session.mouseDown=nil;self.floats[id]=session }
+                    self.disarmDropTarget()
+                }
+            }
             if let self,let tray=self.trayPanel,event.type == .leftMouseDown,event.window !== tray {self.closeTray()}
             if event.type == .keyDown {self?.dismiss?.invalidate()}else{self?.pointerMoved(event)};return event
         }
     }
     @objc func screenChanged() { currentScreen=screenAtPointer() ?? NSScreen.main;if expanded { sizePanel();state() } }
     @objc func willSleep() { collapse() }
+    func floatID(for view:WKWebView) -> String? { floats.first(where:{$0.value.web===view})?.key }
+    func sendFloatNote(id:String) {
+        guard let session=floats[id],let item=try? store.item(id:id),readyViews.contains(ObjectIdentifier(session.web)) else{return}
+        var payload:[String:Any]=["id":item.id,"kind":item.kind,"title":item.title]
+        if let text=item.text { payload["text"]=text } else { payload["preview"]=preview(item.fileURL) }
+        if let w=item.width { payload["width"]=w }
+        if let h=item.height { payload["height"]=h }
+        send(["type":"floatNote","item":payload,"appearance":appearance,"locale":locale,"reducedMotion":NSWorkspace.shared.accessibilityDisplayShouldReduceMotion,"platform":"macos","opacity":session.opacity],to:session.web)
+        if item.kind=="image" { loadFullPreview(for:item,into:session.web) }
+    }
+    func syncFloats() {
+        for (id,session) in floats {
+            session.material.isHidden = (appearance == "paper")
+            session.material.appearance=NSAppearance(named:appearance=="graphite" ? .darkAqua:.aqua)
+            sendFloatNote(id:id)
+        }
+    }
+    func roundedMask(radius:CGFloat) -> NSImage {
+        let side=radius*2+1
+        let mask=NSImage(size:NSSize(width:side,height:side),flipped:false){rect in
+            NSColor.black.setFill()
+            NSBezierPath(roundedRect:rect,xRadius:radius,yRadius:radius).fill()
+            return true
+        }
+        mask.capInsets=NSEdgeInsets(top:radius,left:radius,bottom:radius,right:radius)
+        mask.resizingMode = .stretch
+        return mask
+    }
+    func openFloat(id:String) throws {
+        let item=try store.item(id:id)
+        if let existing=floats[id] {
+            existing.panel.orderFrontRegardless();return
+        }
+        if floats.count >= 8,let oldest=floats.keys.first { closeFloat(id:oldest) }
+        startLocalObservation()
+        let screen=activeScreen.visibleFrame
+        let size:NSSize
+        if item.kind=="image",let w=item.width,let h=item.height,w>0,h>0 {
+            let aspect=CGFloat(w)/CGFloat(h)
+            let targetW=min(420,max(240,CGFloat(w)/2))
+            let targetH=min(380,max(160,targetW/aspect))+32
+            size=NSSize(width:targetW,height:targetH)
+        } else {
+            size=item.kind=="image" ? NSSize(width:340,height:260) : NSSize(width:320,height:220)
+        }
+        let offset=CGFloat(floats.count%5)*26
+        let origin=NSPoint(
+            x:min(max(screen.midX-size.width/2+offset,screen.minX+16),screen.maxX-size.width-16),
+            y:min(max(screen.maxY-size.height-180-offset,screen.minY+24),screen.maxY-size.height-24)
+        )
+        let floatPanel=NotePanel(contentRect:NSRect(origin:origin,size:size),styleMask:[.borderless,.nonactivatingPanel],backing:.buffered,defer:false)
+        floatPanel.keyboardAccess=true;floatPanel.isFloatingPanel=true;floatPanel.hidesOnDeactivate=false
+        floatPanel.backgroundColor = .clear;floatPanel.isOpaque=false;floatPanel.hasShadow=true
+        floatPanel.level = .floating;floatPanel.collectionBehavior=[.canJoinAllSpaces,.fullScreenAuxiliary]
+        floatPanel.isReleasedWhenClosed=false;floatPanel.title=item.title;floatPanel.delegate=self
+        let container=NSView(frame:NSRect(origin:.zero,size:size));container.wantsLayer=true;container.layer?.cornerRadius=14;container.layer?.masksToBounds=true
+        let material=NSVisualEffectView(frame:container.bounds);material.autoresizingMask=[.width,.height]
+        material.material = .hudWindow;material.blendingMode = .behindWindow;material.state = .active
+        material.appearance=NSAppearance(named:appearance=="graphite" ? .darkAqua:.aqua)
+        material.wantsLayer=true;material.layer?.cornerRadius=14;material.layer?.masksToBounds=true;material.maskImage=roundedMask(radius:14)
+        material.isHidden = (appearance == "paper")
+        let view=makeWebView(mode:"float")
+        view.frame=container.bounds;view.autoresizingMask=[.width,.height]
+        view.wantsLayer=true;view.layer?.cornerRadius=14;view.layer?.masksToBounds=true
+        container.addSubview(material);container.addSubview(view)
+        floatPanel.contentView=container
+        floats[id]=FloatSession(id:id,panel:floatPanel,web:view,material:material,opacity:1.0,mouseDown:nil)
+        floatPanel.orderFrontRegardless()
+    }
+    func closeFloat(id:String) {
+        guard let session=floats.removeValue(forKey:id) else{return}
+        readyViews.remove(ObjectIdentifier(session.web))
+        sentItems.removeValue(forKey:ObjectIdentifier(session.web))
+        session.web.configuration.userContentController.removeScriptMessageHandler(forName:"snapslot")
+        session.panel.orderOut(nil);session.panel.close()
+    }
+    func closeAllFloats() {
+        for id in Array(floats.keys) { closeFloat(id:id) }
+    }
+    func resizeFloat(id:String,delta:Double) {
+        guard let session=floats[id] else{return}
+        let factor:CGFloat = delta > 0 ? 1.08 : (1.0/1.08)
+        let current=session.panel.frame
+        let newW=min(max(current.width*factor,180),960)
+        let newH=min(max(current.height*factor,120),720)
+        let next=NSRect(x:current.midX-newW/2,y:current.midY-newH/2,width:newW,height:newH)
+        session.panel.setFrame(next,display:true)
+    }
+    func setFloatOpacity(id:String,opacity:Double) {
+        guard var session=floats[id] else{return}
+        let clamped=min(max(opacity,0.5),1.0)
+        session.opacity=clamped;floats[id]=session
+        session.panel.alphaValue=CGFloat(clamped)
+    }
     func userContentController(_ userContentController:WKUserContentController,didReceive message:WKScriptMessage) {
-        guard message.frameInfo.isMainFrame,let view=message.webView,view===web || view===settingsWeb || view===trayWeb,let value=message.body as? [String:Any],let type=value["type"] as? String else{return}
+        guard message.frameInfo.isMainFrame,let view=message.webView,
+              view===web || view===settingsWeb || view===trayWeb || floatID(for:view) != nil,
+              let value=message.body as? [String:Any],let type=value["type"] as? String else{return}
         do {
             switch type {
-            case "ready": readyViews.insert(ObjectIdentifier(view));sentItems[ObjectIdentifier(view)]=[];state();if view===settingsWeb || view===trayWeb {sendPreferences(to:view)};if view===trayWeb {updateTrayPointer()};if let lastError {send(["type":"error","message":lastError],to:view)};if testing && view===web { DispatchQueue.main.asyncAfter(deadline:.now()+0.8){if self.argument("--status-icon-check") != nil {self.checkStatusIcon()}else if self.argument("--dock-menu-check") != nil {self.checkDockMenu()}else{self.smoke()}} }
+            case "ready":
+                readyViews.insert(ObjectIdentifier(view));sentItems[ObjectIdentifier(view)]=[]
+                if let fid=floatID(for:view) { sendFloatNote(id:fid);return }
+                state()
+                if view===web || view===settingsWeb || view===trayWeb {sendPreferences(to:view)}
+                if view===trayWeb {updateTrayPointer()}
+                if let lastError {send(["type":"error","message":lastError],to:view)}
+                if testing && view===web { DispatchQueue.main.asyncAfter(deadline:.now()+0.8){if self.argument("--status-icon-check") != nil {self.checkStatusIcon()}else if self.argument("--dock-menu-check") != nil {self.checkDockMenu()}else{self.smoke()}} }
             case "collapse":collapse()
             case "closePreview":previewing=false;sizePanel();state();scheduleDismiss()
+            case "beginCompose":
+                if view===web { composing=true;previewing=false;reveal(focus:true) }
+            case "endCompose":
+                if view===web { composing=false;sizePanel();state();scheduleDismiss() }
+            case "createText":
+                if view===web,let text=value["text"] as? String {
+                    composing=false
+                    chooseScreenIfHidden();try store.addText(text,display:displayID(activeScreen))
+                    arrived()
+                }
+            case "updateText":
+                if view===web,let id=value["id"] as? String,let text=value["text"] as? String {
+                    let updated=try store.updateText(id:id,text:text)
+                    for key in Array(sentItems.keys) { sentItems[key]?.remove(updated.id) }
+                    state()
+                }
+            case "copyText":
+                if let text=value["text"] as? String,!text.isEmpty,text.utf8.count<=65536 {
+                    let clipboard=testing ? NSPasteboard(name:NSPasteboard.Name("app.snapslot.smoke")):NSPasteboard.general
+                    clipboard.clearContents();clipboard.setString(text,forType:.string);clipboardIntake?.ignoreCurrentClipboard()
+                }
             case "collectText":if view===web,let text=value["text"] as? String {previewing=false;pinSelection(text)}
             case "dragText":if view===web,let text=value["text"] as? String,!text.isEmpty,text.utf8.count<=65536 {try beginTextDrag(text)}
             case "preview":if view===web,let id=value["id"] as? String {
-                let item=try store.item(id:id);guard item.display==displayID(activeScreen) else{return}
-                previewing=true;reveal(focus:true)
+                let item=try store.item(id:id)
+                previewing=true;composing=false;reveal(focus:true)
+                loadFullPreview(for:item,into:web)
             }
+            case "ocr":
+                if let id=value["id"] as? String {
+                    let item=try store.item(id:id)
+                    guard item.kind=="image" else{return}
+                    TextRecognition.recognize(fileURL:item.fileURL) { [weak self,weak view] result in
+                        guard let self,let view,self.readyViews.contains(ObjectIdentifier(view)) else{return}
+                        switch result {
+                        case .success(let text):
+                            if text.isEmpty {
+                                self.send(["type":"ocrResult","id":id,"text":"","error":self.label("err.ocrEmpty","图片中未识别到文字。")],to:view)
+                            } else {
+                                self.send(["type":"ocrResult","id":id,"text":text],to:view)
+                            }
+                        case .failure:
+                            self.send(["type":"ocrResult","id":id,"text":"","error":self.label("err.ocrFailed","文字识别失败，请稍后重试。")],to:view)
+                        }
+                    }
+                }
+            case "float":
+                if let id=value["id"] as? String { previewing=false;sizePanel();try openFloat(id:id);state();scheduleDismiss() }
+            case "closeFloat":
+                if let id=value["id"] as? String { closeFloat(id:id) }
+            case "moveFloat":
+                if let id=value["id"] as? String,let session=floats[id],let event=session.mouseDown,NSEvent.pressedMouseButtons & 1 != 0 {
+                    session.panel.performDrag(with:event)
+                }
+            case "resizeFloat":
+                if let id=value["id"] as? String,let delta=value["delta"] as? Double,delta.isFinite { resizeFloat(id:id,delta:delta) }
+            case "setFloatOpacity":
+                if let id=value["id"] as? String,let opacity=value["opacity"] as? Double,opacity.isFinite { setFloatOpacity(id:id,opacity:opacity) }
+            case "checkUpdates":
+                if view===settingsWeb {
+                    if testing {
+                        send(["type":"updateStatus","value":["status":"upToDate","currentVersion":currentVersion,"latestVersion":"v\(currentVersion)"]],to:view)
+                    } else {
+                        UpdateChecker.check(currentVersion:currentVersion) { [weak self,weak view] outcome in
+                            guard let self,let view,self.readyViews.contains(ObjectIdentifier(view)) else{return}
+                            var payload:[String:Any]=["status":outcome.status,"currentVersion":outcome.currentVersion]
+                            if let latest=outcome.latestVersion { payload["latestVersion"]=latest }
+                            if let releaseUrl=outcome.releaseUrl { payload["releaseUrl"]=releaseUrl }
+                            if outcome.status=="error" { payload["message"]=self.label("err.updateFailed","检查更新失败，请稍后重试。") }
+                            self.send(["type":"updateStatus","value":payload],to:view)
+                        }
+                    }
+                }
+            case "openUrl":
+                if let raw=value["url"] as? String,let url=UpdateChecker.isAllowedExternalURL(raw),!testing {
+                    NSWorkspace.shared.open(url)
+                }
             case "pin":pinNotes()
             case "unpin":collapse()
             case "openPreferences":closeTray();openSettings(mode:"preferences")
@@ -442,7 +770,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
             case "setLocale":
                 guard let next=value["value"] as? String,locales.contains(next) else{return}
                 locale=next;if !testing {UserDefaults.standard.set(next,forKey:"locale");setupMenu()};state()
-            case "clearNotes":store.clear();previews.removeAll();state()
+            case "clearNotes":store.clear();previews.removeAll();closeAllFloats();state()
             case "surfaces":if view===web,let surfaces=value["surfaces"] as? [[String:Any]] {updateMaterials(surfaces)}
             case "moveWindow":if view===settingsWeb,let event=settingsMouseDown,NSEvent.pressedMouseButtons & 1 != 0,let settings {
                 let before=settings.frame.origin;settings.performDrag(with:event)
@@ -456,12 +784,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
             }
             case "endShortcutRecording":if view===settingsWeb {finishShortcutRecording(cancelled:false)}
             case "minimizePreferences":if view===settingsWeb {settings?.miniaturize(nil)}
-            case "resizePreferences":if view===settingsWeb,let height=value["height"] as? Double,height.isFinite,height>=350,height<=700 {resizeSettings(height:height)}
+            case "resizePreferences":if view===settingsWeb,let height=value["height"] as? Double,height.isFinite,height>=350,height<=860 {resizeSettings(height:height)}
             case "copy","remove","drag":
                 guard let id=value["id"] as? String else{return};let item=try store.item(id:id)
-                guard item.display==displayID(activeScreen) else{return}
-                if type=="remove" {previewing=false;sizePanel();store.remove(id:id);previews.removeValue(forKey:item.fileURL);state()}
-                else if type=="copy" {try copy(item);send(["type":"copied","id":id],to:web)}
+                if type=="remove" {previewing=false;sizePanel();closeFloat(id:id);store.remove(id:id);previews.removeValue(forKey:item.fileURL);state()}
+                else if type=="copy" {try copy(item);send(["type":"copied","id":id],to:view)}
                 else {try beginDrag(item)}
             default:break
             }
@@ -508,7 +835,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         guard let front=NSWorkspace.shared.frontmostApplication else{return}
         let options=[kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String:true] as CFDictionary
         guard AXIsProcessTrustedWithOptions(options) else {
-            selectionError(label("Allow SnapSlot in System Settings → Privacy & Security → Accessibility, then use the shortcut again.","请在系统设置 → 隐私与安全性 → 辅助功能中允许 SnapSlot，然后再按快捷键。"));return
+            selectionError(label("err.accessibility","请在系统设置 → 隐私与安全性 → 辅助功能中允许 SnapSlot，然后再按快捷键。"));return
         }
         var focused:CFTypeRef?
         let application=AXUIElementCreateApplication(front.processIdentifier)
@@ -518,11 +845,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
             let element=unsafeBitCast(focused,to:AXUIElement.self)
             AXUIElementSetMessagingTimeout(element,0.5)
             var subrole:CFTypeRef?;AXUIElementCopyAttributeValue(element,kAXSubroleAttribute as CFString,&subrole)
-            if subrole as? String==kAXSecureTextFieldSubrole as String {selectionError(label("Select ordinary text first.","请先选中需要收取的文字。"));return}
+            if subrole as? String==kAXSecureTextFieldSubrole as String {selectionError(label("err.selectOrdinary","请先选中普通文字（不支持密码框）。"));return}
             var selected:CFTypeRef?
             let result=AXUIElementCopyAttributeValue(element,kAXSelectedTextAttribute as CFString,&selected)
             if result == .success,let text=selected as? String {
-                if !text.isEmpty {pinSelection(text)}else{selectionError(label("Select the text you want to pin first.","请先全选或选中需要的文字。"))};return
+                if !text.isEmpty {pinSelection(text)}else{selectionError(label("err.selectText","请先选中需要收取的文字。"))};return
             }
         }
         // Some editors expose selection only through their normal Copy command.
@@ -543,7 +870,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
                 guard NSWorkspace.shared.frontmostApplication?.processIdentifier==target else{return}
                 if clipboard.changeCount != previous,let text=clipboard.string(forType:.string),!text.isEmpty {pinSelection(text);return}
             }
-            selectionError(label("No selected text was copied. Select text and try again.","没有收到选中文字，请先选中需要的文字再试一次。"))
+            selectionError(label("err.noTextCopied","没有收到选中文字，请先选中需要的文字再试一次。"))
         }
     }
     func pinSelection(_ text:String) {
@@ -570,11 +897,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         let background=SettingsSurface(frame:NSRect(origin:.zero,size:size));background.material = .popover;background.blendingMode = .behindWindow;background.state = .active
         background.onDragBegan={ [weak self] in self?.finishShortcutRecording() }
         background.onDragEnded={ [weak self] before,after in if self?.testing==true {print("CHECK: native settings drag \(NSStringFromPoint(before)) -> \(NSStringFromPoint(after))");fflush(stdout)} }
-        background.wantsLayer=true;background.layer?.cornerRadius=12;background.layer?.masksToBounds=true
-        let mask=NSImage(size:NSSize(width:25,height:25),flipped:false){rect in NSColor.black.setFill();NSBezierPath(roundedRect:rect,xRadius:12,yRadius:12).fill();return true}
-        mask.capInsets=NSEdgeInsets(top:12,left:12,bottom:12,right:12);mask.resizingMode = .stretch;background.maskImage=mask
+        background.wantsLayer=true;background.layer?.cornerRadius=16;background.layer?.masksToBounds=true
+        background.maskImage=roundedMask(radius:16)
         settingsWeb!.frame=background.bounds;settingsWeb!.autoresizingMask=[.width,.height];background.addSubview(settingsWeb!);window.contentView=background
-        settingsWeb!.wantsLayer=true;settingsWeb!.layer?.cornerRadius=12;settingsWeb!.layer?.masksToBounds=true
+        settingsWeb!.wantsLayer=true;settingsWeb!.layer?.cornerRadius=16;settingsWeb!.layer?.masksToBounds=true
         window.center();presentSettings()
     }
     func presentSettings() {
@@ -607,6 +933,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         if let window=notification.object as? NSWindow,window===panel {panel.keyboardAccess=false;scheduleDismiss()}
     }
     func windowWillClose(_ notification:Notification) {
+        if let window=notification.object as? NSWindow,let fid=floats.first(where:{$0.value.panel===window})?.key {
+            closeFloat(id:fid);return
+        }
         guard let window=notification.object as? NSWindow,window===settings else{return}
         finishShortcutRecording()
         if let settingsWeb {readyViews.remove(ObjectIdentifier(settingsWeb));sentItems.removeValue(forKey:ObjectIdentifier(settingsWeb));settingsWeb.configuration.userContentController.removeScriptMessageHandler(forName:"snapslot")}
@@ -679,22 +1008,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
     }
     func updateMaterials(_ surfaces:[[String:Any]]) {
         guard let root=panel.contentView else{return}
-        let allowed=Set(store.items.filter{$0.display==displayID(activeScreen)}.map{$0.id})
+        let allowed=Set(store.items.map{$0.id})
         var live=Set<String>()
         cardHitAreas.removeAll(keepingCapacity:true)
-        for surface in surfaces.prefix(9) {
-            guard let id=surface["id"] as? String,allowed.contains(id) || (id=="__preview" && previewing) || (id=="__selection" && expanded),
+        for surface in surfaces.prefix(12) {
+            guard let id=surface["id"] as? String,
+                  allowed.contains(id)
+                  || (id=="__preview" && previewing)
+                  || (id=="__composer" && composing)
+                  || ((id=="__selection" || id=="__compose-trigger" || id=="__empty-wrap") && expanded),
                   let x=surface["x"] as? Double,let y=surface["y"] as? Double,
                   let width=surface["width"] as? Double,let height=surface["height"] as? Double,
                   let angle=surface["angle"] as? Double,let opacity=surface["opacity"] as? Double,
-                  [x,y,width,height,angle,opacity].allSatisfy({$0.isFinite}),width>0,width<=min(760,panel.frame.width),height>0,height<=panel.frame.height else{continue}
+                  [x,y,width,height,angle,opacity].allSatisfy({$0.isFinite}),width>0,width<=min(800,panel.frame.width),height>0,height<=panel.frame.height else{continue}
             if opacity>0.01 {cardHitAreas.append((center:NSPoint(x:x,y:y),size:NSSize(width:width,height:height),angle:angle * .pi/180))}
             guard allowed.contains(id),appearance != "paper" else{continue}
             live.insert(id)
             let material=materialViews[id] ?? NSVisualEffectView()
             if materialViews[id]==nil {
                 material.material = .hudWindow;material.blendingMode = .behindWindow;material.state = .active
-                material.wantsLayer=true;material.layer?.masksToBounds=true;root.addSubview(material,positioned:.below,relativeTo:web);materialViews[id]=material
+                material.wantsLayer=true;material.layer?.masksToBounds=true;material.maskImage=roundedMask(radius:12)
+                root.addSubview(material,positioned:.below,relativeTo:web);materialViews[id]=material
             }
             material.appearance=NSAppearance(named:appearance=="graphite" ? .darkAqua:.aqua)
             material.frameCenterRotation=0
@@ -710,15 +1044,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         guard let button=status?.button,let window=button.window else{return}
         dismiss?.invalidate();cancelArming()
         let anchor=window.convertToScreen(button.convert(button.bounds,to:nil))
-        let screen=window.screen ?? activeScreen,size=NSSize(width:244,height:140)
-        let popup=NotePanel(contentRect:NSRect(x:min(max(anchor.maxX-size.width,screen.visibleFrame.minX),screen.visibleFrame.maxX-size.width),y:anchor.minY-size.height,width:size.width,height:size.height),styleMask:[.borderless,.nonactivatingPanel],backing:.buffered,defer:false)
-        popup.keyboardAccess=true;popup.acceptsMouseMovedEvents=true;popup.level = .popUpMenu;popup.backgroundColor = .clear;popup.isOpaque=false;popup.hasShadow=false;popup.hidesOnDeactivate=false;popup.isReleasedWhenClosed=false
+        let screen=window.screen ?? activeScreen,size=NSSize(width:232,height:126)
+        let popup=NotePanel(contentRect:NSRect(x:min(max(anchor.maxX-size.width,screen.visibleFrame.minX+6),screen.visibleFrame.maxX-size.width-6),y:anchor.minY-size.height-4,width:size.width,height:size.height),styleMask:[.borderless,.nonactivatingPanel],backing:.buffered,defer:false)
+        popup.keyboardAccess=true;popup.acceptsMouseMovedEvents=true;popup.level = .popUpMenu;popup.backgroundColor = .clear;popup.isOpaque=false;popup.hasShadow=true;popup.hidesOnDeactivate=false;popup.isReleasedWhenClosed=false
         trayPanel=popup;trayWeb=makeWebView(mode:"tray")
-        let root=NSView(frame:NSRect(origin:.zero,size:size))
-        let material=NSVisualEffectView(frame:root.bounds.insetBy(dx:6,dy:6));material.material = .popover;material.blendingMode = .behindWindow;material.state = .active
-        material.appearance=NSAppearance(named:.aqua);material.wantsLayer=true;material.layer?.cornerRadius=10;material.layer?.masksToBounds=true
-        root.addSubview(material);trayWeb!.frame=root.bounds;trayWeb!.autoresizingMask=[.width,.height];root.addSubview(trayWeb!)
-        popup.contentView=root;popup.orderFrontRegardless()
+        let material=NSVisualEffectView(frame:NSRect(origin:.zero,size:size));material.material = .popover;material.blendingMode = .behindWindow;material.state = .active
+        material.appearance=NSAppearance(named:.aqua);material.wantsLayer=true;material.layer?.cornerRadius=12;material.layer?.masksToBounds=true;material.maskImage=roundedMask(radius:12)
+        trayWeb!.frame=material.bounds;trayWeb!.autoresizingMask=[.width,.height]
+        trayWeb!.wantsLayer=true;trayWeb!.layer?.cornerRadius=12;trayWeb!.layer?.masksToBounds=true
+        material.addSubview(trayWeb!)
+        popup.contentView=material;popup.orderFrontRegardless()
     }
     func updateTrayPointer(at screenPoint:NSPoint=NSEvent.mouseLocation) {
         guard let trayPanel,let view=trayWeb else{return}
@@ -973,8 +1308,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
                 try await snapshot(web,to:directory.appendingPathComponent("macos-notes-glass.png"))
                 openSettings(mode:"preferences");let settingsView=try await waitForSettings()
                 try await Task.sleep(nanoseconds:350_000_000)
-                let controls=try await settingsView.evaluateJavaScript("document.querySelectorAll('[role=switch]').length===2 && document.querySelectorAll('[data-swatch]').length===3 && document.querySelectorAll('select option').length===6") as? Bool
-                try check(controls==true && settings!.frame.width==420,"Compact website settings expose two switches, three appearances and six languages")
+                let controls=try await settingsView.evaluateJavaScript("document.querySelectorAll('[role=switch]').length===4 && document.querySelectorAll('[data-swatch]').length===3 && document.querySelectorAll('select option').length===6 && !!document.querySelector('[data-update-row]')") as? Bool
+                try check(controls==true && settings!.frame.width==420,"Compact website settings expose four macOS switches, three appearances, six languages and update check")
                 try check(settings!.level.rawValue>panel.level.rawValue,"Foreground Settings stays above the pinned note panel")
                 try check(settingsView.layer?.masksToBounds==true && (settings!.contentView as? NSVisualEffectView)?.maskImage != nil,"Settings clips both web content and native material to the rounded window")
                 let originalSettings=settings!
@@ -1117,6 +1452,51 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
                     try await Task.sleep(nanoseconds:50_000_000)
                 }
                 try check(store.items.last?.id != previousSelectionID && store.items.last?.text==selectedPayload && clipboard.string(forType:.string)==selectedPayload && !pinned,"Collecting selected note text creates a note and preserves its full payload, clipboard and unpinned state; selected characters=\(selectedPayload.count), new item=\(store.items.last?.id != previousSelectionID), clipboard matches=\(clipboard.string(forType:.string)==selectedPayload), pinned=\(pinned)")
+                // Verify new v1.2+ native capabilities: hotkey toggle, quick note, edit, floating window, Vision OCR.
+                toggleRailFromShortcut()
+                try check(!expanded,"Pressing the open shortcut while expanded on the same screen collapses the fan")
+                toggleRailFromShortcut()
+                try check(expanded,"Pressing the open shortcut while collapsed reveals the fan")
+                let beforeCreate=store.items.count
+                let created=try store.addText("Quick scratch thought\nLine 2",display:"other-display")
+                state();try await Task.sleep(nanoseconds:150_000_000)
+                let visibleAcrossDisplays=try await web.evaluateJavaScript("!!document.querySelector('[data-arm=\"\(created.id)\"]')") as? Bool
+                try check(visibleAcrossDisplays==true && created.fileURL.lastPathComponent.hasPrefix("Quick scratch thought"),"Notes are shared across displays and exported with human-readable filenames; count=\(beforeCreate)->\(store.items.count)")
+                _ = try store.updateText(id:created.id,text:"Edited scratch thought")
+                for key in Array(sentItems.keys) { sentItems[key]?.remove(created.id) }
+                state();try await Task.sleep(nanoseconds:150_000_000)
+                let editedVisible=try await web.evaluateJavaScript("document.querySelector('[data-arm=\"\(created.id)\"]')?.textContent?.includes('Edited scratch thought')===true") as? Bool
+                try check(editedVisible==true && (try String(contentsOf:created.fileURL,encoding:.utf8))=="Edited scratch thought","Editing a text note updates both the rendered card and exported file")
+                try openFloat(id:created.id)
+                try await Task.sleep(nanoseconds:300_000_000)
+                try check(floats[created.id]?.panel.isVisible==true,"A note can tear off into an independent floating sticky window")
+                closeFloat(id:created.id)
+                try check(floats[created.id]==nil,"Closing a floating window cleans it up without removing the session note")
+                let ocrImage=NSImage(size:NSSize(width:320,height:100));ocrImage.lockFocus()
+                NSColor.white.setFill();NSBezierPath(rect:NSRect(x:0,y:0,width:320,height:100)).fill()
+                ("HELLO 2026" as NSString).draw(at:NSPoint(x:30,y:32),withAttributes:[.font:NSFont.boldSystemFont(ofSize:36),.foregroundColor:NSColor.black])
+                ocrImage.unlockFocus()
+                let ocrItem=try store.addPNG(try imagePNG(ocrImage),title:"OCR Test",display:displayID(activeScreen))
+                let ocrText:String=try await withCheckedThrowingContinuation { continuation in
+                    TextRecognition.recognize(fileURL:ocrItem.fileURL) { result in continuation.resume(with:result) }
+                }
+                try check(ocrText.uppercased().contains("HELLO") || ocrText.contains("2026"),"Local Vision OCR extracts text from an image note offline; recognized=\(ocrText)")
+                // Verify real AppKit mouse click on the empty-state "+ Quick note" button opens the composer.
+                store.clear();previews.removeAll();state();try await Task.sleep(nanoseconds:500_000_000)
+                let addRect=try await web.evaluateJavaScript("(()=>{const r=document.querySelector('.native-empty-add').getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()") as! [String:Double]
+                let addViewPoint=NSPoint(x:addRect["x"]!,y:web.isFlipped ? addRect["y"]!:web.bounds.height-addRect["y"]!)
+                let addWindowPoint=web.convert(addViewPoint,to:nil)
+                updatePointerHitTest(at:panel.convertPoint(toScreen:addWindowPoint))
+                try check(!panel.ignoresMouseEvents,"Empty-state Quick Note button registers as an interactive native hit area")
+                for type in [NSEvent.EventType.leftMouseDown,.leftMouseUp] {
+                    let event=NSEvent.mouseEvent(with:type,location:addWindowPoint,modifierFlags:[],timestamp:ProcessInfo.processInfo.systemUptime,windowNumber:panel.windowNumber,context:nil,eventNumber:1,clickCount:1,pressure:type == .leftMouseDown ? 1:0)!
+                    panel.sendEvent(event);try await Task.sleep(nanoseconds:120_000_000)
+                }
+                let composerVisible=try await web.evaluateJavaScript("!!document.querySelector('[data-native-region=__composer] textarea')") as? Bool
+                try check(composing && composerVisible==true,"Clicking the empty-state Quick Note button in real WKWebView opens the composer")
+                _ = try await web.evaluateJavaScript("dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))")
+                try await Task.sleep(nanoseconds:150_000_000)
+                try check(!composing,"Escape closes the Quick Note composer")
                 checks += try checkHotKeyTransaction()
                 try (checks.joined(separator:"\n")+"\n").write(to:directory.appendingPathComponent("macos-smoke.txt"),atomically:true,encoding:.utf8)
                 if CommandLine.arguments.contains("--keep-open") {reveal(focus:false);pinNotes()}else{NSApp.terminate(nil)}
@@ -1152,7 +1532,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         clipboard.clearContents();clipboard.setData(sample,forType:.png)
         let intake=ClipboardIntake(clipboard:clipboard)
         var received:[Data]=[],checks:[String]=[]
-        intake.onImage={data,_ in received.append(data)};intake.start();clipboardIntake=intake
+        intake.onImage={payload in received.append(payload.pngData)};intake.start();clipboardIntake=intake
         defer{intake.stop();clipboardIntake=nil;clipboard.clearContents()}
         try await Task.sleep(nanoseconds:650_000_000)
         checks.append(try check(received.isEmpty,"Clipboard image intake ignores the launch clipboard"))
@@ -1176,7 +1556,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
     }
     func fatal(_ error:Error){startupFailed=true;fputs("SnapSlot: \(error)\n",stderr);if testing{exit(1)};let alert=NSAlert(error:error);alert.runModal();NSApp.terminate(nil)}
     func applicationWillTerminate(_ notification:Notification){
-        shortcutRecording.end();hover?.invalidate();dismiss?.invalidate();hideWork?.cancel();clipboardIntake?.stop();
+        shortcutRecording.end();hover?.invalidate();dismiss?.invalidate();hideWork?.cancel();clipboardIntake?.stop();closeAllFloats()
         if let globalMonitor{NSEvent.removeMonitor(globalMonitor)};if let localMonitor{NSEvent.removeMonitor(localMonitor)}
         web?.configuration.userContentController.removeScriptMessageHandler(forName:"snapslot");settingsWeb?.configuration.userContentController.removeScriptMessageHandler(forName:"snapslot")
         hotkeys=nil;store?.cleanup();if !startupFailed,let web,readyViews.contains(ObjectIdentifier(web)),let restoredHandoff {try? FileManager.default.removeItem(at:restoredHandoff)};if let testingDataRoot {try? FileManager.default.removeItem(at:testingDataRoot)}

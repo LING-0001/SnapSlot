@@ -15,9 +15,11 @@ internal sealed class EdgeWatcher : IDisposable
     public static Screen TargetScreen { get; private set; } = Screen.PrimaryScreen!;
     private int previousY = int.MaxValue;
     public event Action? Entered;
+    public event Action? DragEnteredEdge;
     public event Action? Moved;
     public event Action? Left;
     public event Action? Clicked;
+    public event Action? LeftButtonUp;
     public EdgeWatcher()
     {
         callback = OnMouse;
@@ -31,6 +33,7 @@ internal sealed class EdgeWatcher : IDisposable
         var bounds = TargetScreen.Bounds;
         return NotesGeometry.IsAtTopEdge(point.X,point.Y,bounds.Left,bounds.Top,bounds.Right);
     }
+    public static bool IsLeftButtonHeld() => (GetAsyncKeyState(1) & 0x8000) != 0;
     public static bool CanReveal(IntPtr ownWindow)
     {
         if ((GetAsyncKeyState(1) & 0x8000) != 0 || (GetAsyncKeyState(2) & 0x8000) != 0 || (GetAsyncKeyState(4) & 0x8000) != 0) return false;
@@ -44,8 +47,10 @@ internal sealed class EdgeWatcher : IDisposable
     }
     private IntPtr OnMouse(int code, IntPtr message, IntPtr data)
     {
-        if (code >= 0 && message.ToInt32() is 0x0201 or 0x0204) Clicked?.Invoke();
-        if (code >= 0 && message.ToInt32() == 0x0200)
+        int msg = message.ToInt32();
+        if (code >= 0 && msg is 0x0201 or 0x0204) Clicked?.Invoke();
+        if (code >= 0 && msg == 0x0202) LeftButtonUp?.Invoke();
+        if (code >= 0 && msg == 0x0200)
         {
             var point = Marshal.PtrToStructure<MouseData>(data).Point;
             var target=Screen.FromPoint(new System.Drawing.Point(point.X,point.Y));
@@ -53,7 +58,11 @@ internal sealed class EdgeWatcher : IDisposable
             TargetScreen=target;
             var screen = target.Bounds;
             bool now = NotesGeometry.IsAtTopEdge(point.X,point.Y,screen.Left,screen.Top,screen.Right);
-            if (now && !atEdge && point.Y <= previousY) Entered?.Invoke();
+            if (now && !atEdge && point.Y <= previousY)
+            {
+                if (IsLeftButtonHeld()) DragEnteredEdge?.Invoke();
+                else Entered?.Invoke();
+            }
             if (!now && atEdge) Left?.Invoke();
             Moved?.Invoke();
             previousY = point.Y;

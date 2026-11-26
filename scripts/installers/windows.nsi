@@ -168,5 +168,6 @@ Section "Uninstall"
   Delete "$SMPROGRAMS\SnapSlot.lnk"
   DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\SnapSlot"
   DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\App Paths\SnapSlot.exe"
+  DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "SnapSlot"
   DeleteRegKey HKCU "Software\SnapSlot"
 SectionEnd

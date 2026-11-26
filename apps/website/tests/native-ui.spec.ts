@@ -11,13 +11,13 @@ async function host(page: Page, mode = "rail", count = 8, platform: "macos" | "w
   await page.addInitScript(({ count, platform }) => {
     const w = window as any;
     w.commands = [];
-    w.state = { type: "state", items: Array.from({ length: count }, (_, i) => ({ id: `note-${i}`, kind: "text", title: `Note ${i}`, text: `周五前：\n· 定下图标\n· 更新截图\n· 发给设计组看\n${i}` })), expanded: true, arming: false, pinned: false, appearance: "glass", count, locale: "zh-Hans", reducedMotion: false, platform };
-    w.preferences = { collectImages: true, textShortcut: { key: "KeyT", control: true, alt: true, shift: false, meta: false }, openShortcut: { key: "Space", control: true, alt: true, shift: false, meta: false } };
+    w.state = { type: "state", items: Array.from({ length: count }, (_, i) => ({ id: `note-${i}`, kind: "text", title: `Note ${i}`, text: `周五前：\n· 定下图标\n· 更新截图\n· 发给设计组看\n${i}` })), expanded: true, arming: false, pinned: false, appearance: "glass", count, locale: "zh-Hans", reducedMotion: false, platform, version: "1.1.3" };
+    w.preferences = { collectImages: true, textShortcut: { key: "KeyT", control: true, alt: true, shift: false, meta: false }, openShortcut: { key: "Space", control: true, alt: true, shift: false, meta: false }, launchAtLogin: false, showInDock: true };
     w.shortcutChanges = [];
     w.emit = (message: any) => platform === "windows" ? w.hostListener({ data: message }) : w.snapslotReceive(message);
     const postMessage = (command: any) => {
       w.commands.push(command);
-      if (command.type === "surfaces" || command.type === "moveWindow" || command.type === "drag" || command.type === "close") return;
+      if (["surfaces", "moveWindow", "drag", "close", "beginCompose", "endCompose", "moveFloat", "resizeFloat", "setFloatOpacity", "closeFloat", "openUrl", "copyText"].includes(command.type)) return;
       if (command.type === "beginShortcutRecording") { if (!w.deferRecordingReady) w.emit({ type: "recordingReady" }); return; }
       if (["endShortcutRecording", "resizePreferences", "minimizePreferences"].includes(command.type)) return;
       if (command.type === "setAppearance") w.state.appearance = command.value;
@@ -26,8 +26,10 @@ async function host(page: Page, mode = "rail", count = 8, platform: "macos" | "w
       if (command.type === "unpin" || command.type === "collapse") { w.state.pinned = false; w.state.expanded = false; }
       if (command.type === "clearNotes") { w.state.items = []; w.state.count = 0; }
       if (command.type === "remove") { w.state.items = w.state.items.filter((item: any) => item.id !== command.id); w.state.count = w.state.items.length; }
+      if (command.type === "createText") { const id = `note-created-${w.state.items.length}`; w.state.items.push({ id, kind: "text", title: command.text.slice(0, 20), text: command.text }); w.state.count = w.state.items.length; }
+      if (command.type === "updateText") { w.state.items = w.state.items.map((item: any) => item.id === command.id ? { ...item, text: command.text, title: command.text.slice(0, 20) } : item); }
       if (command.type === "savePreferences") { w.preferences = command.value; if (command.editingShortcut) w.shortcutChanges = w.shortcutChanges.filter((change: any) => change.target !== command.editingShortcut); }
-      w.emit(w.state); w.emit({ type: "preferences", value: w.preferences, platform, shortcutChanges: w.shortcutChanges });
+      w.emit(w.state); w.emit({ type: "preferences", value: w.preferences, platform, shortcutChanges: w.shortcutChanges, version: "1.1.3" });
       if (command.type === "copy") w.emit({ type: "copied", id: command.id });
     };
     if (platform === "windows") w.chrome = { ...w.chrome, webview: { postMessage, addEventListener: (_: string, listener: any) => { w.hostListener = listener; }, removeEventListener: () => {} } };
@@ -82,7 +84,7 @@ test("fan shares website materials and animation while fitting the native host",
     return { radius: style.borderRadius, padding: style.padding, background: style.backgroundColor, color: style.color, shadow: style.boxShadow, blur: style.backdropFilter, faceTransition: style.transitionDuration, armTransition: arm.transitionDuration, cardAnimation: card.animationDuration, dialTransition: getComputedStyle(node.closest("[role=list]")!).transitionDuration };
   };
   expect(await focused(page).evaluate(properties)).toEqual(await reference.locator("[data-focus=true]").evaluate(properties));
-  await expect(page.locator("[data-arm][aria-hidden=false]")).toHaveCount(2);
+  await expect(page.locator("[data-arm][aria-hidden=false]")).toHaveCount(3);
   expect(await page.locator("[data-arm][aria-hidden=false] [data-note]").evaluateAll(nodes => nodes.every(node => node.getBoundingClientRect().bottom < innerHeight - 20))).toBe(true);
   await page.screenshot({ path: path.join(output, "fan.png"), omitBackground: true });
 });
@@ -119,13 +121,15 @@ test("native pointer feedback reveals the same hover controls without activation
   await page.evaluate(({ x, y }) => (window as any).snapslotReceive({ type: "pointer", x, y }), { x: box.x + box.width / 2, y: box.y + box.height / 2 });
   await expect(page.locator(".host-hover")).toHaveCount(1);
   await expect(page.locator(".host-hover button").last()).toHaveCSS("opacity", "1");
+  await expect(page.locator(".host-hover .native-float-btn")).toHaveCSS("opacity", "1");
+  await expect(page.locator(".host-hover .native-enlarge-btn")).toHaveCSS("opacity", "1");
   expect(await page.evaluate(() => (window as any).commands.some((c: any) => c.type === "copy"))).toBe(false);
 });
 
 test("settings match the website and persist changes through native commands", async ({ page, context }) => {
-  await page.setViewportSize({ width: 420, height: 442 }); await host(page, "preferences", 30);
+  await page.setViewportSize({ width: 420, height: 680 }); await host(page, "preferences", 30);
   await expect(page.getByRole("dialog")).toHaveCSS("width", "420px");
-  await expect(page.getByRole("switch")).toHaveCount(2);
+  await expect(page.getByRole("switch")).toHaveCount(4);
   await page.getByRole("button", { name: "清空全部", exact: true }).scrollIntoViewIfNeeded();
   await expect(page.getByRole("button", { name: "清空全部", exact: true })).toBeInViewport({ ratio: 1 });
   const reference = await context.newPage(); await reference.setViewportSize({ width: 1280, height: 1000 });
@@ -137,8 +141,10 @@ test("settings match the website and persist changes through native commands", a
   expect(await page.getByRole("switch").first().locator("..").evaluate(rowStyle)).toEqual(await reference.getByRole("switch").first().locator("..").evaluate(rowStyle));
   await page.getByRole("button", { name: "纸白", exact: true }).click(); await expect(page.locator("main")).toHaveAttribute("data-skin", "paper");
   await page.getByRole("button", { name: "石墨", exact: true }).click(); await expect(page.locator("main")).toHaveAttribute("data-skin", "graphite");
-  await page.getByRole("switch", { name: "自动收取剪贴板图片", exact: true }).click(); await expect(page.getByRole("switch").first()).toHaveAttribute("aria-checked", "false");
-  await page.getByRole("switch", { name: "固定便签", exact: true }).click(); await expect(page.getByRole("switch").last()).toHaveAttribute("aria-checked", "true");
+  await page.getByRole("switch", { name: "自动收取剪贴板图片", exact: true }).click(); await expect(page.getByRole("switch", { name: "自动收取剪贴板图片", exact: true })).toHaveAttribute("aria-checked", "false");
+  await page.getByRole("switch", { name: "固定便签", exact: true }).click(); await expect(page.getByRole("switch", { name: "固定便签", exact: true })).toHaveAttribute("aria-checked", "true");
+  await page.getByRole("switch", { name: "开机自启", exact: true }).click(); await expect(page.getByRole("switch", { name: "开机自启", exact: true })).toHaveAttribute("aria-checked", "true");
+  await page.getByRole("switch", { name: "在程序坞显示图标", exact: true }).click(); await expect(page.getByRole("switch", { name: "在程序坞显示图标", exact: true })).toHaveAttribute("aria-checked", "false");
   await page.screenshot({ path: path.join(output, "settings.png"), omitBackground: true });
   await page.getByRole("button", { name: "清空全部", exact: true }).click(); await expect(page.getByRole("button", { name: "清空全部", exact: true })).toBeDisabled();
   await page.getByRole("combobox").selectOption("en"); await expect(page.getByRole("dialog")).toHaveAttribute("aria-label", "SnapSlot Settings");
@@ -270,12 +276,13 @@ test("Windows uses the same fan, native WebView2 bridge and website settings", a
 });
 
 test("Windows settings and tray match the website's platform chrome", async ({ page }) => {
-  await page.setViewportSize({ width: 420, height: 442 });await host(page, "preferences", 3, "windows");
+  await page.setViewportSize({ width: 420, height: 640 });await host(page, "preferences", 3, "windows");
   await expect(page.getByRole("dialog")).toHaveCSS("border-radius", "16px");
+  await expect(page.getByRole("switch")).toHaveCount(3);
   await expect(page.getByRole("button", { name: "关闭设置" })).toHaveText("×");
   await expect(page.locator("kbd")).toContainText(["Ctrl", "Alt", "T", "Ctrl", "Alt", "Space"]);
   await page.getByRole("button", { name: "石墨", exact: true }).click();await expect(page.locator("main")).toHaveAttribute("data-skin", "graphite");
-  await page.getByRole("switch", { name: "固定便签", exact: true }).click();await expect(page.getByRole("switch").last()).toHaveAttribute("aria-checked", "true");
+  await page.getByRole("switch", { name: "固定便签", exact: true }).click();await expect(page.getByRole("switch", { name: "固定便签", exact: true })).toHaveAttribute("aria-checked", "true");
   await page.setViewportSize({ width: 244, height: 170 });await page.goto(entry+"?mode=tray");
   const row=page.getByRole("menuitemcheckbox").last();await row.hover();await expect(row).toHaveCSS("background-color", "rgb(242, 238, 255)");
   await expect(row).toHaveCSS("color", "rgb(89, 57, 230)");
@@ -368,11 +375,133 @@ for(const platform of ["macos","windows"] as const){
 
 test('native settings and notes stay readable in six languages with no desktop tutorial',async({page})=>{
  for(const platform of ['macos','windows'] as const){
-  await page.setViewportSize({width:420,height:700});await host(page,'preferences',3,platform);
+  await page.setViewportSize({width:420,height:760});await host(page,'preferences',3,platform);
   for(const locale of ['en','zh-Hans','zh-Hant','ja','ko','es']){
    await page.getByRole('combobox').selectOption(locale);await expect(page.locator('html')).toHaveAttribute('lang',locale);
    await expect(page.getByRole('dialog')).toBeInViewport({ratio:1});expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(420);
    await expect(page.locator('.native-coach,.native-guide-restart')).toHaveCount(0);
   }
  }
+});
+
+test('quick scratch note, preview navigation/editing/OCR, floating sticky mode, drop banner and manual update check work across platforms', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 640 });
+  await host(page, 'rail', 0, 'macos');
+
+  // 1a. Clicking "+ 记一句" in empty state opens the composer (must have pointer-events: auto)
+  await expect(page.locator('.native-empty-add')).toHaveCSS('pointer-events', 'auto');
+  await page.locator('.native-empty-add').click();
+  await expect(page.locator('[data-native-region=__composer]')).toBeVisible();
+  await page.locator('[data-native-region=__composer] textarea').fill('空状态点的第一条');
+  await page.getByRole('button', { name: '保存', exact: true }).click();
+  await expect(page.locator('[data-native-region=__composer]')).toHaveCount(0);
+  await expect(focused(page)).toContainText('空状态点的第一条');
+
+  // 1b. Clicking "+ 记一句" quick trigger when notes exist also works
+  await expect(page.locator('.native-quick-trigger')).toHaveCSS('pointer-events', 'auto');
+  await page.locator('.native-quick-trigger').click();
+  await expect(page.locator('[data-native-region=__composer]')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('[data-native-region=__composer]')).toHaveCount(0);
+
+  // Seed 3 regular notes and verify keyboard N shortcut as well
+  await host(page, 'rail', 3, 'macos');
+  await focused(page).focus();
+  await page.keyboard.press('n');
+  await expect(page.locator('[data-native-region=__composer]')).toBeVisible();
+  await page.locator('[data-native-region=__composer] textarea').fill('临时记录一个好点子');
+  await page.getByRole('button', { name: '保存', exact: true }).click();
+  await expect(page.locator('[data-native-region=__composer]')).toHaveCount(0);
+  await expect(focused(page)).toContainText('临时记录一个好点子');
+
+  // 2. Preview stepping, inline text edit, and image OCR
+  await focused(page).press('Space');
+  const dialog = page.getByRole('dialog', { name: '放大便签' });
+  await expect(dialog).toContainText('临时记录一个好点子');
+  await dialog.getByRole('button', { name: '编辑', exact: true }).click();
+  await dialog.locator('textarea').fill('已修改的便签内容');
+  await dialog.getByRole('button', { name: '保存', exact: true }).click();
+  await expect(dialog).toContainText('已修改的便签内容');
+  await page.keyboard.press('ArrowLeft');
+  await expect(dialog).toContainText('发给设计组看');
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+
+  // Image note full-res preview + OCR flow
+  await page.evaluate(() => {
+    const w = window as any;
+    w.state.items.push({ id: 'img-1', kind: 'image', title: 'Figma · 14:25', preview: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="80" height="60"><rect width="80" height="60" fill="purple"/></svg>' });
+    w.state.count = w.state.items.length;
+    w.emit(w.state);
+  });
+  await expect(focused(page)).toHaveAttribute('data-note', 'img-1');
+  await focused(page).focus();
+  await focused(page).press('Space');
+  await page.evaluate(() => (window as any).emit({ type: 'previewImage', id: 'img-1', src: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="120"><rect width="200" height="120" fill="teal"/></svg>' }));
+  await expect(page.locator('[data-preview-content] img')).toHaveAttribute('src', /teal/);
+  await page.getByRole('button', { name: '提取文字', exact: true }).click();
+  await page.evaluate(() => (window as any).emit({ type: 'ocrResult', id: 'img-1', text: '识别出来的文字' }));
+  await expect(page.locator('[data-ocr-result]')).toContainText('识别出来的文字');
+  // Verify preview header buttons neither overflow nor overlap each other.
+  const previewHeaderOk = await page.evaluate(() => {
+    const btns = Array.from(document.querySelectorAll('.native-preview > header button'));
+    for (let i = 0; i < btns.length; i++) {
+      const r1 = btns[i].getBoundingClientRect();
+      if (btns[i].scrollWidth > btns[i].clientWidth + 2) return false;
+      for (let j = i + 1; j < btns.length; j++) {
+        const r2 = btns[j].getBoundingClientRect();
+        if (Math.min(r1.right, r2.right) - Math.max(r1.left, r2.left) > 0.5 && Math.min(r1.bottom, r2.bottom) - Math.max(r1.top, r2.top) > 0.5) return false;
+      }
+    }
+    return btns.length >= 6;
+  });
+  expect(previewHeaderOk).toBe(true);
+  await dialog.getByRole('button', { name: '独立悬浮', exact: true }).click();
+  expect(await page.evaluate(() => (window as any).commands.some((c: any) => c.type === 'float' && c.id === 'img-1'))).toBe(true);
+
+  // 3. Drop-to-slot banner
+  await page.evaluate(() => (window as any).emit({ type: 'dropTarget', active: true }));
+  await expect(page.locator('.native-drop-banner')).toContainText('松开即可收为便签');
+  await page.evaluate(() => (window as any).emit({ type: 'dropTarget', active: false }));
+  await expect(page.locator('.native-drop-banner')).toHaveCount(0);
+
+  // 4. Synced custom textShortcut inside rail
+  await page.evaluate(() => {
+    const w = window as any;
+    w.preferences.textShortcut = { key: 'KeyK', control: true, alt: true, shift: true, meta: false };
+    w.emit({ type: 'preferences', value: w.preferences, platform: 'macos', shortcutChanges: [] });
+  });
+  await page.keyboard.press('Home');
+  await expect(focused(page)).toHaveAttribute('data-index', '0');
+
+  // 5. Standalone floating sticky window mode
+  await page.setViewportSize({ width: 340, height: 240 });
+  await host(page, 'float', 1, 'macos');
+  await page.evaluate(() => (window as any).emit({
+    type: 'floatNote',
+    item: { id: 'float-1', kind: 'text', title: '悬浮对照', text: '一直留在屏幕角落' },
+    appearance: 'glass',
+    locale: 'zh-Hans',
+    reducedMotion: false,
+    platform: 'macos',
+    opacity: 1,
+  }));
+  await expect(page.locator('.native-float-root')).toContainText('一直留在屏幕角落');
+  await page.getByRole('button', { name: '切换透明度', exact: true }).click();
+  expect(await page.evaluate(() => (window as any).commands.some((c: any) => c.type === 'setFloatOpacity' && c.opacity === 0.85))).toBe(true);
+  await page.keyboard.press('Escape');
+  expect(await page.evaluate(() => (window as any).commands.some((c: any) => c.type === 'closeFloat' && c.id === 'float-1'))).toBe(true);
+
+  // 6. Manual update check in settings
+  await page.setViewportSize({ width: 420, height: 700 });
+  await host(page, 'preferences', 2, 'macos');
+  await page.getByRole('button', { name: '检查更新', exact: true }).click();
+  expect(await page.evaluate(() => (window as any).commands.some((c: any) => c.type === 'checkUpdates'))).toBe(true);
+  await page.evaluate(() => (window as any).emit({
+    type: 'updateStatus',
+    value: { status: 'available', currentVersion: '1.1.3', latestVersion: 'v1.2.0', releaseUrl: 'https://github.com/LING-0001/SnapSlot/releases/tag/v1.2.0' },
+  }));
+  await expect(page.locator('[data-update-row]')).toContainText('v1.2.0');
+  await page.getByRole('button', { name: '前往下载', exact: true }).click();
+  expect(await page.evaluate(() => (window as any).commands.some((c: any) => c.type === 'openUrl'))).toBe(true);
 });

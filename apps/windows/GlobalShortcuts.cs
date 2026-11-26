@@ -20,7 +20,7 @@ internal sealed class GlobalShortcuts(Func<int,Shortcut,bool> register,Action cl
     private void Register(AppPreferences value)
     {
         foreach(var pair in new[]{(1,value.OpenShortcut),(3,value.TextShortcut)})
-            if(!register(pair.Item1,pair.Item2))throw new InvalidOperationException(pair.Item2.Display+" is already in use.");
+            if(!register(pair.Item1,pair.Item2))throw new InvalidOperationException("err.shortcutUnavailable");
     }
     private void Restore(AppPreferences? previous)
     {
@@ -43,7 +43,7 @@ internal sealed class GlobalShortcuts(Func<int,Shortcut,bool> register,Action cl
                         if(candidate==wanted||candidate==taken)continue;
                         if(register(id,candidate)){selected=candidate;found=true;break;}
                     }
-                    if(!found)throw new InvalidOperationException("No available shortcut could be registered. Choose another combination.");
+                    if(!found)throw new InvalidOperationException("err.shortcutUnavailable");
                     changes.Add(new(target,wanted,selected));
                 }
                 effective=target=="open"?effective with{OpenShortcut=selected}:effective with{TextShortcut=selected};taken=selected;

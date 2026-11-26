@@ -59,5 +59,11 @@ try
         Check(fit.Left>=1&&fit.Top>=1&&fit.Right<=pixels-1&&fit.Bottom<=pixels-1&&Math.Abs(fit.Width/fit.Height-198f/191)<.001,"Tray artwork preserves its aspect ratio and safe edge at "+pixels+" pixels");
         if(pixels==16)Check(fit.Width>=14,"A 16px tray slot renders 14px of artwork instead of the old 12px padded frame");
     }
+    var launchPrefs=changed with{LaunchAtLogin=true,ShowInDock=false};preferences.Save(launchPrefs);
+    var reloadedLaunch=new PreferencesStore(settingsPath).Value;
+    Check(reloadedLaunch.LaunchAtLogin&&!reloadedLaunch.ShowInDock,"LaunchAtLogin and ShowInDock persist cleanly");
+    Check(SemVer.IsNewer("v1.2.0","1.1.3")&&SemVer.IsNewer("1.1.4","1.1.3")&&!SemVer.IsNewer("v1.1.3","1.1.3")&&!SemVer.IsNewer("1.0.9","1.1.3"),"SemVer comparison accurately detects newer releases");
+    Check(FileNameSanitizer.SanitizeStem("Design: Q4/Q5*","fallback")=="Design Q4 Q5","Filename sanitizer produces readable cross-platform stems");
+    Check(FileNameSanitizer.SanitizeStem("...   ","fallback")=="fallback","Filename sanitizer falls back when input is empty or punctuation");
 }
 finally{Directory.Delete(root,true);}

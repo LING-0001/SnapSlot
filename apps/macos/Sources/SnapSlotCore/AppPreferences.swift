@@ -21,6 +21,13 @@ public struct Shortcut: Codable, Equatable, Hashable {
 }
 public enum PreferencesError: LocalizedError {
     case invalidShortcut, duplicateShortcut, systemCopyShortcut
+    public var errorKey: String {
+        switch self {
+        case .invalidShortcut: return "err.shortcutInvalid"
+        case .duplicateShortcut: return "err.shortcutDuplicate"
+        case .systemCopyShortcut: return "err.shortcutCopy"
+        }
+    }
     public var errorDescription: String? {
         switch self {
         case .invalidShortcut:return "Use Control, Option/Alt or Command/Win with a letter, number, Space or F1–F11."
@@ -33,21 +40,34 @@ public struct AppPreferences: Codable, Equatable {
     public var collectImages: Bool
     public var textShortcut: Shortcut
     public var openShortcut: Shortcut
-    public init(collectImages:Bool=true,textShortcut:Shortcut=Shortcut(key:"KeyT"),openShortcut:Shortcut = .open) {
-        self.collectImages=collectImages;self.textShortcut=textShortcut;self.openShortcut=openShortcut
+    public var launchAtLogin: Bool
+    public var showInDock: Bool
+    public init(
+        collectImages: Bool = true,
+        textShortcut: Shortcut = Shortcut(key:"KeyT"),
+        openShortcut: Shortcut = .open,
+        launchAtLogin: Bool = false,
+        showInDock: Bool = true
+    ) {
+        self.collectImages=collectImages; self.textShortcut=textShortcut; self.openShortcut=openShortcut
+        self.launchAtLogin=launchAtLogin; self.showInDock=showInDock
     }
-    private enum CodingKeys:String,CodingKey {case collectImages,collectScreenshots,textShortcut,openShortcut}
+    private enum CodingKeys:String,CodingKey {case collectImages,collectScreenshots,textShortcut,openShortcut,launchAtLogin,showInDock}
     public init(from decoder:Decoder) throws {
         let values=try decoder.container(keyedBy:CodingKeys.self)
         guard values.contains(.collectImages) || values.contains(.collectScreenshots) else{throw DecodingError.keyNotFound(CodingKeys.collectImages,.init(codingPath:decoder.codingPath,debugDescription:"Missing image intake preference"))}
         collectImages=try values.decodeIfPresent(Bool.self,forKey:.collectImages) ?? values.decodeIfPresent(Bool.self,forKey:.collectScreenshots) ?? true
         textShortcut=try values.decodeIfPresent(Shortcut.self,forKey:.textShortcut) ?? Shortcut(key:"KeyT")
         openShortcut=try values.decodeIfPresent(Shortcut.self,forKey:.openShortcut) ?? .open
+        launchAtLogin=try values.decodeIfPresent(Bool.self,forKey:.launchAtLogin) ?? false
+        showInDock=try values.decodeIfPresent(Bool.self,forKey:.showInDock) ?? true
     }
     public func encode(to encoder:Encoder) throws {
         var values=encoder.container(keyedBy:CodingKeys.self)
         try values.encode(collectImages,forKey:.collectImages);try values.encode(textShortcut,forKey:.textShortcut)
         try values.encode(openShortcut,forKey:.openShortcut)
+        try values.encode(launchAtLogin,forKey:.launchAtLogin)
+        try values.encode(showInDock,forKey:.showInDock)
     }
     public func validate() throws {
         try textShortcut.validate();try openShortcut.validate()

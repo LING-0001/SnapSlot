@@ -13,10 +13,10 @@ internal sealed record Shortcut(string Key,bool Control=true,bool Alt=true,bool 
     [JsonIgnore]public string Display=>string.Join(" + ",new[]{Control?"Ctrl":null,Alt?"Alt":null,Shift?"Shift":null,Meta?"Win":null,Key.Replace("Key","").Replace("Digit","")}.Where(value=>value is not null));
     public void Validate()
     {
-        if(string.IsNullOrEmpty(Key))throw new ArgumentException("Choose a shortcut key.");
+        if(string.IsNullOrEmpty(Key))throw new ArgumentException("err.shortcutInvalid");
         bool valid=Key=="Space" || (Key.Length==4&&Key.StartsWith("Key",StringComparison.Ordinal)&&Key[3]>='A'&&Key[3]<='Z') || (Key.Length==6&&Key.StartsWith("Digit",StringComparison.Ordinal)&&char.IsAsciiDigit(Key[5])) || (Key.StartsWith('F')&&int.TryParse(Key[1..],out int function)&&function>=1&&function<=11&&Key=="F"+function);
-        if(!valid||!(Control||Alt||Meta))throw new ArgumentException("Use Ctrl, Alt or Win with a letter, number, Space or F1–F11.");
-        if(Key=="KeyC"&&!Alt&&!Shift&&Control!=Meta)throw new ArgumentException("Keep Ctrl+C available for ordinary Copy. Choose another shortcut.");
+        if(!valid||!(Control||Alt||Meta))throw new ArgumentException("err.shortcutInvalid");
+        if(Key=="KeyC"&&!Alt&&!Shift&&Control!=Meta)throw new ArgumentException("err.shortcutCopy");
     }
 }
 internal sealed record AppPreferences
@@ -24,14 +24,16 @@ internal sealed record AppPreferences
     public bool CollectImages {get;init;}
     public Shortcut TextShortcut {get;init;}
     public Shortcut OpenShortcut {get;init;}
-    [JsonConstructor]public AppPreferences(bool collectImages,Shortcut textShortcut,Shortcut? openShortcut=null)
-    {CollectImages=collectImages;TextShortcut=textShortcut;OpenShortcut=openShortcut??Shortcut.Open;}
+    public bool LaunchAtLogin {get;init;}
+    public bool ShowInDock {get;init;}
+    [JsonConstructor]public AppPreferences(bool collectImages,Shortcut textShortcut,Shortcut? openShortcut=null,bool launchAtLogin=false,bool showInDock=true)
+    {CollectImages=collectImages;TextShortcut=textShortcut;OpenShortcut=openShortcut??Shortcut.Open;LaunchAtLogin=launchAtLogin;ShowInDock=showInDock;}
     public static AppPreferences Default=>new(true,new("KeyT"));
     public void Validate()
     {
-        if(TextShortcut is null)throw new ArgumentException("The text shortcut is required.");
+        if(TextShortcut is null)throw new ArgumentException("err.shortcutInvalid");
         TextShortcut.Validate();OpenShortcut.Validate();
-        if(TextShortcut==OpenShortcut)throw new ArgumentException("Use a different shortcut for each action.");
+        if(TextShortcut==OpenShortcut)throw new ArgumentException("err.shortcutDuplicate");
     }
 }
 internal sealed class PreferencesStore
@@ -47,7 +49,9 @@ internal sealed class PreferencesStore
             bool intake=root.TryGetProperty("collectImages",out var current)?current.GetBoolean():root.TryGetProperty("collectScreenshots",out var legacy)?legacy.GetBoolean():legacyCollection;
             var text=root.TryGetProperty("textShortcut",out var binding)?JsonSerializer.Deserialize<Shortcut>(binding.GetRawText(),Json):null;
             var opening=root.TryGetProperty("openShortcut",out var open)?JsonSerializer.Deserialize<Shortcut>(open.GetRawText(),Json):null;
-            var value=new AppPreferences(intake,text??AppPreferences.Default.TextShortcut,opening);value.Validate();Value=value;
+            bool launch=root.TryGetProperty("launchAtLogin",out var launchProp)&&launchProp.ValueKind is JsonValueKind.True or JsonValueKind.False?launchProp.GetBoolean():false;
+            bool dock=root.TryGetProperty("showInDock",out var dockProp)&&dockProp.ValueKind is JsonValueKind.True or JsonValueKind.False?dockProp.GetBoolean():true;
+            var value=new AppPreferences(intake,text??AppPreferences.Default.TextShortcut,opening,launch,dock);value.Validate();Value=value;
         }
         catch(Exception ex) when(ex is IOException or UnauthorizedAccessException or JsonException or ArgumentException or InvalidOperationException){}
     }
