@@ -916,9 +916,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         guard let settings else{return}
         let screen=settings.screen?.visibleFrame ?? activeScreen.visibleFrame
         var frame=settings.frame
-        let next=min(max(442,height),max(350,screen.height-40))
+        let next=min(max(442,height),max(350,screen.height-24))
         guard abs(frame.height-next)>1 else{return}
-        frame.origin.y=max(screen.minY+20,frame.maxY-next);frame.size.height=next
+        frame.origin.y=max(screen.minY+12,frame.maxY-next);frame.size.height=next
         settings.setFrame(frame,display:true)
     }
     func closeSettings() {settings?.close()}
@@ -1374,10 +1374,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
                 sendPreferences(to:settingsView);try await Task.sleep(nanoseconds:250_000_000)
                 let conflictRows=try await settingsView.evaluateJavaScript("Array.from(document.querySelectorAll('.native-shortcut-hint')).filter(row=>row.textContent.includes('被占用，已修改为')).length===2") as? Bool
                 try check(conflictRows==true,"Both shortcut rows show the occupied combination, actual replacement and a way to edit it")
-                let lastControlMetrics=try await settingsView.evaluateJavaScript("(()=>{const b=Array.from(document.querySelectorAll('.native-window button')).at(-1);return {bottom:b?Math.ceil(b.getBoundingClientRect().bottom):0,innerHeight}})()") as! [String:Any]
+                let lastControlMetrics=try await settingsView.evaluateJavaScript("(()=>{const b=Array.from(document.querySelectorAll('.native-window button')).at(-1),body=document.querySelector('.native-window > div');return {bottom:b?Math.ceil(b.getBoundingClientRect().bottom):0,innerHeight,scrollable:!!body&&body.scrollHeight>body.clientHeight}})()") as! [String:Any]
                 let lastBottom=lastControlMetrics["bottom"] as? Double ?? 9999
                 let viewHeight=lastControlMetrics["innerHeight"] as? Double ?? 0
-                try check(settings!.frame.height>442 && lastBottom<=viewHeight+1,"Settings grows to fit conflict explanations without hiding the last control; frameHeight=\(settings!.frame.height), lastBottom=\(lastBottom), innerHeight=\(viewHeight)")
+                let scrollable=lastControlMetrics["scrollable"] as? Bool ?? false
+                let screenCap=(settings!.screen?.visibleFrame ?? activeScreen.visibleFrame).height-24
+                try check(settings!.frame.height>442 && (lastBottom<=viewHeight+1 || (settings!.frame.height>=screenCap-2 && scrollable)),"Settings grows to fit conflict explanations without hiding the last control; frameHeight=\(settings!.frame.height), lastBottom=\(lastBottom), innerHeight=\(viewHeight), screenCap=\(screenCap)")
                 try await snapshot(settingsView,to:directory.appendingPathComponent("macos-shortcut-conflicts.png"))
                 try savePreferences(preferences.value,editing:.text)
                 try check(shortcutChanges.count==1 && shortcutChanges[0].target == .open,"A deliberate shortcut change clears only that action's conflict explanation")
