@@ -50,7 +50,7 @@ export type Message =
   | { type: "ocrResult"; id: string; text: string; error?: string }
   | { type: "updateStatus"; value: UpdateStatus }
   | { type: "dropTarget"; active: boolean }
-  | { type: "floatNote"; item: NativeItem; appearance: Appearance; locale: string; reducedMotion: boolean; platform: "macos" | "windows"; opacity?: number }
+  | { type: "floatNote"; item: NativeItem | null; appearance: Appearance; locale: string; reducedMotion: boolean; platform: "macos" | "windows"; opacity?: number }
   | { type: "error"; message: string };
 export type Surface = { id: string; x: number; y: number; width: number; height: number; angle: number; opacity: number };
 export type Command =

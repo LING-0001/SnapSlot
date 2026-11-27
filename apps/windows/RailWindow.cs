@@ -53,6 +53,8 @@ public sealed class RailWindow : Window
     private WebView? preferencesWeb;
     private Task? preferencesPreparation;
     private readonly Dictionary<Guid, FloatSession> floats = new();
+    private (Window Window, WebView View)? spareFloat;
+    private Task? spareFloatPreparation;
     private string settingsMode = "";
     private PreferencesStore preferences = null!;
     private GlobalShortcuts shortcuts = null!;
@@ -75,7 +77,7 @@ public sealed class RailWindow : Window
     private Drawing.Icon? stateIcon;
     private (bool Pinned, bool CollectImages, Drawing.Size Size)? iconState;
     private HwndSource? source;
-    private bool expanded, pinned, arming, dragging, disposed, previewing, composing, dropArmed, dropHovering;
+    private bool expanded, pinned, arming, dragging, disposed, previewing, composing, dropArmed, dropHovering, requireEdgeLeave;
     private string appearance = "glass";
     private readonly List<(double X, double Y, double Width, double Height, double Angle)> hitAreas = new();
     private bool collectImages = true;
@@ -95,7 +97,7 @@ public sealed class RailWindow : Window
     {
         this.testing = testing;
         var asmVersion = Assembly.GetExecutingAssembly().GetName().Version;
-        currentVersion = asmVersion is not null ? $"{asmVersion.Major}.{asmVersion.Minor}.{Math.Max(0, asmVersion.Build)}" : "1.1.3";
+        currentVersion = asmVersion is not null ? $"{asmVersion.Major}.{asmVersion.Minor}.{Math.Max(0, asmVersion.Build)}" : "1.1.4";
         menuCopy = JsonSerializer.Deserialize<Dictionary<string, Dictionary<string, string>>>(File.ReadAllText(Path.Combine(uiRoot, "menus.json")))!;
         appData = testing ? Path.Combine(App.SessionDirectory, "Settings") : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SnapSlot");
         collectImages = !File.Exists(Path.Combine(appData, "image-intake-off"));
@@ -127,9 +129,9 @@ public sealed class RailWindow : Window
         dropOverlay.Drop += OnDropCompleted;
         rootGrid.Children.Add(dropOverlay);
         Content = rootGrid;
-        hover.Tick += (_, _) => { hover.Stop(); edgeProbe.Stop(); if (EdgeWatcher.IsAtEdge() && EdgeWatcher.CanReveal(source?.Handle ?? IntPtr.Zero)) Reveal(false); };
+        hover.Tick += (_, _) => { hover.Stop(); ProbeTopEdge(); };
         dismiss.Tick += (_, _) => { dismiss.Stop(); if (!KeepOpen() && !pinned && !dragging && !previewing && !composing && !dropHovering && settingsMode != "tray") Collapse(); };
-        hide.Tick += (_, _) => { hide.Stop(); if (!expanded && !dropArmed) Hide(); };
+        hide.Tick += (_, _) => { hide.Stop(); if (!expanded && !arming && !dropArmed) Hide(); };
         SourceInitialized += OnSource;
         DpiChanged += (_, _) => Dispatcher.BeginInvoke(new Action(() => { Position(); UpdateTrayIcon(); }));
         Loaded += async (_, _) =>
@@ -138,7 +140,7 @@ public sealed class RailWindow : Window
             try
             {
                 await InitializeWeb(web, "rail");
-                if (!testing) { _ = PrepareTrayMenuAsync(); _ = PreparePreferencesAsync(); }
+                if (!testing) { _ = PrepareTrayMenuAsync(); _ = PreparePreferencesAsync(); _ = PrepareSpareFloatAsync(); }
                 if (testing) { Seed(); Reveal(false); }
                 else if (startupShortcutError is not null || shortcutChanges.Count > 0) { OpenSettings("preferences"); }
             }
@@ -211,7 +213,7 @@ public sealed class RailWindow : Window
         UpdateTrayIcon();
         foreach (var view in ready.ToArray())
         {
-            if (FindFloatByView(view) is not null) continue;
+            if (FindFloatByView(view) is not null || ReferenceEquals(spareFloat?.View, view)) continue;
             var known = sentItems.GetValueOrDefault(view) ?? new HashSet<Guid>();
             var visible = view == web ? items.ToArray() : Array.Empty<InboxItem>();
             var captures = visible.Select(item => new
@@ -278,6 +280,70 @@ public sealed class RailWindow : Window
         foreach (var id in floats.Keys.ToArray()) SendFloatNote(id);
     }
 
+    private (Window Window, WebView View) CreateFloatHost()
+    {
+        var win = new Window
+        {
+            Title = "SnapSlot",
+            Width = 340,
+            Height = 260,
+            Left = -10000,
+            Top = -10000,
+            WindowStartupLocation = WindowStartupLocation.Manual,
+            Background = Brushes.Transparent,
+            WindowStyle = WindowStyle.None,
+            AllowsTransparency = true,
+            ResizeMode = ResizeMode.NoResize,
+            ShowInTaskbar = false,
+            ShowActivated = false,
+            Topmost = true
+        };
+        var view = new WebView { DefaultBackgroundColor = Drawing.Color.Transparent };
+        view.SizeChanged += (_, _) => view.Clip = new RectangleGeometry(new Rect(0, 0, view.ActualWidth, view.ActualHeight), 14, 14);
+        win.Content = view;
+        win.Closed += (_, _) =>
+        {
+            if (spareFloat is { } spare && ReferenceEquals(spare.Window, win))
+            {
+                spareFloat = null;
+                spareFloatPreparation = null;
+            }
+            var owned = floats.FirstOrDefault(entry => ReferenceEquals(entry.Value.Window, win));
+            if (owned.Value is not null) floats.Remove(owned.Key);
+            ready.Remove(view);
+            sentItems.Remove(view);
+            view.Dispose();
+        };
+        return (win, view);
+    }
+
+    private Task PrepareSpareFloatAsync()
+    {
+        if (disposed || spareFloat is not null) return Task.CompletedTask;
+        return spareFloatPreparation ??= PrepareSpareFloatCoreAsync();
+    }
+
+    private async Task PrepareSpareFloatCoreAsync()
+    {
+        var host = CreateFloatHost();
+        spareFloat = host;
+        host.Window.Show();
+        host.Window.Hide();
+        try
+        {
+            await InitializeWeb(host.View, "float");
+        }
+        catch
+        {
+            if (spareFloat is { } current && ReferenceEquals(current.Window, host.Window))
+            {
+                spareFloat = null;
+                spareFloatPreparation = null;
+            }
+            if (host.Window.IsLoaded) host.Window.Close();
+        }
+    }
+
     private async void OpenFloatAsync(InboxItem item)
     {
         if (floats.TryGetValue(item.Id, out var existing))
@@ -305,42 +371,74 @@ public sealed class RailWindow : Window
         double left = Math.Clamp(areaLeft + (areaWidth - width) / 2 + offset, areaLeft + 16, Math.Max(areaLeft + 16, areaLeft + areaWidth - width - 16));
         double top = Math.Clamp(areaTop + 180 + offset, areaTop + 24, Math.Max(areaTop + 24, areaTop + areaHeight - height - 24));
 
-        var win = new Window
+        Window win;
+        WebView view;
+        bool needsInit = false;
+        if (spareFloat is { } warm)
         {
-            Title = item.Title,
-            Width = width,
-            Height = height,
-            Left = left,
-            Top = top,
-            WindowStartupLocation = WindowStartupLocation.Manual,
-            Background = Brushes.Transparent,
-            WindowStyle = WindowStyle.None,
-            AllowsTransparency = true,
-            ResizeMode = ResizeMode.NoResize,
-            ShowInTaskbar = false,
-            ShowActivated = false,
-            Topmost = true
-        };
-        var view = new WebView { DefaultBackgroundColor = Drawing.Color.Transparent };
-        view.SizeChanged += (_, _) => view.Clip = new RectangleGeometry(new Rect(0, 0, view.ActualWidth, view.ActualHeight), 14, 14);
-        win.Content = view;
+            win = warm.Window;
+            view = warm.View;
+            var prep = spareFloatPreparation;
+            spareFloat = null;
+            spareFloatPreparation = null;
+            if (prep is not null && !prep.IsCompleted) await prep;
+            if (disposed || !win.IsLoaded) return;
+        }
+        else
+        {
+            (win, view) = CreateFloatHost();
+            needsInit = true;
+        }
+
+        win.Title = item.Title;
+        win.Opacity = 1.0;
+        win.Width = width;
+        win.Height = height;
+        win.Left = left;
+        win.Top = top;
+
         var session = new FloatSession { Id = item.Id, Window = win, View = view, Opacity = 1.0 };
         floats[item.Id] = session;
-        win.Closed += (_, _) =>
+
+        if (ready.Contains(view))
         {
-            floats.Remove(item.Id);
-            ready.Remove(view);
-            sentItems.Remove(view);
-            view.Dispose();
-        };
-        win.Show();
-        try { await InitializeWeb(view, "float"); }
-        catch (Exception ex) { Error(ex.Message); CloseFloat(item.Id); }
+            SendFloatNote(item.Id);
+            win.Show();
+        }
+        else
+        {
+            win.Show();
+            if (needsInit)
+            {
+                try { await InitializeWeb(view, "float"); }
+                catch (Exception ex) { Error(ex.Message); CloseFloat(item.Id); return; }
+            }
+        }
+        if (!testing && !disposed && floats.Count < 8) _ = PrepareSpareFloatAsync();
     }
 
     private void CloseFloat(Guid id)
     {
         if (!floats.Remove(id, out var session)) return;
+        if (!disposed && !testing && spareFloat is null && spareFloatPreparation is null && ready.Contains(session.View) && session.Window.IsLoaded)
+        {
+            session.Window.Hide();
+            session.Window.Opacity = 1.0;
+            session.Window.Left = -10000;
+            session.Window.Top = -10000;
+            Post(session.View, new
+            {
+                type = "floatNote",
+                item = (object?)null,
+                appearance,
+                locale,
+                reducedMotion = !SystemParameters.ClientAreaAnimation,
+                platform = "windows",
+                opacity = 1.0
+            });
+            spareFloat = (session.Window, session.View);
+            return;
+        }
         ready.Remove(session.View);
         sentItems.Remove(session.View);
         session.Window.Close();
@@ -448,6 +546,7 @@ public sealed class RailWindow : Window
             case "ready":
                 ready.Add(view);
                 sentItems[view] = new();
+                if (ReferenceEquals(spareFloat?.View, view)) break;
                 if (FindFloatByView(view) is FloatSession readyFloat)
                 {
                     SendFloatNote(readyFloat.Id);
@@ -527,9 +626,9 @@ public sealed class RailWindow : Window
                 {
                     var floatTarget = items.FirstOrDefault(item => item.Id == floatId);
                     if (floatTarget is null) return;
+                    OpenFloatAsync(floatTarget);
                     previewing = false;
                     Position();
-                    OpenFloatAsync(floatTarget);
                     State();
                     ScheduleDismiss();
                 }
@@ -639,7 +738,7 @@ public sealed class RailWindow : Window
             var name = shape.GetProperty("id").GetString();
             bool control = (name == "__preview" && previewing)
                 || (name == "__composer" && composing)
-                || ((name == "__selection" || name == "__compose-trigger" || name == "__empty-wrap") && expanded);
+                || ((name == "__compose-trigger" || name == "__empty-wrap") && expanded);
             if (!control && (!Guid.TryParse(name, out var id) || !items.Any(item => item.Id == id))) continue;
             double x = shape.GetProperty("x").GetDouble(), y = shape.GetProperty("y").GetDouble(), width = shape.GetProperty("width").GetDouble(), height = shape.GetProperty("height").GetDouble(), angle = shape.GetProperty("angle").GetDouble();
             if (new[] { x, y, width, height, angle }.All(double.IsFinite) && width > 0 && width <= Math.Min(800, ActualWidth) && height > 0 && height <= ActualHeight)
@@ -648,30 +747,48 @@ public sealed class RailWindow : Window
         UpdatePointers();
     }
 
+    private static bool TryPointFromScreen(Visual visual, Drawing.Point screenPoint, out Point local)
+    {
+        if (PresentationSource.FromVisual(visual) is not null)
+        {
+            try { local = visual.PointFromScreen(new Point(screenPoint.X, screenPoint.Y)); return true; }
+            catch (InvalidOperationException) { }
+        }
+        local = default;
+        return false;
+    }
+
     private void UpdatePointers()
     {
         var screenPoint = Forms.Cursor.Position;
         void Pointer(WebView view)
         {
-            if (!ready.Contains(view)) return;
-            var p = view.PointFromScreen(new Point(screenPoint.X, screenPoint.Y));
+            if (!ready.Contains(view) || !TryPointFromScreen(view, screenPoint, out var p)) return;
             bool inside = p.X >= 0 && p.Y >= 0 && p.X < view.ActualWidth && p.Y < view.ActualHeight;
             Post(view, new { type = "pointer", x = inside ? (double?)p.X : null, y = inside ? (double?)p.Y : null });
         }
         if (expanded && !dropArmed)
         {
             Pointer(web);
-            var p = web.PointFromScreen(new Point(screenPoint.X, screenPoint.Y));
-            bool hit = hitAreas.Any(area =>
+            if (TryPointFromScreen(web, screenPoint, out var p))
             {
-                var dx = p.X - area.X;
-                var dy = p.Y - area.Y;
-                return Math.Abs(dx * Math.Cos(area.Angle) + dy * Math.Sin(area.Angle)) <= area.Width / 2 + 12
-                    && Math.Abs(-dx * Math.Sin(area.Angle) + dy * Math.Cos(area.Angle)) <= area.Height / 2 + 12;
-            });
-            if (!dragging) SetInteractive(hit);
+                bool hit = hitAreas.Any(area =>
+                {
+                    var dx = p.X - area.X;
+                    var dy = p.Y - area.Y;
+                    return Math.Abs(dx * Math.Cos(area.Angle) + dy * Math.Sin(area.Angle)) <= area.Width / 2 + 12
+                        && Math.Abs(-dx * Math.Sin(area.Angle) + dy * Math.Cos(area.Angle)) <= area.Height / 2 + 12;
+                });
+                if (!dragging) SetInteractive(hit);
+            }
         }
         if (settingsMode == "tray" && settingsWeb is not null) Pointer(settingsWeb);
+    }
+
+    private void ShowRailTopmost()
+    {
+        if (!IsVisible) Show();
+        Position();
     }
 
     private void Position()
@@ -682,7 +799,7 @@ public sealed class RailWindow : Window
         // Use physical coordinates for monitor placement, including negative origins.
         var scale = source.CompositionTarget?.TransformToDevice.M22 ?? 1;
         Height = previewing ? Math.Min(720, area.Height / scale) : 360;
-        SetWindowPos(source.Handle, new IntPtr(-1), bounds.Left, area.Top, bounds.Width, (int)Math.Ceiling(Height * scale), 0x0010 | (expanded || dropArmed ? 0x0040u : 0u));
+        SetWindowPos(source.Handle, new IntPtr(-1), bounds.Left, area.Top, bounds.Width, (int)Math.Ceiling(Height * scale), 0x0010 | (expanded || arming || dropArmed ? 0x0040u : 0u));
     }
 
     private void ToggleRailFromShortcut()
@@ -694,19 +811,20 @@ public sealed class RailWindow : Window
 
     private void Reveal(bool focus, bool peek = false)
     {
-        hover.Stop(); edgeProbe.Stop(); edgeDwell.Reset(); dismiss.Stop(); hide.Stop();
+        hover.Stop(); edgeDwell.Reset(); dismiss.Stop(); hide.Stop();
         if (!expanded && !peek) screen = Forms.Screen.FromPoint(Forms.Cursor.Position);
-        expanded = true; arming = false;
+        expanded = true; arming = false; requireEdgeLeave = false;
         if (peek) peekUntil = DateTime.UtcNow.AddMilliseconds(4000);
-        Position(); Show(); SetInteractive(true); State(focus);
+        ShowRailTopmost(); SetInteractive(true); State(focus);
         if (focus) { Activate(); web.Focus(); }
         if (peek) ScheduleDismiss();
     }
 
     private void Collapse()
     {
-        hover.Stop(); edgeProbe.Stop(); edgeDwell.Reset(); dismiss.Stop(); hide.Stop();
+        hover.Stop(); edgeDwell.Reset(); dismiss.Stop(); hide.Stop();
         expanded = false; pinned = false; arming = false; previewing = false; composing = false;
+        requireEdgeLeave = !testing && EdgeWatcher.IsAtEdge();
         DisarmDropTarget();
         SetInteractive(false); Position(); State();
         if (SystemParameters.ClientAreaAnimation) hide.Start(); else Hide();
@@ -718,8 +836,7 @@ public sealed class RailWindow : Window
         dropArmed = true;
         screen = EdgeWatcher.TargetScreen;
         hide.Stop();
-        Position();
-        Show();
+        ShowRailTopmost();
         SetInteractive(true);
         dropOverlay.Visibility = Visibility.Visible;
         Post(web, new { type = "dropTarget", active = true });
@@ -847,8 +964,7 @@ public sealed class RailWindow : Window
         if (!expanded) return false;
         var point = dismissalPointer();
         var scale = source?.CompositionTarget?.TransformToDevice.M22 ?? 1;
-        var local = web.PointFromScreen(new Point(point.X, point.Y));
-        if (hitAreas.Any(area =>
+        if (TryPointFromScreen(web, point, out var local) && hitAreas.Any(area =>
         {
             var dx = local.X - area.X;
             var dy = local.Y - area.Y;
@@ -1202,6 +1318,57 @@ public sealed class RailWindow : Window
         var previous = stateIcon; tray.Icon = next; stateIcon = next; iconState = (pinned, collectImages, size); previous?.Dispose();
     }
 
+    private void CancelArming()
+    {
+        hover.Stop();
+        edgeDwell.Reset();
+        if (arming && !expanded)
+        {
+            arming = false;
+            State();
+            if (!dropArmed) Hide();
+        }
+    }
+
+    private void ProbeTopEdge()
+    {
+        if (disposed || testing || source is null) return;
+        if (expanded || dropArmed || settingsMode == "tray")
+        {
+            CancelArming();
+            return;
+        }
+        if (!EdgeWatcher.IsAtEdge())
+        {
+            requireEdgeLeave = false;
+            CancelArming();
+            return;
+        }
+        if (requireEdgeLeave) return;
+        if (!EdgeWatcher.CanReveal(source.Handle))
+        {
+            CancelArming();
+            return;
+        }
+        if (!arming)
+        {
+            arming = true;
+            screen = EdgeWatcher.TargetScreen;
+            hide.Stop();
+            ShowRailTopmost();
+            SetInteractive(false);
+            State();
+            hover.Stop();
+            hover.Start();
+        }
+        else if (screen.DeviceName != EdgeWatcher.TargetScreen.DeviceName)
+        {
+            screen = EdgeWatcher.TargetScreen;
+            ShowRailTopmost();
+        }
+        if (edgeDwell.Update(true, true, DateTime.UtcNow)) Reveal(false);
+    }
+
     private void OnSource(object? sender, EventArgs e)
     {
         source = (HwndSource)PresentationSource.FromVisual(this);
@@ -1211,23 +1378,14 @@ public sealed class RailWindow : Window
         ignoredClipboard = GetClipboardSequenceNumber();
         AddClipboardFormatListener(source.Handle);
         try { var resolution = shortcuts.Resolve(preferences.Value); preferences.Save(resolution.Preferences); shortcutChanges.AddRange(resolution.Changes); } catch (Exception ex) { startupShortcutError = ex.Message; Error(ex.Message); }
-        watcher = new EdgeWatcher();
-        watcher.Entered += () =>
-        {
-            if (!expanded && settingsMode != "tray")
-            {
-                arming = true; screen = EdgeWatcher.TargetScreen; Position(); Show(); SetInteractive(false); State();
-                hover.Start();
-                edgeDwell.Reset();
-                edgeProbe.Start();
-            }
-        };
+        watcher = new EdgeWatcher(Dispatcher);
+        watcher.Entered += ProbeTopEdge;
         watcher.DragEnteredEdge += ArmDropTarget;
         watcher.LeftButtonUp += () => { if (dropArmed) DisarmDropTarget(); };
         watcher.Left += () =>
         {
-            hover.Stop(); edgeProbe.Stop(); edgeDwell.Reset();
-            if (arming && !expanded) { arming = false; State(); Hide(); }
+            requireEdgeLeave = false;
+            CancelArming();
             if (expanded && !KeepOpen()) ScheduleDismiss();
         };
         watcher.Moved += () =>
@@ -1239,25 +1397,15 @@ public sealed class RailWindow : Window
         };
         watcher.Clicked += () =>
         {
-            if (settingsMode == "tray" && settings is not null)
+            if (settingsMode == "tray" && settings is not null && TryPointFromScreen(settings, Forms.Cursor.Position, out var local))
             {
-                var point = Forms.Cursor.Position;
-                var local = settings.PointFromScreen(new Point(point.X, point.Y));
                 if (local.X < 0 || local.Y < 0 || local.X >= settings.ActualWidth || local.Y >= settings.ActualHeight) CloseSettings();
             }
         };
-        // Only poll edge dwell while the cursor is actually parked at the top edge.
-        edgeProbe.Tick += (_, _) =>
-        {
-            if (expanded || settingsMode == "tray" || !EdgeWatcher.IsAtEdge())
-            {
-                edgeDwell.Reset(); edgeProbe.Stop(); return;
-            }
-            if (edgeDwell.Update(true, EdgeWatcher.CanReveal(source.Handle), DateTime.UtcNow))
-            {
-                edgeProbe.Stop(); Reveal(false);
-            }
-        };
+        // Keep a lightweight 50 ms top-edge poll active so top-edge dwell works reliably
+        // even across elevated windows, after mouse-button release, or if a hook event is missed.
+        edgeProbe.Tick += (_, _) => ProbeTopEdge();
+        edgeProbe.Start();
         SystemParameters.StaticPropertyChanged += ParametersChanged;
     }
 
@@ -1339,6 +1487,16 @@ public sealed class RailWindow : Window
         await view.CoreWebView2.ExecuteScriptAsync("document.querySelector('[data-shortcut-row=open] button').click()"); await Task.Delay(100);
         await view.CoreWebView2.ExecuteScriptAsync("dispatchEvent(new KeyboardEvent('keydown',{code:'KeyO',key:'O',ctrlKey:true,altKey:true,shiftKey:true,bubbles:true}));dispatchEvent(new KeyboardEvent('keyup',{code:'KeyO',key:'O',ctrlKey:true,altKey:true,shiftKey:true,bubbles:true}))"); await Task.Delay(150);
         Check(preferences.Value.OpenShortcut.Key == "KeyO", "The opening shortcut can be edited independently");
+        await PrepareSpareFloatAsync();
+        for (int i = 0; i < 100 && spareFloat is { } warmFloat && !ready.Contains(warmFloat.View); i++) await Task.Delay(50);
+        var warmedWindow = spareFloat?.Window;
+        OpenFloatAsync(editable);
+        await Task.Delay(120);
+        Check(floats.TryGetValue(editable.Id, out var activeFloat) && ReferenceEquals(activeFloat.Window, warmedWindow) && activeFloat.Window.IsVisible, "Floating note opens immediately from the pre-warmed window");
+        await web.CoreWebView2.ExecuteScriptAsync("const n=document.querySelector('[data-focus=true] [data-note-text]');if(n){const r=document.createRange();r.selectNodeContents(n);getSelection().removeAllRanges();getSelection().addRange(r);}");
+        await Task.Delay(80);
+        var hasChip = await web.CoreWebView2.ExecuteScriptAsync("!!document.querySelector('.native-selection')");
+        Check(hasChip == "false", "Selecting text inside a note does not show a blocking floating chip");
         SavePreferences(prefs); ClearShortcuts(); CloseSettings(); CloseAllFloats();
         File.WriteAllLines(Path.Combine(output, "desktop-smoke.txt"), checks);
     }
@@ -1347,7 +1505,7 @@ public sealed class RailWindow : Window
     {
         disposed = true; hover.Stop(); edgeProbe.Stop(); dismiss.Stop(); hide.Stop(); watcher?.Dispose(); SystemParameters.StaticPropertyChanged -= ParametersChanged;
         if (source is not null) { if (!testing) RemoveClipboardFormatListener(source.Handle); ClearShortcuts(); source.RemoveHook(WndProc); }
-        CloseAllFloats(); CloseSettings(); trayMenu?.Close(); preferencesWindow?.Close(); web.Dispose(); tray?.Dispose(); stateIcon?.Dispose(); icon?.Dispose();
+        CloseAllFloats(); if (spareFloat is { } spare) { spareFloat = null; spare.Window.Close(); } CloseSettings(); trayMenu?.Close(); preferencesWindow?.Close(); web.Dispose(); tray?.Dispose(); stateIcon?.Dispose(); icon?.Dispose();
     }
 
     [DllImport("user32.dll")] private static extern bool AddClipboardFormatListener(IntPtr window);

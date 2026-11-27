@@ -49,7 +49,6 @@ main.native-page .native-surface[data-mode=tray] .native-menu { inset: 0; min-wi
 main.native-page .native-surface[data-mode=rail] .native-preview { top: 50%; left: 50%; width: min(760px, calc(100% - 32px)); max-height: calc(100% - 28px); }
 main.native-page .native-surface [data-preview-content] { overscroll-behavior: contain; }
 main.native-page .native-surface [data-preview-content] img { max-height: calc(100vh - 170px); }
-.native-selection { position: absolute; z-index: 130; translate: -50% 0; background: #6c4dff !important; color: white !important; border-radius: 9px !important; padding: 7px 12px !important; box-shadow: 0 4px 14px #11132825; font-size: 13px !important; }
 
 main.native-page .native-surface[data-mode=rail][data-density] [data-note-text] { font-size: 13px; line-height: 1.5; padding: 10px 12px; user-select: text; -webkit-user-select: text; overflow-wrap: anywhere; }
 main.native-page .native-surface[data-mode=rail] [data-note]:focus-visible { outline: none; }

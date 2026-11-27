@@ -17,8 +17,9 @@ internal sealed class EdgeDwell
 
 internal static class NotesGeometry
 {
-    internal static bool IsAtTopEdge(int x,int y,int left,int top,int right)
-        => x>=left&&x<right&&y>=top&&y<=top+1;
+    internal const int DefaultTopEdgeTolerance = 4;
+    internal static bool IsAtTopEdge(int x, int y, int left, int top, int right, int tolerance = DefaultTopEdgeTolerance)
+        => x >= left && x < right && y >= top && y <= top + tolerance;
     internal static bool ShouldSuppressReveal(int left, int top, int right, int bottom, int screenLeft, int screenTop, int screenRight, int screenBottom, bool isMaximized)
         => !isMaximized && left <= screenLeft && top <= screenTop && right >= screenRight && bottom >= screenBottom;
     internal static bool IsPointerWithinRail(int x, int y, int left, int top, int width, int physicalHeight)

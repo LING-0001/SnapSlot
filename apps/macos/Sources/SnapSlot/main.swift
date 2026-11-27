@@ -112,7 +112,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
     var cardHitAreas: [(center:NSPoint,size:NSSize,angle:Double)] = []
     var arming = false
     var appearance = "glass"
-    var currentVersion: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.1.3" }
+    var currentVersion: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.1.4" }
     var allViews: [NativeWebView] { [web,settingsWeb,trayWeb].compactMap{$0} }
     var status: NSStatusItem?
     var statusSymbolPinned:Bool?
@@ -1016,7 +1016,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
                   allowed.contains(id)
                   || (id=="__preview" && previewing)
                   || (id=="__composer" && composing)
-                  || ((id=="__selection" || id=="__compose-trigger" || id=="__empty-wrap") && expanded),
+                  || ((id=="__compose-trigger" || id=="__empty-wrap") && expanded),
                   let x=surface["x"] as? Double,let y=surface["y"] as? Double,
                   let width=surface["width"] as? Double,let height=surface["height"] as? Double,
                   let angle=surface["angle"] as? Double,let opacity=surface["opacity"] as? Double,
@@ -1444,9 +1444,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
                 let selectedPayload=try await web.evaluateJavaScript("getSelection().toString().trim()") as? String ?? ""
                 try check(!selectedPayload.isEmpty,"Selected note text remains available while the pointer is inside the fan")
                 let chip=try await web.evaluateJavaScript("!!document.querySelector('.native-selection')") as? Bool
-                try check(chip==true,"Selectable note text exposes the same collect action in real WKWebView")
+                try check(chip==false,"Selecting note text does not show a blocking floating chip")
                 let previousSelectionID=store.items.last?.id
-                _ = try await web.evaluateJavaScript("document.querySelector('.native-selection').click()")
+                _ = try await web.evaluateJavaScript("dispatchEvent(new KeyboardEvent('keydown',{code:'KeyT',key:'t',ctrlKey:true,altKey:true,bubbles:true}))")
                 for _ in 0..<40 {
                     if store.items.last?.id != previousSelectionID && store.items.last?.text==selectedPayload && clipboard.string(forType:.string)==selectedPayload && !pinned {break}
                     try await Task.sleep(nanoseconds:50_000_000)

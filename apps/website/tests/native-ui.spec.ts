@@ -361,12 +361,13 @@ for(const platform of ["macos","windows"] as const){
   await focused(page).press('Enter');const status=page.locator('[role=status]').filter({hasText:'已复制'}),r=(await status.boundingBox())!,face=(await focused(page).boundingBox())!;
   expect(r.height).toBeLessThanOrEqual(22);expect(face.x+face.width-r.x-r.width).toBeLessThanOrEqual(9);
  });
- test(`${platform}: selected note words can be collected while the full card still drags`,async({page})=>{
+ test(`${platform}: selected note words can be collected by shortcut without a floating chip while the full card still drags`,async({page})=>{
   await host(page,"rail",3,platform);await focused(page).locator('[data-note-text]').dblclick({position:{x:24,y:18}});
   await expect.poll(()=>page.evaluate(()=>getSelection()?.toString().trim().length||0)).toBeGreaterThan(0);
-  const selected=await page.evaluate(()=>getSelection()!.toString().trim());await page.locator('.native-selection').click();
-  expect(await page.evaluate(()=>(window as any).commands.filter((c:any)=>c.type==='collectText'))).toEqual([{type:'collectText',text:selected}]);
+  const selected=await page.evaluate(()=>getSelection()!.toString().trim());
   await expect(page.locator('.native-selection')).toHaveCount(0);
+  await page.evaluate(()=>dispatchEvent(new KeyboardEvent('keydown',{code:'KeyT',key:'t',ctrlKey:true,altKey:true,bubbles:true})));
+  expect(await page.evaluate(()=>(window as any).commands.filter((c:any)=>c.type==='collectText'))).toEqual([{type:'collectText',text:selected}]);
   const r=(await focused(page).boundingBox())!;await page.mouse.move(r.x+50,r.y+30);await page.mouse.down();await page.waitForTimeout(180);await page.mouse.move(r.x+75,r.y+40);await page.mouse.up();
   expect(await page.evaluate(()=>(window as any).commands.filter((c:any)=>c.type==='drag'))).toHaveLength(1);
  });

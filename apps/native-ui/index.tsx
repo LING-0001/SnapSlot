@@ -77,7 +77,6 @@ function App() {
   const [floatOpacity, setFloatOpacity] = useState(1);
   const [version, setVersion] = useState("");
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({ status: "idle", currentVersion: "" });
-  const [selectionChip, setSelectionChip] = useState<{ x: number; y: number } | null>(null);
   const previewRef = useRef<NativeItem | null>(null);
   const editingPreviewRef = useRef(false);
   const composingRef = useRef(false);
@@ -132,7 +131,6 @@ function App() {
     previewRef.current = null;
     setPreview(null);
     setEditingPreview(false);
-    setSelectionChip(null);
     send({ type: "closePreview" });
     (dial.current?.querySelector<HTMLElement>("[data-focus='true']") || previewTrigger.current)?.focus({ preventScroll: true });
   }
@@ -208,7 +206,6 @@ function App() {
       if (previewRef.current) closePreview();
       send({ type: "collectText", text });
       getSelection()?.removeAllRanges();
-      setSelectionChip(null);
     }
   }
 
@@ -217,34 +214,7 @@ function App() {
     if (editingPreview) editInput.current?.focus({ preventScroll: true });
     if (composing) composeInput.current?.focus({ preventScroll: true });
     wakeSurfaces.current();
-  }, [preview, editingPreview, composing, selectionChip, dropActive, items.length]);
-
-  useEffect(() => {
-    if (mode !== "rail") return;
-    const changed = () => {
-      if (editingPreviewRef.current || composingRef.current) {
-        setSelectionChip(null);
-        return;
-      }
-      const selection = getSelection();
-      if (!selection || selection.isCollapsed || !selection.toString().trim()) {
-        setSelectionChip(null);
-        return;
-      }
-      const anchor = selection.anchorNode;
-      if (anchor instanceof Node && (anchor instanceof HTMLElement ? anchor : anchor.parentElement)?.closest("textarea, input")) {
-        setSelectionChip(null);
-        return;
-      }
-      const r = selection.getRangeAt(0).getBoundingClientRect();
-      setSelectionChip({
-        x: Math.max(90, Math.min(innerWidth - 90, r.x + r.width / 2)),
-        y: Math.min(innerHeight - 42, r.bottom + 8),
-      });
-    };
-    document.addEventListener("selectionchange", changed);
-    return () => document.removeEventListener("selectionchange", changed);
-  }, [mode]);
+  }, [preview, editingPreview, composing, dropActive, items.length]);
 
   function later(key: string, fn: () => void, ms: number) {
     clearTimeout(timers.current.get(key));
@@ -382,6 +352,10 @@ function App() {
         setDropActive(message.active);
       } else if (message.type === "floatNote") {
         setFloatItem(message.item);
+        if (!message.item) {
+          setOcrMap({});
+          setCopied("");
+        }
         setPlatform(message.platform);
         if (locales.includes(message.locale as Locale)) setLocale(message.locale as Locale);
         if (appearances.includes(message.appearance)) setAppearance(message.appearance);
@@ -1340,11 +1314,6 @@ function App() {
               </button>
             </footer>
           </section>
-        )}
-        {mode === "rail" && selectionChip && (
-          <button className="native-selection" data-native-region="__selection" style={{ left: selectionChip.x, top: selectionChip.y }} onMouseDown={event => event.preventDefault()} onClick={collectSelection}>
-            {a.chip}
-          </button>
         )}
         <p className={`${s.notice} ${notice ? s.noticeOn : ""} native-notice`} role="status" aria-live="polite">
           {notice}

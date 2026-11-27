@@ -26,6 +26,8 @@ try
     Check(NotesGeometry.ShouldSuppressReveal(0,0,1920,1080,0,0,1920,1080,false),"Borderless full-screen foreground windows suppress top-edge reveal");
     Check(!NotesGeometry.IsPointerWithinRail(100,185,0,0,1920,184),"Pointer below the visible rail starts dismissal");
     Check(NotesGeometry.IsAtTopEdge(-120,0,-120,0,900),"Top-edge detection supports a monitor with a negative origin");
+    Check(NotesGeometry.IsAtTopEdge(100,4,0,0,3840),"Top-edge detection allows a small physical tolerance on high-DPI displays");
+    Check(!NotesGeometry.IsAtTopEdge(100,5,0,0,3840),"Top-edge detection stops immediately below the top tolerance band");
     Check(!NotesGeometry.IsAtTopEdge(900,0,-120,0,900),"Top-edge detection excludes the adjacent monitor boundary");
     var dwell=new EdgeDwell();var start=DateTime.UnixEpoch;
     Check(!dwell.Update(true,true,start),"Top-edge dwell does not reveal immediately");
