@@ -13,23 +13,23 @@
 
 <p align="center"><a href="../../README.md">简体中文</a> · <a href="README.en.md">English</a> · <b>繁體中文</b> · <a href="README.ja.md">日本語</a> · <a href="README.ko.md">한국어</a> · <a href="README.es.md">Español</a></p>
 
-<p align="center"><a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/7dedc5051a75da8dd280a618a7ebaa6ba1581a1d/docs/media/zh-Hant/demo.mp4"><img src="https://raw.githubusercontent.com/LING-0001/SnapSlot/7dedc5051a75da8dd280a618a7ebaa6ba1581a1d/docs/media/zh-Hant/drag.webp" width="840" alt="快照貼互動示範：展開便箋、收取文字、拖入文件"></a></p>
-<p align="center"><sub><a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/7dedc5051a75da8dd280a618a7ebaa6ba1581a1d/docs/media/zh-Hant/demo.mp4">觀看示範</a> · <a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/7dedc5051a75da8dd280a618a7ebaa6ba1581a1d/docs/media/zh-Hant/demo.gif">查看動圖</a> · <a href="https://github.com/LING-0001/SnapSlot/releases/tag/v1.1.4">v1.1.4</a> · <a href="../../docs/releases/hosting.md">安裝說明</a></sub></p>
+<p align="center"><a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/3acfb51da6943208ec47fc4990d637346b217893/docs/media/zh-Hant/demo.mp4"><img src="https://raw.githubusercontent.com/LING-0001/SnapSlot/3acfb51da6943208ec47fc4990d637346b217893/docs/media/zh-Hant/drag.webp" width="840" alt="快照貼互動示範：展開便箋、收取文字、拖入文件"></a></p>
+<p align="center"><sub><a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/3acfb51da6943208ec47fc4990d637346b217893/docs/media/zh-Hant/demo.mp4">觀看示範</a> · <a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/3acfb51da6943208ec47fc4990d637346b217893/docs/media/zh-Hant/demo.gif">查看動圖</a> · <a href="https://github.com/LING-0001/SnapSlot/releases/tag/v1.1.4">v1.1.4</a> · <a href="../../docs/releases/hosting.md">安裝說明</a></sub></p>
 
 ## 怎麼用
 
 1. **移到上緣，停一下**<br>
-   滑鼠在螢幕最上緣停 0.5 秒，便箋會呈扇形落下；往下移開就收起。滾輪可以轉動扇形。
-2. **選取文字，按快速鍵**<br>
-   選取允許複製的文字，按 `⌃ ⌥ T`（Windows：`Ctrl + Alt + T`），收為文字便箋，原文同時複製到剪貼簿。
+   滑鼠在螢幕最上緣停 0.5 秒，便箋會呈扇形落下；往下移開就收起，滾輪可切換卡片。按 `N` 可快速記一句，按 `Space` 放大閱讀、編輯文字或以本機離線 OCR 提取圖片文字，按 `F` 拆出獨立懸浮視窗（支援滾輪縮放與透明度切換）。
+2. **選取文字或拖入頂邊收取**<br>
+   選取允許複製的文字按 `⌃ ⌥ T`（Windows：`Ctrl + Alt + T`）收為文字便箋並同步複製；也可直接把圖片、文字或檔案拖到螢幕頂部收為便箋。跨顯示器共用工作階段，重複內容自動去重。
 3. **拖出去就能用**<br>
-   按住便箋拖到支援接收圖片或文字的應用程式，也可以拖到資料夾，以 PNG / TXT 放下。
+   點一下即可複製，按住便箋可拖到支援接收圖片或文字的應用程式，也可以拖到資料夾作為 PNG / TXT 放下。
 
 ## 選單與設定
 
-點選 macOS 選單列圖示，或在 Dock 圖示上按右鍵，即可開啟設定、切換自動收取與固定便箋。Windows 使用系統匣右鍵選單。設定中可更換外觀、語言與快速鍵，也可以清空目前便箋。
+點選 macOS 選單列圖示，或在 Dock 圖示上按右鍵，即可開啟設定、切換自動收取與固定便箋。Windows 使用系統匣右鍵選單。設定中可更換外觀、語言與快速鍵，開關開機自動啟動與 macOS Dock 顯示，清空目前便箋或手動檢查更新。
 
-<p align="center"><img src="https://raw.githubusercontent.com/LING-0001/SnapSlot/b9d562897b3821d4db235fdfa4ca0a49c70d9ba1/docs/media/zh-Hant/settings.webp" width="400" alt="設定視窗"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/LING-0001/SnapSlot/3acfb51da6943208ec47fc4990d637346b217893/docs/media/zh-Hant/settings.webp" width="400" alt="設定視窗"></p>
 
 ## 快速鍵
 
@@ -38,13 +38,14 @@
 | 展開 / 收起便箋 | <kbd>⌃</kbd> <kbd>⌥</kbd> <kbd>Space</kbd> | <kbd>Ctrl</kbd> <kbd>Alt</kbd> <kbd>Space</kbd> |
 | 收取選取的文字 | <kbd>⌃</kbd> <kbd>⌥</kbd> <kbd>T</kbd> | <kbd>Ctrl</kbd> <kbd>Alt</kbd> <kbd>T</kbd> |
 | 放大閱讀便箋 | <kbd>Space</kbd> | <kbd>Space</kbd> |
+| 新增快速便箋 / 獨立懸浮 | <kbd>N</kbd> / <kbd>F</kbd> | <kbd>N</kbd> / <kbd>F</kbd> |
 | 挑選 / 複製 / 移除 / 收起 | <kbd>←</kbd> <kbd>→</kbd> / <kbd>Enter</kbd> / <kbd>Delete</kbd> / <kbd>Esc</kbd> | <kbd>←</kbd> <kbd>→</kbd> / <kbd>Enter</kbd> / <kbd>Delete</kbd> / <kbd>Esc</kbd> |
 
 表中為預設快速鍵。在設定中點選組合鍵，再按下新組合即可修改。啟動及開啟設定時會同時檢查兩組快速鍵，提前顯示偵測到的衝突與可用替代組合。錄入不攔截其他應用程式；Mac 僅在收取選取文字時需要輔助使用權限。部分共用註冊的快速鍵可能無法偵測。
 
 ## 隱私
 
-自動收取新複製的圖片；文字只在你選取並按下快速鍵時收取。內容在本機處理，不上傳便箋。最多 30 張，額滿移除最早一張，正常結束後清空目前便箋工作階段。
+自動收取新複製的圖片；文字只在你選取並按下快速鍵、拖入頂部或主動新增時收取。便箋與離線 OCR 皆在本機處理，不上傳便箋內容（僅點擊檢查更新時存取 GitHub Releases）。最多 30 張，額滿移除最早一張，正常結束後清空目前便箋工作階段。
 
 ## 開發與貢獻
 
@@ -71,7 +72,7 @@ open artifacts/macos/SnapSlot.app
 .\artifacts\windows\win-x64\SnapSlot.exe
 ```
 
-使用者可直接下載上方 DMG / Setup 安裝套件。Mac 原始碼建置使用臨時簽署，僅供開發測試。請參閱[發布與部署指南](../../docs/releases/hosting.md)。
+使用者可直接下載上方 DMG / Setup 安裝套件。正式 Mac 套件使用 Developer ID 簽署並經 Apple 公證；macOS 仍可能要求確認首次開啟。原始碼建置使用臨時簽署，供開發測試。請參閱[發布與部署指南](../../docs/releases/hosting.md)。
 
 ### 儲存庫結構
 

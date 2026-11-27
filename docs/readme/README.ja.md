@@ -13,23 +13,23 @@
 
 <p align="center"><a href="../../README.md">简体中文</a> · <a href="README.en.md">English</a> · <a href="README.zh-Hant.md">繁體中文</a> · <b>日本語</b> · <a href="README.ko.md">한국어</a> · <a href="README.es.md">Español</a></p>
 
-<p align="center"><a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/7dedc5051a75da8dd280a618a7ebaa6ba1581a1d/docs/media/ja/demo.mp4"><img src="https://raw.githubusercontent.com/LING-0001/SnapSlot/7dedc5051a75da8dd280a618a7ebaa6ba1581a1d/docs/media/ja/drag.webp" width="840" alt="SnapSlot の操作デモ：メモを表示し、文字を取り込み、文書にドラッグ"></a></p>
-<p align="center"><sub><a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/7dedc5051a75da8dd280a618a7ebaa6ba1581a1d/docs/media/ja/demo.mp4">デモを見る</a> · <a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/7dedc5051a75da8dd280a618a7ebaa6ba1581a1d/docs/media/ja/demo.gif">GIF を見る</a> · <a href="https://github.com/LING-0001/SnapSlot/releases/tag/v1.1.4">v1.1.4</a> · <a href="../../docs/releases/hosting.md">インストール方法</a></sub></p>
+<p align="center"><a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/3acfb51da6943208ec47fc4990d637346b217893/docs/media/ja/demo.mp4"><img src="https://raw.githubusercontent.com/LING-0001/SnapSlot/3acfb51da6943208ec47fc4990d637346b217893/docs/media/ja/drag.webp" width="840" alt="SnapSlot の操作デモ：メモを表示し、文字を取り込み、文書にドラッグ"></a></p>
+<p align="center"><sub><a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/3acfb51da6943208ec47fc4990d637346b217893/docs/media/ja/demo.mp4">デモを見る</a> · <a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/3acfb51da6943208ec47fc4990d637346b217893/docs/media/ja/demo.gif">GIF を見る</a> · <a href="https://github.com/LING-0001/SnapSlot/releases/tag/v1.1.4">v1.1.4</a> · <a href="../../docs/releases/hosting.md">インストール方法</a></sub></p>
 
 ## 使いかた
 
 1. **上端で、少し止まる**<br>
-   画面のいちばん上で 0.5 秒止まると、メモが扇形に下りてきます。マウスを下ろすと閉じます。ホイールで扇を回せます。
-2. **テキストを選んでショートカット**<br>
-   コピー可能なテキストを選び、`⌃ ⌥ T`（Windows：`Ctrl + Alt + T`）を押すとメモになります。全文もクリップボードにコピーされます。
-3. **ドラッグして使う**<br>
-   対応するアプリやフォルダーに、PNG または TXT としてドラッグできます。
+   画面のいちばん上で 0.5 秒止まるとメモが扇形に下りてきます。下に外すと閉じ、ホイールで切り替えられます。`N` でクイックメモ作成、`Space` で拡大・テキスト編集・オフライン OCR 文字抽出、`F` で独立フローティング付箋（拡大縮小・透過度切替対応）にできます。
+2. **テキスト選択や上端ドロップで取り込む**<br>
+   コピー可能なテキストを選んで `⌃ ⌥ T`（Windows：`Ctrl + Alt + T`）でメモ化・コピーできるほか、画像・テキスト・ファイルを画面上端へドラッグしても取り込めます。複数ディスプレイ間で共有され、重複は自動整理されます。
+3. **ドラッグやクリックですぐ使う**<br>
+   クリックでコピーできるほか、対応アプリやフォルダーに PNG または TXT としてドラッグできます。
 
 ## メニューと設定
 
-macOS ではメニューバーのアイコンをクリックするか、Dock アイコンを右クリックして、設定・画像の自動取り込み・メモの固定を操作できます。Windows ではトレイメニューを使います。設定から外観、言語、ショートカットの変更やメモの消去もできます。
+macOS ではメニューバーのアイコンをクリックするか、Dock アイコンを右クリックして設定・自動取り込み・メモの固定を操作できます。Windows ではトレイメニューを使います。設定から外観・言語・ショートカット、ログイン時起動、macOS Dock 表示、メモ消去、手動アップデート確認ができます。
 
-<p align="center"><img src="https://raw.githubusercontent.com/LING-0001/SnapSlot/b9d562897b3821d4db235fdfa4ca0a49c70d9ba1/docs/media/ja/settings.webp" width="400" alt="設定ウインドウ"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/LING-0001/SnapSlot/3acfb51da6943208ec47fc4990d637346b217893/docs/media/ja/settings.webp" width="400" alt="設定ウインドウ"></p>
 
 ## ショートカット
 
@@ -38,13 +38,14 @@ macOS ではメニューバーのアイコンをクリックするか、Dock ア
 | メモを表示 / 隠す | <kbd>⌃</kbd> <kbd>⌥</kbd> <kbd>Space</kbd> | <kbd>Ctrl</kbd> <kbd>Alt</kbd> <kbd>Space</kbd> |
 | 選択テキストをピン留め | <kbd>⌃</kbd> <kbd>⌥</kbd> <kbd>T</kbd> | <kbd>Ctrl</kbd> <kbd>Alt</kbd> <kbd>T</kbd> |
 | メモを拡大して読む | <kbd>Space</kbd> | <kbd>Space</kbd> |
+| クイックメモ / フローティング表示 | <kbd>N</kbd> / <kbd>F</kbd> | <kbd>N</kbd> / <kbd>F</kbd> |
 | 選ぶ / コピー / 削除 / 閉じる | <kbd>←</kbd> <kbd>→</kbd> / <kbd>Enter</kbd> / <kbd>Delete</kbd> / <kbd>Esc</kbd> | <kbd>←</kbd> <kbd>→</kbd> / <kbd>Enter</kbd> / <kbd>Delete</kbd> / <kbd>Esc</kbd> |
 
 表は初期設定です。設定でショートカットをクリックし、新しいキーの組み合わせを押すと変更できます。起動時と設定を開いたときに両方の競合を確認し、検出した競合と代替キーを先に表示します。記録中も他のアプリは動作します。Mac でアクセシビリティ権限が必要なのは選択テキストの収集時だけです。一部の共有登録は検出できない場合があります。
 
 ## プライバシー
 
-新しくコピーした画像を自動で取り込みます。テキストは選択してショートカットを押したときだけ取り込みます。メモは端末内で処理し、アップロードしません。最大30件で、上限時は最も古いメモを削除し、通常の終了時に現在のセッションを消去します。
+新しくコピーした画像を自動で取り込みます。テキストはショートカット、上端ドロップ、またはクイックメモ入力時だけ取り込みます。メモと OCR はすべて端末内で処理され、アップロードしません（手動アップデート確認時のみ GitHub Releases を参照します）。最大30件で、上限時は最も古いメモを削除し、通常終了時にセッションを消去します。
 
 ## 開発と貢献
 
@@ -71,7 +72,7 @@ open artifacts/macos/SnapSlot.app
 .\artifacts\windows\win-x64\SnapSlot.exe
 ```
 
-上の DMG / Setup インストーラーからインストールできます。Mac のソースビルドは開発用の ad-hoc 署名を使用します。[公開・配信ガイド](../../docs/releases/hosting.md)も参照してください。
+上の DMG / Setup インストーラーからインストールできます。正式な Mac 版は Developer ID で署名され、Apple の公証を受けています。初回起動の確認が表示される場合があります。ソースビルドは開発用の ad-hoc 署名です。[公開・配信ガイド](../../docs/releases/hosting.md)を参照してください。
 
 ### リポジトリ構成
 

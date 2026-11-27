@@ -13,23 +13,23 @@
 
 <p align="center"><a href="../../README.md">简体中文</a> · <a href="README.en.md">English</a> · <a href="README.zh-Hant.md">繁體中文</a> · <a href="README.ja.md">日本語</a> · <a href="README.ko.md">한국어</a> · <b>Español</b></p>
 
-<p align="center"><a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/7dedc5051a75da8dd280a618a7ebaa6ba1581a1d/docs/media/es/demo.mp4"><img src="https://raw.githubusercontent.com/LING-0001/SnapSlot/7dedc5051a75da8dd280a618a7ebaa6ba1581a1d/docs/media/es/drag.webp" width="840" alt="Demostración de Snapshot Pin: mostrar notas, recoger texto y arrastrarlo a un documento"></a></p>
-<p align="center"><sub><a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/7dedc5051a75da8dd280a618a7ebaa6ba1581a1d/docs/media/es/demo.mp4">Ver la demostración</a> · <a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/7dedc5051a75da8dd280a618a7ebaa6ba1581a1d/docs/media/es/demo.gif">Ver GIF</a> · <a href="https://github.com/LING-0001/SnapSlot/releases/tag/v1.1.4">v1.1.4</a> · <a href="../../docs/releases/hosting.md">Guía de instalación</a></sub></p>
+<p align="center"><a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/3acfb51da6943208ec47fc4990d637346b217893/docs/media/es/demo.mp4"><img src="https://raw.githubusercontent.com/LING-0001/SnapSlot/3acfb51da6943208ec47fc4990d637346b217893/docs/media/es/drag.webp" width="840" alt="Demostración de Snapshot Pin: mostrar notas, recoger texto y arrastrarlo a un documento"></a></p>
+<p align="center"><sub><a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/3acfb51da6943208ec47fc4990d637346b217893/docs/media/es/demo.mp4">Ver la demostración</a> · <a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/3acfb51da6943208ec47fc4990d637346b217893/docs/media/es/demo.gif">Ver GIF</a> · <a href="https://github.com/LING-0001/SnapSlot/releases/tag/v1.1.4">v1.1.4</a> · <a href="../../docs/releases/hosting.md">Guía de instalación</a></sub></p>
 
 ## Cómo funciona
 
 1. **Detente en el borde superior**<br>
-   Deja el cursor arriba del todo medio segundo y las notas bajan en abanico. Al apartarlo, se van. La rueda gira el abanico.
-2. **Selecciona texto y pulsa el atajo**<br>
-   Selecciona texto que la aplicación permita copiar y pulsa `⌃ ⌥ T` (Windows: `Ctrl + Alt + T`). Se crea una nota y el texto completo se copia al portapapeles.
-3. **Arrástrala donde la necesites**<br>
-   Suelta una nota en una aplicación compatible o una carpeta como archivo PNG o TXT.
+   Deja el cursor arriba medio segundo y las notas bajan en abanico; apártalo para ocultarlas o usa la rueda para cambiar. Pulsa `N` para crear una nota rápida, `Space` para ampliar, editar texto o extraer texto de imágenes con OCR sin conexión, y `F` para abrir una nota flotante con zoom y opacidad.
+2. **Recoge texto con atajo o soltando arriba**<br>
+   Selecciona texto copiable y pulsa `⌃ ⌥ T` (Windows: `Ctrl + Alt + T`) para guardarlo y copiarlo, o arrastra imágenes, texto o archivos al borde superior. La sesión se comparte entre pantallas y evita duplicados.
+3. **Arrastra o haz clic para reutilizar**<br>
+   Haz clic para copiar, o arrastra una nota a una aplicación compatible o carpeta como PNG o TXT.
 
 ## Menú y ajustes
 
-Haz clic en el icono de la barra de menús de macOS o clic derecho en el icono del Dock para abrir Ajustes, activar la captura de imágenes o fijar notas. En Windows, usa el menú de la bandeja. Ajustes permite cambiar el aspecto, el idioma, los atajos y borrar las notas actuales.
+Haz clic en la barra de menús de macOS o clic derecho en el Dock (en Windows, el menú de la bandeja) para abrir Ajustes, activar la captura de imágenes o fijar notas. Ajustes permite cambiar el aspecto, idioma, atajos, inicio automático, icono del Dock en macOS, borrar notas y buscar actualizaciones manualmente.
 
-<p align="center"><img src="https://raw.githubusercontent.com/LING-0001/SnapSlot/b9d562897b3821d4db235fdfa4ca0a49c70d9ba1/docs/media/es/settings.webp" width="400" alt="Ventana de ajustes"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/LING-0001/SnapSlot/3acfb51da6943208ec47fc4990d637346b217893/docs/media/es/settings.webp" width="400" alt="Ventana de ajustes"></p>
 
 ## Atajos
 
@@ -38,13 +38,14 @@ Haz clic en el icono de la barra de menús de macOS o clic derecho en el icono d
 | Mostrar / ocultar notas | <kbd>⌃</kbd> <kbd>⌥</kbd> <kbd>Space</kbd> | <kbd>Ctrl</kbd> <kbd>Alt</kbd> <kbd>Space</kbd> |
 | Fijar texto seleccionado | <kbd>⌃</kbd> <kbd>⌥</kbd> <kbd>T</kbd> | <kbd>Ctrl</kbd> <kbd>Alt</kbd> <kbd>T</kbd> |
 | Ampliar una nota | <kbd>Space</kbd> | <kbd>Space</kbd> |
+| Nota rápida / nota flotante | <kbd>N</kbd> / <kbd>F</kbd> | <kbd>N</kbd> / <kbd>F</kbd> |
 | Elegir / copiar / quitar / ocultar | <kbd>←</kbd> <kbd>→</kbd> / <kbd>Enter</kbd> / <kbd>Delete</kbd> / <kbd>Esc</kbd> | <kbd>←</kbd> <kbd>→</kbd> / <kbd>Enter</kbd> / <kbd>Delete</kbd> / <kbd>Esc</kbd> |
 
 Estos son los atajos predeterminados. Haz clic en uno en Ajustes y pulsa una nueva combinación. Ambos se comprueban al iniciar y al abrir Ajustes, mostrando los conflictos detectados y las alternativas antes de editar. La grabación permite que otras apps sigan respondiendo. En Mac, Accesibilidad solo se necesita para recoger texto seleccionado. Algunos registros compartidos pueden no detectarse.
 
 ## Privacidad
 
-Recoge automáticamente las imágenes recién copiadas. El texto solo se recoge cuando lo seleccionas y pulsas el atajo. Las notas se procesan localmente y no se suben. Conserva hasta 30 notas; al llenarse se elimina la más antigua y, al cerrar normalmente, se borra la sesión actual.
+Recoge automáticamente las imágenes recién copiadas; el texto solo se recoge mediante el atajo, al soltarlo arriba o al escribir una nota rápida. Las notas y el OCR se procesan localmente y nunca se suben (buscar actualizaciones solo consulta GitHub Releases). Conserva hasta 30 notas y limpia la sesión al cerrar normalmente.
 
 ## Desarrollo y contribuciones
 
@@ -71,7 +72,7 @@ open artifacts/macos/SnapSlot.app
 .\artifacts\windows\win-x64\SnapSlot.exe
 ```
 
-Descarga el instalador DMG / Setup de arriba para instalar la aplicación. Las compilaciones de Mac desde el código usan firma ad-hoc y son para desarrollo. Consulta la [guía de publicación y alojamiento](../../docs/releases/hosting.md).
+Descarga el instalador DMG / Setup de arriba. El paquete oficial de Mac está firmado con Developer ID y notarizado por Apple; macOS puede pedir confirmación al abrirlo por primera vez. Las compilaciones de desarrollo usan firma ad-hoc. Consulta la [guía de publicación y alojamiento](../../docs/releases/hosting.md).
 
 ### Estructura del repositorio
 

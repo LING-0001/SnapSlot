@@ -13,23 +13,23 @@
 
 <p align="center"><a href="../../README.md">简体中文</a> · <b>English</b> · <a href="README.zh-Hant.md">繁體中文</a> · <a href="README.ja.md">日本語</a> · <a href="README.ko.md">한국어</a> · <a href="README.es.md">Español</a></p>
 
-<p align="center"><a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/7dedc5051a75da8dd280a618a7ebaa6ba1581a1d/docs/media/en/demo.mp4"><img src="https://raw.githubusercontent.com/LING-0001/SnapSlot/7dedc5051a75da8dd280a618a7ebaa6ba1581a1d/docs/media/en/drag.webp" width="840" alt="Snapshot Pin interactive demo: reveal notes, collect text, and drag into a document"></a></p>
-<p align="center"><sub><a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/7dedc5051a75da8dd280a618a7ebaa6ba1581a1d/docs/media/en/demo.mp4">Watch the demo</a> · <a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/7dedc5051a75da8dd280a618a7ebaa6ba1581a1d/docs/media/en/demo.gif">View GIF</a> · <a href="https://github.com/LING-0001/SnapSlot/releases/tag/v1.1.4">v1.1.4</a> · <a href="../../docs/releases/hosting.md">Installation guide</a></sub></p>
+<p align="center"><a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/3acfb51da6943208ec47fc4990d637346b217893/docs/media/en/demo.mp4"><img src="https://raw.githubusercontent.com/LING-0001/SnapSlot/3acfb51da6943208ec47fc4990d637346b217893/docs/media/en/drag.webp" width="840" alt="Snapshot Pin interactive demo: reveal notes, collect text, and drag into a document"></a></p>
+<p align="center"><sub><a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/3acfb51da6943208ec47fc4990d637346b217893/docs/media/en/demo.mp4">Watch the demo</a> · <a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/3acfb51da6943208ec47fc4990d637346b217893/docs/media/en/demo.gif">View GIF</a> · <a href="https://github.com/LING-0001/SnapSlot/releases/tag/v1.1.4">v1.1.4</a> · <a href="../../docs/releases/hosting.md">Installation guide</a></sub></p>
 
 ## How it works
 
 1. **Rest at the top edge**<br>
-   Pause the pointer at the very top for half a second and the notes fan down. Move away and they leave. Scroll to turn the fan.
-2. **Select text, press the shortcut**<br>
-   Select text that the app allows you to copy, then press `⌃ ⌥ T` (Windows: `Ctrl + Alt + T`). It becomes a note, and the full text is copied too.
-3. **Drag it where you need it**<br>
-   Drop a note into a compatible app or folder as a PNG or TXT file.
+   Pause the pointer at the very top for half a second and the notes fan down; move away to hide, or scroll to browse. Press `N` for a quick note, `Space` to enlarge, edit text, or run offline OCR on images, and `F` to pop out a floating sticky note with scroll zoom and opacity controls.
+2. **Pin selected text or drop to top**<br>
+   Select copyable text and press `⌃ ⌥ T` (Windows: `Ctrl + Alt + T`) to save and copy it, or drag images, text, or files to the top edge. Sessions stay shared across displays with automatic deduplication.
+3. **Drag or click to reuse**<br>
+   Click to copy, or drag a note into a compatible app or folder as a PNG or TXT file.
 
 ## Menu and settings
 
-Click the macOS menu-bar icon or right-click the Dock icon to open Settings, toggle image collection, or pin notes. On Windows, use the tray menu. Settings also controls appearance, language, shortcuts, and clearing the current notes.
+Click the macOS menu-bar icon or right-click the Dock icon to open Settings, toggle image collection, or pin notes. On Windows, use the tray menu. Settings also controls appearance, language, shortcuts, launch at login, macOS Dock visibility, clearing notes, and manual update checks.
 
-<p align="center"><img src="https://raw.githubusercontent.com/LING-0001/SnapSlot/b9d562897b3821d4db235fdfa4ca0a49c70d9ba1/docs/media/en/settings.webp" width="400" alt="Settings window"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/LING-0001/SnapSlot/3acfb51da6943208ec47fc4990d637346b217893/docs/media/en/settings.webp" width="400" alt="Settings window"></p>
 
 ## Shortcuts
 
@@ -38,13 +38,14 @@ Click the macOS menu-bar icon or right-click the Dock icon to open Settings, tog
 | Show / hide notes | <kbd>⌃</kbd> <kbd>⌥</kbd> <kbd>Space</kbd> | <kbd>Ctrl</kbd> <kbd>Alt</kbd> <kbd>Space</kbd> |
 | Pin selected text | <kbd>⌃</kbd> <kbd>⌥</kbd> <kbd>T</kbd> | <kbd>Ctrl</kbd> <kbd>Alt</kbd> <kbd>T</kbd> |
 | Read a full note | <kbd>Space</kbd> | <kbd>Space</kbd> |
+| Quick note / float sticky | <kbd>N</kbd> / <kbd>F</kbd> | <kbd>N</kbd> / <kbd>F</kbd> |
 | Choose / copy / remove / hide | <kbd>←</kbd> <kbd>→</kbd> / <kbd>Enter</kbd> / <kbd>Delete</kbd> / <kbd>Esc</kbd> | <kbd>←</kbd> <kbd>→</kbd> / <kbd>Enter</kbd> / <kbd>Delete</kbd> / <kbd>Esc</kbd> |
 
 These are the defaults. Click a shortcut in Settings and press a new combination. Both bindings are checked at startup and when Settings opens, showing detected conflicts and available replacements before editing. Recording leaves other apps active and needs no Accessibility permission on Mac; collecting selected text does. Some shared shortcut registrations may not be detectable.
 
 ## Privacy
 
-Newly copied images are collected automatically. Text is collected only after you select it and press the shortcut. Notes are processed locally and are not uploaded. Keep up to 30 notes; the oldest is removed when full, and a normal exit clears the current note session.
+Newly copied images are collected automatically. Text is collected only when you press the shortcut, drop it at the top edge, or type a quick note. Notes and OCR run locally and are never uploaded (manual update checks only query GitHub Releases). Keep up to 30 notes; the oldest is removed when full, and a normal exit clears the current session.
 
 ## Development & contributing
 
@@ -71,7 +72,7 @@ open artifacts/macos/SnapSlot.app
 .\artifacts\windows\win-x64\SnapSlot.exe
 ```
 
-Download the DMG / Setup installer above to install the app. Mac source builds use ad-hoc signing and are intended for development. See the [release and hosting guide](../../docs/releases/hosting.md).
+Download the DMG / Setup installer above. The release Mac package is Developer ID signed and notarized by Apple; macOS may still ask you to confirm the first launch. Source builds use ad-hoc signatures for development. See the [release and hosting guide](../../docs/releases/hosting.md).
 
 ### Repository layout
 

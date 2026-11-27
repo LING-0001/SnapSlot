@@ -13,23 +13,23 @@
 
 <p align="center"><a href="../../README.md">简体中文</a> · <a href="README.en.md">English</a> · <a href="README.zh-Hant.md">繁體中文</a> · <a href="README.ja.md">日本語</a> · <b>한국어</b> · <a href="README.es.md">Español</a></p>
 
-<p align="center"><a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/7dedc5051a75da8dd280a618a7ebaa6ba1581a1d/docs/media/ko/demo.mp4"><img src="https://raw.githubusercontent.com/LING-0001/SnapSlot/7dedc5051a75da8dd280a618a7ebaa6ba1581a1d/docs/media/ko/drag.webp" width="840" alt="SnapSlot 사용 데모: 메모 펼치기, 텍스트 수집, 문서로 드래그"></a></p>
-<p align="center"><sub><a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/7dedc5051a75da8dd280a618a7ebaa6ba1581a1d/docs/media/ko/demo.mp4">데모 보기</a> · <a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/7dedc5051a75da8dd280a618a7ebaa6ba1581a1d/docs/media/ko/demo.gif">GIF 보기</a> · <a href="https://github.com/LING-0001/SnapSlot/releases/tag/v1.1.4">v1.1.4</a> · <a href="../../docs/releases/hosting.md">설치 안내</a></sub></p>
+<p align="center"><a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/3acfb51da6943208ec47fc4990d637346b217893/docs/media/ko/demo.mp4"><img src="https://raw.githubusercontent.com/LING-0001/SnapSlot/3acfb51da6943208ec47fc4990d637346b217893/docs/media/ko/drag.webp" width="840" alt="SnapSlot 사용 데모: 메모 펼치기, 텍스트 수집, 문서로 드래그"></a></p>
+<p align="center"><sub><a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/3acfb51da6943208ec47fc4990d637346b217893/docs/media/ko/demo.mp4">데모 보기</a> · <a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/3acfb51da6943208ec47fc4990d637346b217893/docs/media/ko/demo.gif">GIF 보기</a> · <a href="https://github.com/LING-0001/SnapSlot/releases/tag/v1.1.4">v1.1.4</a> · <a href="../../docs/releases/hosting.md">설치 안내</a></sub></p>
 
 ## 사용 방법
 
 1. **맨 위에서 잠시 멈추기**<br>
-   마우스를 화면 맨 위에 0.5초 두면 메모가 부채꼴로 내려와요. 아래로 옮기면 닫혀요. 휠로 부채를 돌릴 수 있어요.
-2. **텍스트 선택 후 단축키**<br>
-   복사가 허용된 텍스트를 선택하고 `⌃ ⌥ T`(Windows: `Ctrl + Alt + T`)를 누르면 메모가 됩니다. 원문도 클립보드에 복사됩니다.
-3. **끌어다 놓아 쓰기**<br>
-   메모를 지원하는 앱이나 폴더에 PNG 또는 TXT로 끌어다 놓을 수 있습니다.
+   마우스를 화면 맨 위에 0.5초 두면 메모가 부채꼴로 내려오고 아래로 옮기면 닫혀요. 휠로 카드를 넘기고 `N`으로 빠른 메모 작성, `Space`로 확대·텍스트 편집·오프라인 OCR 문자 추출, `F`로 독립 플로팅 메모(확대/축소·투명도 조절)를 띄울 수 있어요.
+2. **텍스트 선택 또는 상단 드롭으로 수집**<br>
+   복사 가능한 텍스트를 선택해 `⌃ ⌥ T`(Windows: `Ctrl + Alt + T`)를 누르거나, 이미지·텍스트·파일을 화면 상단으로 끌어다 놓아 메모로 저장하세요. 여러 디스플레이에서 세션을 공유하며 중복 내용은 자동 정리됩니다.
+3. **끌어다 놓거나 클릭해 쓰기**<br>
+   클릭으로 복사하거나 메모를 지원하는 앱·폴더에 PNG 또는 TXT로 끌어다 놓을 수 있습니다.
 
 ## 메뉴와 설정
 
-macOS 메뉴 막대 아이콘을 클릭하거나 Dock 아이콘을 우클릭하면 설정, 이미지 자동 수집, 메모 고정을 사용할 수 있습니다. Windows에서는 트레이 메뉴를 사용합니다. 설정에서 모양, 언어, 단축키를 변경하거나 현재 메모를 비울 수 있습니다.
+macOS 메뉴 막대 아이콘 클릭 또는 Dock 아이콘 우클릭, Windows 트레이 메뉴에서 설정·이미지 자동 수집·메모 고정을 제어할 수 있습니다. 설정에서 모양, 언어, 단축키, 로그인 시 자동 실행, macOS Dock 표시, 메모 비우기, 수동 업데이트 확인을 지원합니다.
 
-<p align="center"><img src="https://raw.githubusercontent.com/LING-0001/SnapSlot/b9d562897b3821d4db235fdfa4ca0a49c70d9ba1/docs/media/ko/settings.webp" width="400" alt="설정 창"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/LING-0001/SnapSlot/3acfb51da6943208ec47fc4990d637346b217893/docs/media/ko/settings.webp" width="400" alt="설정 창"></p>
 
 ## 단축키
 
@@ -38,13 +38,14 @@ macOS 메뉴 막대 아이콘을 클릭하거나 Dock 아이콘을 우클릭하�
 | 메모 보이기 / 숨기기 | <kbd>⌃</kbd> <kbd>⌥</kbd> <kbd>Space</kbd> | <kbd>Ctrl</kbd> <kbd>Alt</kbd> <kbd>Space</kbd> |
 | 선택한 텍스트 고정 | <kbd>⌃</kbd> <kbd>⌥</kbd> <kbd>T</kbd> | <kbd>Ctrl</kbd> <kbd>Alt</kbd> <kbd>T</kbd> |
 | 메모 크게 보기 | <kbd>Space</kbd> | <kbd>Space</kbd> |
+| 빠른 메모 / 플로팅 창 | <kbd>N</kbd> / <kbd>F</kbd> | <kbd>N</kbd> / <kbd>F</kbd> |
 | 선택 / 복사 / 삭제 / 숨기기 | <kbd>←</kbd> <kbd>→</kbd> / <kbd>Enter</kbd> / <kbd>Delete</kbd> / <kbd>Esc</kbd> | <kbd>←</kbd> <kbd>→</kbd> / <kbd>Enter</kbd> / <kbd>Delete</kbd> / <kbd>Esc</kbd> |
 
 표는 기본 단축키입니다. 설정에서 단축키를 클릭한 후 새 조합을 누르세요. 시작하거나 설정을 열 때 두 단축키를 함께 확인해 감지된 충돌과 사용 가능한 대체 조합을 먼저 표시합니다. 입력 중에도 다른 앱은 동작하며, Mac 손쉬운 사용 권한은 선택한 텍스트를 수집할 때만 필요합니다. 일부 공유 등록은 감지하지 못할 수 있습니다.
 
 ## 개인정보
 
-새로 복사한 이미지를 자동으로 수집합니다. 텍스트는 선택한 뒤 단축키를 눌렀을 때만 수집합니다. 메모는 기기 안에서 처리하며 업로드하지 않습니다. 최대 30개이며, 가득 차면 가장 오래된 메모를 삭제하고 정상 종료 시 현재 메모 세션을 비웁니다.
+새로 복사한 이미지를 자동으로 수집하며, 텍스트는 단축키·상단 드롭·빠른 메모 입력 시에만 수집합니다. 메모와 오프라인 OCR은 기기 내에서 처리되어 업로드되지 않습니다(수동 업데이트 확인 시에만 GitHub Releases를 조회). 최대 30개를 유지하며 정상 종료 시 현재 세션을 비웁니다.
 
 ## 개발 및 기여
 
@@ -71,7 +72,7 @@ open artifacts/macos/SnapSlot.app
 .\artifacts\windows\win-x64\SnapSlot.exe
 ```
 
-위의 DMG / Setup 설치 파일을 다운로드해 설치하세요. Mac 소스 빌드는 개발용 ad-hoc 서명을 사용합니다. [릴리스 및 배포 안내](../../docs/releases/hosting.md)를 참고하세요.
+위의 DMG / Setup 설치 파일을 다운로드하세요. 정식 Mac 패키지는 Developer ID 서명과 Apple 공증을 받았으며 첫 실행 확인이 표시될 수 있습니다. 소스 빌드는 개발용 ad-hoc 서명을 사용합니다. [릴리스 및 배포 안내](../../docs/releases/hosting.md)를 참고하세요.
 
 ### 저장소 구조
 

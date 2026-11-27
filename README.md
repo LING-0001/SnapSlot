@@ -13,23 +13,23 @@
 
 <p align="center"><b>简体中文</b> · <a href="docs/readme/README.en.md">English</a> · <a href="docs/readme/README.zh-Hant.md">繁體中文</a> · <a href="docs/readme/README.ja.md">日本語</a> · <a href="docs/readme/README.ko.md">한국어</a> · <a href="docs/readme/README.es.md">Español</a></p>
 
-<p align="center"><a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/7dedc5051a75da8dd280a618a7ebaa6ba1581a1d/docs/media/zh-Hans/demo.mp4"><img src="https://raw.githubusercontent.com/LING-0001/SnapSlot/7dedc5051a75da8dd280a618a7ebaa6ba1581a1d/docs/media/zh-Hans/drag.webp" width="840" alt="快照贴交互演示：展开便签、收取文字、拖入文档"></a></p>
-<p align="center"><sub><a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/7dedc5051a75da8dd280a618a7ebaa6ba1581a1d/docs/media/zh-Hans/demo.mp4">观看演示</a> · <a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/7dedc5051a75da8dd280a618a7ebaa6ba1581a1d/docs/media/zh-Hans/demo.gif">查看动图</a> · <a href="https://github.com/LING-0001/SnapSlot/releases/tag/v1.1.4">v1.1.4</a> · <a href="docs/releases/hosting.md">安装说明</a></sub></p>
+<p align="center"><a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/3acfb51da6943208ec47fc4990d637346b217893/docs/media/zh-Hans/demo.mp4"><img src="https://raw.githubusercontent.com/LING-0001/SnapSlot/3acfb51da6943208ec47fc4990d637346b217893/docs/media/zh-Hans/drag.webp" width="840" alt="快照贴交互演示：展开便签、收取文字、拖入文档"></a></p>
+<p align="center"><sub><a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/3acfb51da6943208ec47fc4990d637346b217893/docs/media/zh-Hans/demo.mp4">观看演示</a> · <a href="https://raw.githubusercontent.com/LING-0001/SnapSlot/3acfb51da6943208ec47fc4990d637346b217893/docs/media/zh-Hans/demo.gif">查看动图</a> · <a href="https://github.com/LING-0001/SnapSlot/releases/tag/v1.1.4">v1.1.4</a> · <a href="docs/releases/hosting.md">安装说明</a></sub></p>
 
 ## 怎么用
 
 1. **移到上沿，停一下**<br>
-   鼠标在屏幕最上沿停 0.5 秒，便签以扇形落下；往下移开就收起。滚轮转动扇形。
-2. **选中文字，按快捷键**<br>
-   选中允许复制的文字，按 `⌃ ⌥ T`（Windows：`Ctrl + Alt + T`），收为文字便签，原文同时复制到剪贴板。
+   鼠标在屏幕最上沿停 0.5 秒，便签以扇形落下；往下移开就收起，滚轮可切换卡片。按 `N` 可快速记一句，按 `Space` 放大阅读、编辑文字或用本机离线 OCR 提取图片文字，按 `F` 拆出独立悬浮窗（支持滚轮缩放与透明度切换）。
+2. **选中文字或拖入顶边收取**<br>
+   选中允许复制的文字按 `⌃ ⌥ T`（Windows：`Ctrl + Alt + T`）收为文字便签并同步复制；也可直接把图片、文本或文件拖到屏幕顶部收为便签。跨显示器共享会话，重复内容自动去重。
 3. **拖出去就能用**<br>
-   按住便签拖到支持接收图片或文字的应用，也可以拖到文件夹，作为 PNG / TXT 放下。
+   点击即可复制，按住便签可拖到支持接收图片或文字的应用，也可以拖到文件夹作为 PNG / TXT 放下。
 
 ## 菜单与设置
 
-点按 macOS 菜单栏图标，或右键 Dock 图标，即可打开设置、切换自动收取和固定便签。Windows 使用托盘右键菜单。设置中可以更换外观、语言与快捷键，也可以清空当前便签。
+点按 macOS 菜单栏图标，或右键 Dock 图标，即可打开设置、切换自动收取和固定便签。Windows 使用托盘右键菜单。设置中可更换外观、语言与快捷键，开关开机自启和 macOS Dock 显示，清空当前便签或手动检查更新。
 
-<p align="center"><img src="https://raw.githubusercontent.com/LING-0001/SnapSlot/b9d562897b3821d4db235fdfa4ca0a49c70d9ba1/docs/media/zh-Hans/settings.webp" width="400" alt="设置窗口"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/LING-0001/SnapSlot/3acfb51da6943208ec47fc4990d637346b217893/docs/media/zh-Hans/settings.webp" width="400" alt="设置窗口"></p>
 
 ## 快捷键
 
@@ -38,13 +38,14 @@
 | 展开 / 收起便签 | <kbd>⌃</kbd> <kbd>⌥</kbd> <kbd>Space</kbd> | <kbd>Ctrl</kbd> <kbd>Alt</kbd> <kbd>Space</kbd> |
 | 收取选中文字 | <kbd>⌃</kbd> <kbd>⌥</kbd> <kbd>T</kbd> | <kbd>Ctrl</kbd> <kbd>Alt</kbd> <kbd>T</kbd> |
 | 放大查看便签 | <kbd>Space</kbd> | <kbd>Space</kbd> |
+| 新建快速便签 / 独立悬浮 | <kbd>N</kbd> / <kbd>F</kbd> | <kbd>N</kbd> / <kbd>F</kbd> |
 | 挑选 / 复制 / 移除 / 收起 | <kbd>←</kbd> <kbd>→</kbd> / <kbd>Enter</kbd> / <kbd>Delete</kbd> / <kbd>Esc</kbd> | <kbd>←</kbd> <kbd>→</kbd> / <kbd>Enter</kbd> / <kbd>Delete</kbd> / <kbd>Esc</kbd> |
 
 表中为默认快捷键。Mac 和 Windows 均可在设置中点击组合键，再按下新组合。启动和打开设置时会同时检查两组快捷键，提前显示检测到的冲突及可用替代组合。录入不屏蔽其他应用；Mac 录入无需辅助功能权限，收取选中文字时才需要。部分共享注册的快捷键可能无法检测。
 
 ## 隐私
 
-自动收取新复制的图片；文字只在你选中并按下快捷键时收取。内容在本机处理，不上传便签。最多 30 张，满额移除最早一张，正常退出后清空当前便签会话。
+自动收取新复制的图片；文字只在你选中并按下快捷键、拖入顶部或主动新建时收取。便签与离线 OCR 均在本机处理，不上传便签内容（仅点击检查更新时访问 GitHub Releases）。最多 30 张，满额移除最早一张，正常退出后清空当前便签会话。
 
 ## 开发与贡献
 
@@ -71,7 +72,7 @@ open artifacts/macos/SnapSlot.app
 .\artifacts\windows\win-x64\SnapSlot.exe
 ```
 
-用户可直接下载上方 DMG / Setup 安装包。Mac 源码构建使用临时签名，仅供开发调试。发布与服务器部署见 [发布指南](docs/releases/hosting.md)。
+用户可直接下载上方 DMG / Setup 安装包。正式 Mac 包使用 Developer ID 签名并经 Apple 公证；macOS 仍可能要求确认首次打开。源码构建产物供开发调试，使用临时签名。发布与服务器部署见 [发布指南](docs/releases/hosting.md)。
 
 ### 仓库结构
 
