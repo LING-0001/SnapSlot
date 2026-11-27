@@ -1374,8 +1374,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
                 sendPreferences(to:settingsView);try await Task.sleep(nanoseconds:250_000_000)
                 let conflictRows=try await settingsView.evaluateJavaScript("Array.from(document.querySelectorAll('.native-shortcut-hint')).filter(row=>row.textContent.includes('被占用，已修改为')).length===2") as? Bool
                 try check(conflictRows==true,"Both shortcut rows show the occupied combination, actual replacement and a way to edit it")
-                let lastControlVisible=try await settingsView.evaluateJavaScript("Array.from(document.querySelectorAll('.native-window button')).at(-1).getBoundingClientRect().bottom<innerHeight") as? Bool
-                try check(settings!.frame.height>442 && lastControlVisible==true,"Settings grows to fit conflict explanations without hiding the last control")
+                let lastControlMetrics=try await settingsView.evaluateJavaScript("(()=>{const b=Array.from(document.querySelectorAll('.native-window button')).at(-1);return {bottom:b?Math.ceil(b.getBoundingClientRect().bottom):0,innerHeight}})()") as! [String:Any]
+                let lastBottom=lastControlMetrics["bottom"] as? Double ?? 9999
+                let viewHeight=lastControlMetrics["innerHeight"] as? Double ?? 0
+                try check(settings!.frame.height>442 && lastBottom<=viewHeight+1,"Settings grows to fit conflict explanations without hiding the last control; frameHeight=\(settings!.frame.height), lastBottom=\(lastBottom), innerHeight=\(viewHeight)")
                 try await snapshot(settingsView,to:directory.appendingPathComponent("macos-shortcut-conflicts.png"))
                 try savePreferences(preferences.value,editing:.text)
                 try check(shortcutChanges.count==1 && shortcutChanges[0].target == .open,"A deliberate shortcut change clears only that action's conflict explanation")
@@ -1446,7 +1448,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
                 let chip=try await web.evaluateJavaScript("!!document.querySelector('.native-selection')") as? Bool
                 try check(chip==false,"Selecting note text does not show a blocking floating chip")
                 let previousSelectionID=store.items.last?.id
-                _ = try await web.evaluateJavaScript("dispatchEvent(new KeyboardEvent('keydown',{code:'KeyT',key:'t',ctrlKey:true,altKey:true,bubbles:true}))")
+                let ts=preferences.value.textShortcut
+                _ = try await web.evaluateJavaScript("dispatchEvent(new KeyboardEvent('keydown',{code:'\(ts.key)',key:'\(ts.key)',ctrlKey:\(ts.control),altKey:\(ts.alt),shiftKey:\(ts.shift),metaKey:\(ts.meta),bubbles:true}))")
                 for _ in 0..<40 {
                     if store.items.last?.id != previousSelectionID && store.items.last?.text==selectedPayload && clipboard.string(forType:.string)==selectedPayload && !pinned {break}
                     try await Task.sleep(nanoseconds:50_000_000)
